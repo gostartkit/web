@@ -1,6 +1,6 @@
 package web
 
-func CleanPath(p string) string {
+func cleanPath(p string) string {
 	// Turn empty string into "/"
 	if p == "" {
 		return "/"

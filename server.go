@@ -58,46 +58,56 @@ func (s *Server) recv(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) lookup(method, path string) (Handler, Params, bool) {
-	if root := s.trees[method]; root != nil {
-		return root.getValue(path)
-	}
-	return nil, nil, false
+func (s *Server) Get(path string, handler Handler) {
+	s.addRoute("GET", path, handler)
 }
 
-func (s *Server) allowed(path, reqMethod string) (allow string) {
-	if path == "*" {
-		for method := range s.trees {
-			if method == "OPTIONS" {
-				continue
-			}
+func (s *Server) Head(path string, handler Handler) {
+	s.addRoute("HEAD", path, handler)
+}
 
-			if len(allow) == 0 {
-				allow = method
-			} else {
-				allow += ", " + method
-			}
-		}
-	} else { // specific path
-		for method := range s.trees {
-			if method == reqMethod || method == "OPTIONS" {
-				continue
-			}
+func (s *Server) Options(path string, handler Handler) {
+	s.addRoute("OPTIONS", path, handler)
+}
 
-			handler, _, _ := s.trees[method].getValue(path)
-			if handler != nil {
-				if len(allow) == 0 {
-					allow = method
-				} else {
-					allow += ", " + method
-				}
-			}
-		}
+func (s *Server) Post(path string, handler Handler) {
+	s.addRoute("POST", path, handler)
+}
+
+func (s *Server) Put(path string, handler Handler) {
+	s.addRoute("PUT", path, handler)
+}
+
+func (s *Server) Patch(path string, handler Handler) {
+	s.addRoute("PATCH", path, handler)
+}
+
+func (s *Server) Delete(path string, handler Handler) {
+	s.addRoute("DELETE", path, handler)
+}
+
+func (s *Server) Resource(path string, controller Controller) {
+	s.Get(path, controller.Index)
+	s.Post(path, controller.Create)
+	s.Put(path, controller.Update)
+	s.Delete(path, controller.Delete)
+}
+
+func (s *Server) addRoute(method, path string, handler Handler) {
+	if path[0] != '/' {
+		panic("path must begin with '/' in path '" + path + "'")
 	}
-	if len(allow) > 0 {
-		allow += ", OPTIONS"
+
+	if s.trees == nil {
+		s.trees = make(map[string]*node)
 	}
-	return
+
+	root := s.trees[method]
+	if root == nil {
+		root = new(node)
+		s.trees[method] = root
+	}
+	root.addRoute(path, handler)
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -133,7 +143,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			if s.redirectFixedPath {
 				fixedPath, found := root.findCaseInsensitivePath(
-					CleanPath(path),
+					cleanPath(path),
 					s.redirectTrailingSlash,
 				)
 				if found {
@@ -176,52 +186,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) GET(path string, handler Handler) {
-	s.addRoute("GET", path, handler)
-}
-
-func (s *Server) HEAD(path string, handler Handler) {
-	s.addRoute("HEAD", path, handler)
-}
-
-func (s *Server) OPTIONS(path string, handler Handler) {
-	s.addRoute("OPTIONS", path, handler)
-}
-
-func (s *Server) POST(path string, handler Handler) {
-	s.addRoute("POST", path, handler)
-}
-
-func (s *Server) PUT(path string, handler Handler) {
-	s.addRoute("PUT", path, handler)
-}
-
-func (s *Server) PATCH(path string, handler Handler) {
-	s.addRoute("PATCH", path, handler)
-}
-
-func (s *Server) DELETE(path string, handler Handler) {
-	s.addRoute("DELETE", path, handler)
-}
-
-func (s *Server) addRoute(method, path string, handler Handler) {
-	if path[0] != '/' {
-		panic("path must begin with '/' in path '" + path + "'")
-	}
-
-	if s.trees == nil {
-		s.trees = make(map[string]*node)
-	}
-
-	root := s.trees[method]
-	if root == nil {
-		root = new(node)
-		s.trees[method] = root
-	}
-
-	root.addRoute(path, handler)
-}
-
 func (s *Server) Run(addr string) {
 
 	l, err := net.Listen("tcp", addr)
@@ -232,4 +196,46 @@ func (s *Server) Run(addr string) {
 	s.logger.Printf("web.go serving %s\n", l.Addr())
 
 	s.logger.Fatal(http.Serve(l, s))
+}
+
+func (s *Server) lookup(method, path string) (Handler, Params, bool) {
+	if root := s.trees[method]; root != nil {
+		return root.getValue(path)
+	}
+	return nil, nil, false
+}
+
+func (s *Server) allowed(path, reqMethod string) (allow string) {
+	if path == "*" {
+		for method := range s.trees {
+			if method == "OPTIONS" {
+				continue
+			}
+
+			if len(allow) == 0 {
+				allow = method
+			} else {
+				allow += ", " + method
+			}
+		}
+	} else { // specific path
+		for method := range s.trees {
+			if method == reqMethod || method == "OPTIONS" {
+				continue
+			}
+
+			handler, _, _ := s.trees[method].getValue(path)
+			if handler != nil {
+				if len(allow) == 0 {
+					allow = method
+				} else {
+					allow += ", " + method
+				}
+			}
+		}
+	}
+	if len(allow) > 0 {
+		allow += ", OPTIONS"
+	}
+	return
 }

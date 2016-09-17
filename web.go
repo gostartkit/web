@@ -2,7 +2,7 @@ package web
 
 import "net/http"
 
-type Handle func(*Context)
+type Handler func(*Context)
 
 type Param struct {
 	Key   string

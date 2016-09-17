@@ -58,7 +58,7 @@ func (s *Server) recv(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) Lookup(method, path string) (Handle, Params, bool) {
+func (s *Server) lookup(method, path string) (Handler, Params, bool) {
 	if root := s.trees[method]; root != nil {
 		return root.getValue(path)
 	}
@@ -84,8 +84,8 @@ func (s *Server) allowed(path, reqMethod string) (allow string) {
 				continue
 			}
 
-			handle, _, _ := s.trees[method].getValue(path)
-			if handle != nil {
+			handler, _, _ := s.trees[method].getValue(path)
+			if handler != nil {
 				if len(allow) == 0 {
 					allow = method
 				} else {
@@ -100,7 +100,6 @@ func (s *Server) allowed(path, reqMethod string) (allow string) {
 	return
 }
 
-// ServeHTTP is the interface method for Go's http server package
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if s.PanicHandler != nil {
 		defer s.recv(w, r)
@@ -109,8 +108,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 
 	if root := s.trees[r.Method]; root != nil {
-		if handle, ps, tsr := root.getValue(path); handle != nil {
-			handle(&Context{
+		if handler, ps, tsr := root.getValue(path); handler != nil {
+			handler(&Context{
 				ResponseWriter: w,
 				Request:        r,
 				Params:         &ps,
@@ -177,35 +176,35 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) GET(path string, handle Handle) {
-	s.Handle("GET", path, handle)
+func (s *Server) GET(path string, handler Handler) {
+	s.addRoute("GET", path, handler)
 }
 
-func (s *Server) HEAD(path string, handle Handle) {
-	s.Handle("HEAD", path, handle)
+func (s *Server) HEAD(path string, handler Handler) {
+	s.addRoute("HEAD", path, handler)
 }
 
-func (s *Server) OPTIONS(path string, handle Handle) {
-	s.Handle("OPTIONS", path, handle)
+func (s *Server) OPTIONS(path string, handler Handler) {
+	s.addRoute("OPTIONS", path, handler)
 }
 
-func (s *Server) POST(path string, handle Handle) {
-	s.Handle("POST", path, handle)
+func (s *Server) POST(path string, handler Handler) {
+	s.addRoute("POST", path, handler)
 }
 
-func (s *Server) PUT(path string, handle Handle) {
-	s.Handle("PUT", path, handle)
+func (s *Server) PUT(path string, handler Handler) {
+	s.addRoute("PUT", path, handler)
 }
 
-func (s *Server) PATCH(path string, handle Handle) {
-	s.Handle("PATCH", path, handle)
+func (s *Server) PATCH(path string, handler Handler) {
+	s.addRoute("PATCH", path, handler)
 }
 
-func (s *Server) DELETE(path string, handle Handle) {
-	s.Handle("DELETE", path, handle)
+func (s *Server) DELETE(path string, handler Handler) {
+	s.addRoute("DELETE", path, handler)
 }
 
-func (s *Server) Handle(method, path string, handle Handle) {
+func (s *Server) addRoute(method, path string, handler Handler) {
 	if path[0] != '/' {
 		panic("path must begin with '/' in path '" + path + "'")
 	}
@@ -220,7 +219,7 @@ func (s *Server) Handle(method, path string, handle Handle) {
 		s.trees[method] = root
 	}
 
-	root.addRoute(path, handle)
+	root.addRoute(path, handler)
 }
 
 func (s *Server) Run(addr string) {

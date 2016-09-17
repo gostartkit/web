@@ -7,28 +7,49 @@ import (
 	"os"
 )
 
-// Server represents a web.go server.
 type Server struct {
-	Logger                 *log.Logger
-	RedirectTrailingSlash  bool
-	RedirectFixedPath      bool
-	HandleMethodNotAllowed bool
-	HandleOPTIONS          bool
-	NotFound               http.Handler
-	MethodNotAllowed       http.Handler
-	PanicHandler           func(http.ResponseWriter, *http.Request, interface{})
+	NotFound         http.Handler
+	MethodNotAllowed http.Handler
+	PanicHandler     func(http.ResponseWriter, *http.Request, interface{})
 
-	l       net.Listener
-	encKey  []byte
-	signKey []byte
-	trees   map[string]*node
+	encKey                 []byte
+	signKey                []byte
+	trees                  map[string]*node
+	logger                 *log.Logger
+	redirectTrailingSlash  bool
+	redirectFixedPath      bool
+	handleMethodNotAllowed bool
+	handleOPTIONS          bool
 }
 
-// New create new server
 func NewServer() *Server {
 	return &Server{
-		Logger: log.New(os.Stdout, "", log.Ldate|log.Ltime),
+		logger:                 log.New(os.Stdout, "", log.Ldate|log.Ltime),
+		redirectTrailingSlash:  true,
+		redirectFixedPath:      true,
+		handleMethodNotAllowed: true,
+		handleOPTIONS:          true,
 	}
+}
+
+func (s *Server) SetLogger(logger *log.Logger) {
+	s.logger = logger
+}
+
+func (s *Server) SetRedirectTrailingSlash(redirectTrailingSlash bool) {
+	s.redirectTrailingSlash = redirectTrailingSlash
+}
+
+func (s *Server) SetRedirectFixedPath(redirectFixedPath bool) {
+	s.redirectFixedPath = redirectFixedPath
+}
+
+func (s *Server) SetHandleMethodNotAllowed(handleMethodNotAllowed bool) {
+	s.handleMethodNotAllowed = handleMethodNotAllowed
+}
+
+func (s *Server) SetHandleOPTIONS(handleOPTIONS bool) {
+	s.handleOPTIONS = handleOPTIONS
 }
 
 func (s *Server) recv(w http.ResponseWriter, r *http.Request) {
@@ -37,11 +58,6 @@ func (s *Server) recv(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Lookup allows the manual lookup of a method + path combo.
-// This is e.g. useful to build a framework around this router.
-// If the path was found, it returns the handle function and the path parameter
-// values. Otherwise the third return value indicates whether a redirection to
-// the same path with an extra / without the trailing slash should be performed.
 func (s *Server) Lookup(method, path string) (Handle, Params, bool) {
 	if root := s.trees[method]; root != nil {
 		return root.getValue(path)
@@ -50,13 +66,12 @@ func (s *Server) Lookup(method, path string) (Handle, Params, bool) {
 }
 
 func (s *Server) allowed(path, reqMethod string) (allow string) {
-	if path == "*" { // server-wide
+	if path == "*" {
 		for method := range s.trees {
 			if method == "OPTIONS" {
 				continue
 			}
 
-			// add request method to list of allowed methods
 			if len(allow) == 0 {
 				allow = method
 			} else {
@@ -65,14 +80,12 @@ func (s *Server) allowed(path, reqMethod string) (allow string) {
 		}
 	} else { // specific path
 		for method := range s.trees {
-			// Skip the requested method - we already tried this one
 			if method == reqMethod || method == "OPTIONS" {
 				continue
 			}
 
 			handle, _, _ := s.trees[method].getValue(path)
 			if handle != nil {
-				// add request method to list of allowed methods
 				if len(allow) == 0 {
 					allow = method
 				} else {
@@ -104,14 +117,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		} else if r.Method != "CONNECT" && path != "/" {
-			code := 301 // Permanent redirect, request with GET method
+			code := 301
 			if r.Method != "GET" {
-				// Temporary redirect, request with same method
-				// As of Go 1.3, Go does not support status code 308.
 				code = 307
 			}
 
-			if tsr && s.RedirectTrailingSlash {
+			if tsr && s.redirectTrailingSlash {
 				if len(path) > 1 && path[len(path)-1] == '/' {
 					r.URL.Path = path[:len(path)-1]
 				} else {
@@ -121,11 +132,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			// Try to fix the request path
-			if s.RedirectFixedPath {
+			if s.redirectFixedPath {
 				fixedPath, found := root.findCaseInsensitivePath(
 					CleanPath(path),
-					s.RedirectTrailingSlash,
+					s.redirectTrailingSlash,
 				)
 				if found {
 					r.URL.Path = string(fixedPath)
@@ -137,16 +147,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == "OPTIONS" {
-		// Handle OPTIONS requests
-		if s.HandleOPTIONS {
+		if s.handleOPTIONS {
 			if allow := s.allowed(path, r.Method); len(allow) > 0 {
 				w.Header().Set("Allow", allow)
 				return
 			}
 		}
 	} else {
-		// Handle 405
-		if s.HandleMethodNotAllowed {
+		if s.handleMethodNotAllowed {
 			if allow := s.allowed(path, r.Method); len(allow) > 0 {
 				w.Header().Set("Allow", allow)
 				if s.MethodNotAllowed != nil {
@@ -162,7 +170,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Handle 404
 	if s.NotFound != nil {
 		s.NotFound.ServeHTTP(w, r)
 	} else {
@@ -170,14 +177,34 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Handle registers a new request handle with the given path and method.
-//
-// For GET, POST, PUT, PATCH and DELETE requests the respective shortcut
-// functions can be used.
-//
-// This function is intended for bulk loading and to allow the usage of less
-// frequently used, non-standardized or custom methods (e.g. for internal
-// communication with a proxy).
+func (s *Server) GET(path string, handle Handle) {
+	s.Handle("GET", path, handle)
+}
+
+func (s *Server) HEAD(path string, handle Handle) {
+	s.Handle("HEAD", path, handle)
+}
+
+func (s *Server) OPTIONS(path string, handle Handle) {
+	s.Handle("OPTIONS", path, handle)
+}
+
+func (s *Server) POST(path string, handle Handle) {
+	s.Handle("POST", path, handle)
+}
+
+func (s *Server) PUT(path string, handle Handle) {
+	s.Handle("PUT", path, handle)
+}
+
+func (s *Server) PATCH(path string, handle Handle) {
+	s.Handle("PATCH", path, handle)
+}
+
+func (s *Server) DELETE(path string, handle Handle) {
+	s.Handle("DELETE", path, handle)
+}
+
 func (s *Server) Handle(method, path string, handle Handle) {
 	if path[0] != '/' {
 		panic("path must begin with '/' in path '" + path + "'")
@@ -196,21 +223,14 @@ func (s *Server) Handle(method, path string, handle Handle) {
 	root.addRoute(path, handle)
 }
 
-// Run starts the web application and serves HTTP requests for s
 func (s *Server) Run(addr string) {
-
-	mux := http.NewServeMux()
-
-	mux.Handle("/", s)
 
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}
 
-	s.Logger.Printf("web.go serving %s\n", l.Addr())
+	s.logger.Printf("web.go serving %s\n", l.Addr())
 
-	s.l = l
-	err = http.Serve(s.l, mux)
-	s.l.Close()
+	s.logger.Fatal(http.Serve(l, s))
 }

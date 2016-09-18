@@ -1,10 +1,13 @@
 package web
 
 import (
+	"bytes"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 )
 
 type Server struct {
@@ -111,6 +114,8 @@ func (s *Server) addRoute(method, path string, handler Handler) {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
+
 	if s.PanicHandler != nil {
 		defer s.recv(w, r)
 	}
@@ -119,11 +124,18 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if root := s.trees[r.Method]; root != nil {
 		if handler, ps, tsr := root.getValue(path); handler != nil {
-			handler(&Context{
+
+			runTime := time.Now()
+
+			ctx := &Context{
 				ResponseWriter: w,
 				Request:        r,
 				Params:         &ps,
-			})
+			}
+
+			handler(ctx)
+
+			s.logRequest(ctx, startTime, runTime)
 			return
 		} else if r.Method != "CONNECT" && path != "/" {
 			code := 301
@@ -189,13 +201,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) Run(addr string) {
 
 	l, err := net.Listen("tcp", addr)
+
 	if err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}
 
 	s.logger.Printf("web.go serving %s\n", l.Addr())
 
-	s.logger.Fatal(http.Serve(l, s))
+	log.Fatal(http.Serve(l, s))
 }
 
 func (s *Server) lookup(method, path string) (Handler, Params, bool) {
@@ -238,4 +251,35 @@ func (s *Server) allowed(path, reqMethod string) (allow string) {
 		allow += ", OPTIONS"
 	}
 	return
+}
+
+func (s *Server) logRequest(ctx *Context, startTime time.Time, runTime time.Time) {
+
+	if s.logger == nil {
+		return
+	}
+
+	r := ctx.Request
+	path := r.URL.Path
+
+	now := time.Now()
+	duration := now.Sub(startTime)
+	runDuration := now.Sub(runTime)
+
+	var client string
+
+	pos := strings.LastIndex(r.RemoteAddr, ":")
+	if pos > 0 {
+		client = r.RemoteAddr[0:pos]
+	} else {
+		client = r.RemoteAddr
+	}
+
+	var log bytes.Buffer
+	log.WriteString(client)
+	log.WriteString(" - " + r.Method + " " + path)
+	log.WriteString(" - " + duration.String())
+	log.WriteString(" - " + runDuration.String() + "\n")
+
+	s.logger.Print(log.String())
 }

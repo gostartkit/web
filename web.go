@@ -1,6 +1,8 @@
 package web
 
 import (
+	"encoding/json"
+	"encoding/xml"
 	"mime"
 	"net/http"
 	"strings"
@@ -37,28 +39,33 @@ type Context struct {
 	http.ResponseWriter
 }
 
+// Get value from Params
 func (ctx *Context) Val(key string) string {
 	return ctx.Params.val(key)
 }
 
-func (ctx *Context) WriteString(text string) {
-	ctx.ResponseWriter.Write([]byte(text))
+func (ctx *Context) WriteString(text string) (int, error) {
+	return ctx.ResponseWriter.Write([]byte(text))
 }
 
-func (ctx *Context) ContentType(val string) string {
-	var ctype string
-	if strings.ContainsRune(val, '/') {
-		ctype = val
-	} else {
-		if !strings.HasPrefix(val, ".") {
-			val = "." + val
-		}
-		ctype = mime.TypeByExtension(val)
+func (ctx *Context) WriteJson(v interface{}) (int, error) {
+	b, err := json.Marshal(v)
+
+	if err != nil {
+		return 0, err
 	}
-	if ctype != "" {
-		ctx.Header().Set("Content-Type", ctype)
+
+	return ctx.ResponseWriter.Write(b)
+}
+
+func (ctx *Context) WriteXml(v interface{}) (int, error) {
+	b, err := xml.Marshal(v)
+
+	if err != nil {
+		return 0, err
 	}
-	return ctype
+
+	return ctx.ResponseWriter.Write(b)
 }
 
 func (ctx *Context) SetHeader(key string, value string, unique bool) {
@@ -69,6 +76,23 @@ func (ctx *Context) SetHeader(key string, value string, unique bool) {
 	}
 }
 
+func (ctx *Context) SetContentType(val string) {
+	ctx.Header().Set("Content-Type", contentType(val))
+}
+
 func (ctx *Context) SetCookie(cookie *http.Cookie) {
 	ctx.SetHeader("Set-Cookie", cookie.String(), false)
+}
+
+func contentType(val string) string {
+	var ctype string
+	if strings.ContainsRune(val, '/') {
+		ctype = val
+	} else {
+		if !strings.HasPrefix(val, ".") {
+			val = "." + val
+		}
+		ctype = mime.TypeByExtension(val)
+	}
+	return ctype
 }

@@ -3,9 +3,12 @@ package web
 import (
 	"encoding/json"
 	"encoding/xml"
-	"mime"
 	"net/http"
-	"strings"
+)
+
+const (
+	pbkdf2Iterations = 64000
+	keySize          = 32
 )
 
 type Handler func(*Context)
@@ -39,7 +42,7 @@ type Context struct {
 	http.ResponseWriter
 }
 
-// Get value from Params
+// Get value from Params by key
 func (ctx *Context) Val(key string) string {
 	return ctx.Params.val(key)
 }
@@ -84,15 +87,50 @@ func (ctx *Context) SetCookie(cookie *http.Cookie) {
 	ctx.SetHeader("Set-Cookie", cookie.String(), false)
 }
 
-func contentType(val string) string {
-	var ctype string
-	if strings.ContainsRune(val, '/') {
-		ctype = val
-	} else {
-		if !strings.HasPrefix(val, ".") {
-			val = "." + val
-		}
-		ctype = mime.TypeByExtension(val)
-	}
-	return ctype
+func (ctx *Context) SetSecureCookie(name string, val string, age int64) error {
+	// server := ctx.Server
+	// if len(server.Config.CookieSecret) == 0 {
+	// 	return ErrMissingCookieSecret
+	// }
+	// if len(server.encKey) == 0 || len(server.signKey) == 0 {
+	// 	return ErrInvalidKey
+	// }
+	// ciphertext, err := encrypt([]byte(val), server.encKey)
+	// if err != nil {
+	// 	return err
+	// }
+	// sig := sign(ciphertext, server.signKey)
+	// data := base64.StdEncoding.EncodeToString(ciphertext) + "|" + base64.StdEncoding.EncodeToString(sig)
+	// ctx.SetCookie(newCookie(name, data, age))
+	return nil
+}
+
+func (ctx *Context) GetSecureCookie(name string) (string, bool) {
+	// for _, cookie := range ctx.Request.Cookies() {
+	// 	if cookie.Name != name {
+	// 		continue
+	// 	}
+	// 	parts := strings.SplitN(cookie.Value, "|", 2)
+	// 	if len(parts) != 2 {
+	// 		return "", false
+	// 	}
+	// 	ciphertext, err := base64.StdEncoding.DecodeString(parts[0])
+	// 	if err != nil {
+	// 		return "", false
+	// 	}
+	// 	sig, err := base64.StdEncoding.DecodeString(parts[1])
+	// 	if err != nil {
+	// 		return "", false
+	// 	}
+	// 	expectedSig := sign([]byte(ciphertext), ctx.Server.signKey)
+	// 	if !bytes.Equal(expectedSig, sig) {
+	// 		return "", false
+	// 	}
+	// 	plaintext, err := decrypt(ciphertext, ctx.Server.encKey)
+	// 	if err != nil {
+	// 		return "", false
+	// 	}
+	// 	return string(plaintext), true
+	// }
+	return "", false
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"html/template"
 	"io"
 	"io/ioutil"
 	"os"
@@ -492,7 +491,7 @@ func renderElement(element interface{}, contextChain []interface{}, buf io.Write
 				fmt.Fprint(buf, val.Interface())
 			} else {
 				s := fmt.Sprint(val.Interface())
-				template.HTMLEscape(buf, []byte(s))
+				htmlEscape(buf, []byte(s))
 			}
 		}
 	case *sectionElement:

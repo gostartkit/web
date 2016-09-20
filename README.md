@@ -29,7 +29,7 @@ func Index(ctx *web.Context) {
 }
 
 func Hello(ctx *web.Context) {
-	ctx.WriteString("Hello " + ctx.GetParam("name") + "\n")
+	ctx.WriteString("Hello " + ctx.Val("name") + "\n")
 }
 
 func Hello2(ctx *web.Context) {

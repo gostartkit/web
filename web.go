@@ -40,11 +40,12 @@ type Context struct {
 }
 
 // Get value from Params by key
-func (ctx *Context) GetParam(key string) string {
+func (ctx *Context) Val(key string) string {
 	return ctx.Params.Get(key)
 }
 
-func (ctx *Context) GetQuery(key string) string {
+// Get value from url Query by key
+func (ctx *Context) Get(key string) string {
 
 	if ctx.Query == nil {
 		ctx.Query = ctx.Request.URL.Query()
@@ -53,7 +54,8 @@ func (ctx *Context) GetQuery(key string) string {
 	return ctx.Query.Get(key)
 }
 
-func (ctx *Context) GetPayload(key string) string {
+// Get value from post Form by key
+func (ctx *Context) Post(key string) string {
 
 	if ctx.Payload == nil {
 		ctx.Request.ParseForm()

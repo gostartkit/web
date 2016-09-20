@@ -127,7 +127,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 
 	if root := s.trees[r.Method]; root != nil {
-		if handler, ps, tsr := root.getValue(path); handler != nil {
+		if handler, params, tsr := root.getValue(path); handler != nil {
 
 			runTime := time.Now()
 
@@ -135,7 +135,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				Server:         s,
 				ResponseWriter: w,
 				Request:        r,
-				Params:         &ps,
+				Params:         &params,
 			}
 
 			handler(ctx)

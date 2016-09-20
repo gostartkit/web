@@ -13,13 +13,6 @@ const (
 
 type Handler func(*Context)
 
-type Controller interface {
-	Index(*Context)
-	Create(*Context)
-	Update(*Context)
-	Delete(*Context)
-}
-
 type Param struct {
 	Key   string
 	Value string

@@ -89,13 +89,6 @@ func (s *Server) Delete(path string, handler Handler) {
 	s.addRoute("DELETE", path, handler)
 }
 
-func (s *Server) Resource(path string, controller Controller) {
-	s.Get(path, controller.Index)
-	s.Post(path, controller.Create)
-	s.Put(path, controller.Update)
-	s.Delete(path, controller.Delete)
-}
-
 func (s *Server) addRoute(method, path string, handler Handler) {
 	if path[0] != '/' {
 		panic("path must begin with '/' in path '" + path + "'")

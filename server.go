@@ -7,8 +7,12 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
+
+var server *Server
+var once sync.Once
 
 type Server struct {
 	NotFound         http.Handler
@@ -26,6 +30,20 @@ type Server struct {
 }
 
 func NewServer() *Server {
+	once.Do(func() {
+		server = createServer()
+	})
+	return server
+}
+
+func GetServer() *Server {
+	if server == nil {
+		log.Fatal("Server is nil, please init Server with NewServer() before GetServer().")
+	}
+	return server
+}
+
+func createServer() *Server {
 	return &Server{
 		logger:                 log.New(os.Stdout, "", log.Ldate|log.Ltime),
 		redirectTrailingSlash:  true,

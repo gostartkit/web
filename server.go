@@ -26,20 +26,13 @@ type Server struct {
 	redirectTrailingSlash  bool
 	redirectFixedPath      bool
 	handleMethodNotAllowed bool
-	handleOPTIONS          bool
+	handleOptions          bool
 }
 
-func NewServer() *Server {
+func CreateServer() *Server {
 	once.Do(func() {
 		server = createServer()
 	})
-	return server
-}
-
-func GetServer() *Server {
-	if server == nil {
-		log.Fatal("Server is nil, please init Server with NewServer() before GetServer().")
-	}
 	return server
 }
 
@@ -49,7 +42,7 @@ func createServer() *Server {
 		redirectTrailingSlash:  true,
 		redirectFixedPath:      true,
 		handleMethodNotAllowed: true,
-		handleOPTIONS:          true,
+		handleOptions:          true,
 	}
 }
 
@@ -69,8 +62,8 @@ func (s *Server) SetHandleMethodNotAllowed(handleMethodNotAllowed bool) {
 	s.handleMethodNotAllowed = handleMethodNotAllowed
 }
 
-func (s *Server) SetHandleOPTIONS(handleOPTIONS bool) {
-	s.handleOPTIONS = handleOPTIONS
+func (s *Server) SetHandleOptions(handleOptions bool) {
+	s.handleOptions = handleOptions
 }
 
 func (s *Server) recv(w http.ResponseWriter, r *http.Request) {
@@ -139,6 +132,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			runTime := time.Now()
 
 			ctx := &Context{
+				Server:         s,
 				ResponseWriter: w,
 				Request:        r,
 				Params:         &ps,
@@ -179,7 +173,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == "OPTIONS" {
-		if s.handleOPTIONS {
+		if s.handleOptions {
 			if allow := s.allowed(path, r.Method); len(allow) > 0 {
 				w.Header().Set("Allow", allow)
 				return

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"net/http"
+	"net/url"
 )
 
 const (
@@ -20,7 +21,7 @@ type Param struct {
 
 type Params []Param
 
-func (params Params) val(name string) string {
+func (params Params) Get(name string) string {
 	for i := range params {
 		if params[i].Key == name {
 			return params[i].Value
@@ -30,14 +31,36 @@ func (params Params) val(name string) string {
 }
 
 type Context struct {
-	Request *http.Request
 	Params  *Params
+	Query   url.Values
+	Payload url.Values
+	Server  *Server
+	Request *http.Request
 	http.ResponseWriter
 }
 
 // Get value from Params by key
-func (ctx *Context) Val(key string) string {
-	return ctx.Params.val(key)
+func (ctx *Context) GetParam(key string) string {
+	return ctx.Params.Get(key)
+}
+
+func (ctx *Context) GetQuery(key string) string {
+
+	if ctx.Query == nil {
+		ctx.Query = ctx.Request.URL.Query()
+	}
+
+	return ctx.Query.Get(key)
+}
+
+func (ctx *Context) GetPayload(key string) string {
+
+	if ctx.Payload == nil {
+		ctx.Request.ParseForm()
+		ctx.Payload = ctx.Request.PostForm
+	}
+
+	return ctx.Payload.Get(key)
 }
 
 func (ctx *Context) WriteString(text string) (int, error) {

@@ -29,7 +29,7 @@ func Index(ctx *web.Context) {
 }
 
 func Hello(ctx *web.Context) {
-	ctx.WriteString("Hello " + ctx.Val("name") + "\n")
+	ctx.WriteString("Hello " + ctx.GetParam("name") + "\n")
 }
 
 func Hello2(ctx *web.Context) {
@@ -37,7 +37,7 @@ func Hello2(ctx *web.Context) {
 }
 
 func main() {
-	s := web.NewServer()
+	s := web.CreateServer()
 	s.Get("/", Index)
 	s.Get("/hello/:name", Hello)
 	s.Post("/hello/", Hello2)

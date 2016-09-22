@@ -69,24 +69,12 @@ func (ctx *Context) WriteString(text string) (int, error) {
 	return ctx.ResponseWriter.Write([]byte(text))
 }
 
-func (ctx *Context) WriteJson(v interface{}) (int, error) {
-	b, err := json.Marshal(v)
-
-	if err != nil {
-		return 0, err
-	}
-
-	return ctx.ResponseWriter.Write(b)
+func (ctx *Context) WriteJSON(v interface{}) error {
+	return json.NewEncoder(ctx.ResponseWriter).Encode(v)
 }
 
-func (ctx *Context) WriteXml(v interface{}) (int, error) {
-	b, err := xml.Marshal(v)
-
-	if err != nil {
-		return 0, err
-	}
-
-	return ctx.ResponseWriter.Write(b)
+func (ctx *Context) WriteXML(v interface{}) error {
+	return xml.NewEncoder(ctx.ResponseWriter).Encode(v)
 }
 
 func (ctx *Context) SetHeader(key string, value string, unique bool) {

@@ -1,10 +1,14 @@
 package web
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 const (
@@ -89,54 +93,54 @@ func (ctx *Context) SetContentType(val string) {
 	ctx.Header().Set("Content-Type", contentType(val))
 }
 
-func (ctx *Context) SetCookie(cookie *http.Cookie) {
+func (ctx *Context) setCookie(cookie *http.Cookie) {
 	ctx.SetHeader("Set-Cookie", cookie.String(), false)
 }
 
-func (ctx *Context) SetSecureCookie(name string, val string, age int64) error {
-	// server := ctx.Server
-	// if len(server.Config.CookieSecret) == 0 {
-	// 	return ErrMissingCookieSecret
-	// }
-	// if len(server.encKey) == 0 || len(server.signKey) == 0 {
-	// 	return ErrInvalidKey
-	// }
-	// ciphertext, err := encrypt([]byte(val), server.encKey)
-	// if err != nil {
-	// 	return err
-	// }
-	// sig := sign(ciphertext, server.signKey)
-	// data := base64.StdEncoding.EncodeToString(ciphertext) + "|" + base64.StdEncoding.EncodeToString(sig)
-	// ctx.SetCookie(newCookie(name, data, age))
+func (ctx *Context) SetCookie(name string, val string, age int64) error {
+	server := ctx.Server
+	if len(server.cookieSecret) == 0 {
+		return errors.New("cookieSecret empty")
+	}
+	if len(server.encKey) == 0 || len(server.signKey) == 0 {
+		return errors.New("encKey or signKey empty")
+	}
+	ciphertext, err := encrypt([]byte(val), server.encKey)
+	if err != nil {
+		return err
+	}
+	sig := sign(ciphertext, server.signKey)
+	data := base64.StdEncoding.EncodeToString(ciphertext) + "|" + base64.StdEncoding.EncodeToString(sig)
+	ctx.setCookie(newCookie(name, data, age))
 	return nil
 }
 
-func (ctx *Context) GetSecureCookie(name string) (string, bool) {
-	// for _, cookie := range ctx.Request.Cookies() {
-	// 	if cookie.Name != name {
-	// 		continue
-	// 	}
-	// 	parts := strings.SplitN(cookie.Value, "|", 2)
-	// 	if len(parts) != 2 {
-	// 		return "", false
-	// 	}
-	// 	ciphertext, err := base64.StdEncoding.DecodeString(parts[0])
-	// 	if err != nil {
-	// 		return "", false
-	// 	}
-	// 	sig, err := base64.StdEncoding.DecodeString(parts[1])
-	// 	if err != nil {
-	// 		return "", false
-	// 	}
-	// 	expectedSig := sign([]byte(ciphertext), ctx.Server.signKey)
-	// 	if !bytes.Equal(expectedSig, sig) {
-	// 		return "", false
-	// 	}
-	// 	plaintext, err := decrypt(ciphertext, ctx.Server.encKey)
-	// 	if err != nil {
-	// 		return "", false
-	// 	}
-	// 	return string(plaintext), true
-	// }
-	return "", false
+func (ctx *Context) GetCookie(name string) string {
+	for _, cookie := range ctx.Request.Cookies() {
+		if cookie.Name != name {
+			continue
+		}
+		parts := strings.SplitN(cookie.Value, "|", 2)
+		if len(parts) != 2 {
+			return ""
+		}
+		ciphertext, err := base64.StdEncoding.DecodeString(parts[0])
+		if err != nil {
+			return ""
+		}
+		sig, err := base64.StdEncoding.DecodeString(parts[1])
+		if err != nil {
+			return ""
+		}
+		expectedSig := sign([]byte(ciphertext), ctx.Server.signKey)
+		if !bytes.Equal(expectedSig, sig) {
+			return ""
+		}
+		plaintext, err := decrypt(ciphertext, ctx.Server.encKey)
+		if err != nil {
+			return ""
+		}
+		return string(plaintext)
+	}
+	return ""
 }

@@ -19,6 +19,8 @@ type Server struct {
 	MethodNotAllowed http.Handler
 	PanicHandler     func(http.ResponseWriter, *http.Request, interface{})
 
+	viewDir                string
+	cookieSecret           string
 	encKey                 []byte
 	signKey                []byte
 	trees                  map[string]*node
@@ -37,7 +39,14 @@ func CreateServer() *Server {
 }
 
 func createServer() *Server {
+	viewDir := env("AFXCN_WEB_VIEW_DIR")
+	cookieSecret := env("AFXCN_WEB_COOKIE_SECRET")
+	salt := ""
 	return &Server{
+		viewDir:                viewDir,
+		cookieSecret:           cookieSecret,
+		encKey:                 genKey(cookieSecret, salt),
+		signKey:                genKey(cookieSecret, salt),
 		logger:                 log.New(os.Stdout, "", log.Ldate|log.Ltime),
 		redirectTrailingSlash:  true,
 		redirectFixedPath:      true,

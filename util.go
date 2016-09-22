@@ -10,6 +10,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -109,4 +110,8 @@ func sign(data []byte, key []byte) []byte {
 	mac := hmac.New(sha256.New, key)
 	mac.Write(data)
 	return mac.Sum(nil)
+}
+
+func env(key string) string {
+	return os.Getenv(key)
 }

@@ -47,6 +47,11 @@ func main() {
 	s.Run("127.0.0.1:8080")
 }
 ```
+To run the application, put the code in a file called hello.go and run:
+
+    go run hello.go
+    
+You can point your browser to http://localhost:8080/hello/world . 
 
 BasicAuth:
 
@@ -94,11 +99,11 @@ func BasicAuth(handler web.Handler, requiredUser, requiredPassword string) web.H
 }
 ```
 
-To run the application, put the code in a file called hello.go and run:
+To run the application, put the code in a file called basicauth.go and run:
 
-    go run hello.go
+    go run basicauth.go
     
-You can point your browser to http://localhost:8080/hello/world . 
+You can point your browser to http://localhost:8080/auth/ . 
 
 ## Reference Links
 

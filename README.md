@@ -45,6 +45,50 @@ func main() {
 }
 ```
 
+```go
+package main
+
+import (
+	"io"
+	"net/http"
+
+	"github.com/afxcn/web"
+)
+
+func main() {
+	server := web.CreateServer()
+	server.Get("/", Index)
+	server.Get("/auth/", BasicAuth(AuthSuccess, "user", "pass"))
+
+	server.Run("127.0.0.1:8080")
+}
+
+func Index(ctx *web.Context) {
+	ctx.SetContentType("html")
+	ctx.SetHeader("Access-Control-Allow-Origin", "/", true)
+	ctx.SetCookie("user_id", "1728727338923", 3600)
+
+	io.WriteString(ctx.ResponseWriter, "Webcome to web api system.\n")
+}
+
+func AuthSuccess(ctx *web.Context) {
+	ctx.WriteString("Auth Success\n")
+}
+
+func BasicAuth(handler web.Handler, requiredUser, requiredPassword string) web.Handler {
+	return func(ctx *web.Context) {
+		user, password, hasAuth := ctx.Request.BasicAuth()
+
+		if hasAuth && user == requiredUser && password == requiredPassword {
+			handler(ctx)
+		} else {
+			ctx.SetHeader("WWW-Authenticate", "Basic realm=Restricted", true)
+			http.Error(ctx.ResponseWriter, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		}
+	}
+}
+```
+
 To run the application, put the code in a file called hello.go and run:
 
     go run hello.go

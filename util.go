@@ -115,3 +115,24 @@ func sign(data []byte, key []byte) []byte {
 func env(key string) string {
 	return os.Getenv(key)
 }
+
+func randString(n int) string {
+	b := make([]byte, n)
+	_, err := rand.Read(b)
+
+	if err != nil {
+		return ""
+	}
+
+	return string(b)
+}
+
+func envOrRandom(key string, n int) string {
+	val := env(key)
+
+	if len(val) == 0 {
+		val = randString(n)
+	}
+
+	return val
+}

@@ -40,8 +40,9 @@ func CreateServer() *Server {
 
 func createServer() *Server {
 	viewDir := env("AFXCN_WEB_VIEW_DIR")
-	cookieSecret := env("AFXCN_WEB_COOKIE_SECRET")
-	salt := ""
+	cookieSecret := envOrRandom("AFXCN_WEB_COOKIE_SECRET", 64)
+	salt := envOrRandom("AFXCN_WEB_COOKIE_SALT", 32)
+
 	return &Server{
 		viewDir:                viewDir,
 		cookieSecret:           cookieSecret,
@@ -220,7 +221,9 @@ func (s *Server) Run(addr string) {
 		log.Fatal("ListenAndServe:", err)
 	}
 
-	s.logger.Printf("web.go serving %s\n", l.Addr())
+	if s.logger != nil {
+		s.logger.Printf("web.go serving %s\n", l.Addr())
+	}
 
 	log.Fatal(http.Serve(l, s))
 }

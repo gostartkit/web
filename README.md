@@ -15,6 +15,9 @@ To compile it from source:
     cd web && go build
 
 ## Example
+
+Hello world:
+
 ```go
 package main
 
@@ -44,6 +47,8 @@ func main() {
 	s.Run("127.0.0.1:8080")
 }
 ```
+
+BasicAuth:
 
 ```go
 package main

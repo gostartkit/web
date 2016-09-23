@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -40,14 +41,23 @@ func CreateServer() *Server {
 
 func createServer() *Server {
 	viewDir := env("AFXCN_WEB_VIEW_DIR")
+
+	if len(viewDir) == 0 {
+		wd, err := os.Getwd()
+		if err != nil {
+			viewDir = path.Join(path.Dir(os.Args[0]), "views")
+		} else {
+			viewDir = path.Join(wd, "views")
+		}
+	}
+
 	cookieSecret := envOrRandom("AFXCN_WEB_COOKIE_SECRET", 64)
-	salt := envOrRandom("AFXCN_WEB_COOKIE_SALT", 32)
 
 	return &Server{
 		viewDir:                viewDir,
 		cookieSecret:           cookieSecret,
-		encKey:                 genKey(cookieSecret, salt),
-		signKey:                genKey(cookieSecret, salt),
+		encKey:                 genKey(cookieSecret, envOrRandom("AFXCN_WEB_COOKIE_ENC_SALT", 16)),
+		signKey:                genKey(cookieSecret, envOrRandom("AFXCN_WEB_COOKIE_SIGN_SALT", 16)),
 		logger:                 log.New(os.Stdout, "", log.Ldate|log.Ltime),
 		redirectTrailingSlash:  true,
 		redirectFixedPath:      true,

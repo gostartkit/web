@@ -106,14 +106,6 @@ func (s *Server) SetHandleOptions(handleOptions bool) {
 	s.handleOptions = handleOptions
 }
 
-func (s *Server) GetDriverName() string {
-	return s.driverName
-}
-
-func (s *Server) GetDataSourceName() string {
-	return s.dataSourceName
-}
-
 func (s *Server) recv(w http.ResponseWriter, r *http.Request) {
 	if rcv := recover(); rcv != nil {
 		s.PanicHandler(w, r, rcv)
@@ -163,6 +155,24 @@ func (s *Server) addRoute(method, path string, handler Handler) {
 		s.trees[method] = root
 	}
 	root.addRoute(path, handler)
+}
+
+func (s *Server) ServeStatic() {
+	s.ServeFiles("/public/*filepath", http.Dir(s.staticDir))
+}
+
+// server.ServeFiles("/public/*filepath", http.Dir("/public/"))
+func (s *Server) ServeFiles(path string, root http.FileSystem) {
+	if len(path) < 10 || path[len(path)-10:] != "/*filepath" {
+		panic("path must end with /*filepath in path '" + path + "'")
+	}
+
+	fileServer := http.FileServer(root)
+
+	s.Get(path, func(ctx *Context) {
+		ctx.Request.URL.Path = ctx.Val("filepath")
+		fileServer.ServeHTTP(ctx.ResponseWriter, ctx.Request)
+	})
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -262,7 +272,6 @@ func (s *Server) Run(addr string) {
 	if s.logger != nil {
 		s.logger.Printf("web.go serving %s\n", l.Addr())
 	}
-
 	log.Fatal(http.Serve(l, s))
 }
 

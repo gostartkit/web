@@ -20,6 +20,8 @@ type Server struct {
 	MethodNotAllowed http.Handler
 	PanicHandler     func(http.ResponseWriter, *http.Request, interface{})
 
+	rootDir                string
+	staticDir              string
 	viewDir                string
 	cookieSecret           string
 	encKey                 []byte
@@ -42,15 +44,25 @@ func CreateServer() *Server {
 }
 
 func createServer() *Server {
+	rootDir := Getenv(ENV_ROOT_DIR)
+	staticDir := Getenv(ENV_STATIC_DIR)
 	viewDir := Getenv(ENV_VIEW_DIR)
 
-	if len(viewDir) == 0 {
+	if len(rootDir) == 0 {
 		wd, err := os.Getwd()
 		if err != nil {
-			viewDir = path.Join(path.Dir(os.Args[0]), "views")
+			rootDir = path.Dir(os.Args[0])
 		} else {
-			viewDir = path.Join(wd, "views")
+			rootDir = wd
 		}
+	}
+
+	if len(staticDir) == 0 {
+		staticDir = path.Join(rootDir, "public_html")
+	}
+
+	if len(viewDir) == 0 {
+		viewDir = path.Join(rootDir, "views")
 	}
 
 	cookieSecret := envOrRandom(ENV_COOKIE_SECRET, 64)
@@ -58,6 +70,8 @@ func createServer() *Server {
 	dataSourceName := Getenv(ENV_DATA_SOURCE_NAME)
 
 	return &Server{
+		rootDir:                rootDir,
+		staticDir:              staticDir,
 		viewDir:                viewDir,
 		cookieSecret:           cookieSecret,
 		encKey:                 genKey(cookieSecret, envOrRandom(ENV_COOKIE_ENC_SALT, 16)),

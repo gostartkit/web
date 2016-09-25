@@ -144,3 +144,7 @@ func (ctx *Context) GetCookie(name string) string {
 	}
 	return ""
 }
+
+type Controller interface {
+	Init()
+}

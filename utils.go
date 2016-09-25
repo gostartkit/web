@@ -25,6 +25,23 @@ var (
 	htmlGt   = []byte("&gt;")
 )
 
+const (
+	ENV_VIEW_DIR         = "AFXCN_WEB_VIEW_DIR"
+	ENV_COOKIE_SECRET    = "AFXCN_WEB_COOKIE_SECRET"
+	ENV_COOKIE_ENC_SALT  = "AFXCN_WEB_COOKIE_ENC_SALT"
+	ENV_COOKIE_SIGN_SALT = "AFXCN_WEB_COOKIE_SIGN_SALT"
+	ENV_DRIVER_NAME      = "AFXCN_WEB_DRIVER_NAME"
+	ENV_DATA_SOURCE_NAME = "AFXCN_WEB_DATA_SOURCE_NAME"
+)
+
+func Getenv(key string) string {
+	return os.Getenv(key)
+}
+
+func Setenv(key string, value string) error {
+	return os.Setenv(key, value)
+}
+
 func htmlEscape(w io.Writer, b []byte) {
 	last := 0
 	for i, c := range b {
@@ -112,10 +129,6 @@ func sign(data []byte, key []byte) []byte {
 	return mac.Sum(nil)
 }
 
-func env(key string) string {
-	return os.Getenv(key)
-}
-
 func randString(n int) string {
 	b := make([]byte, n)
 	_, err := rand.Read(b)
@@ -128,7 +141,7 @@ func randString(n int) string {
 }
 
 func envOrRandom(key string, n int) string {
-	val := env(key)
+	val := Getenv(key)
 
 	if len(val) == 0 {
 		val = randString(n)

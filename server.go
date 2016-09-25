@@ -24,6 +24,8 @@ type Server struct {
 	cookieSecret           string
 	encKey                 []byte
 	signKey                []byte
+	driverName             string
+	dataSourceName         string
 	trees                  map[string]*node
 	logger                 *log.Logger
 	redirectTrailingSlash  bool
@@ -40,7 +42,7 @@ func CreateServer() *Server {
 }
 
 func createServer() *Server {
-	viewDir := env("AFXCN_WEB_VIEW_DIR")
+	viewDir := Getenv(ENV_VIEW_DIR)
 
 	if len(viewDir) == 0 {
 		wd, err := os.Getwd()
@@ -51,13 +53,17 @@ func createServer() *Server {
 		}
 	}
 
-	cookieSecret := envOrRandom("AFXCN_WEB_COOKIE_SECRET", 64)
+	cookieSecret := envOrRandom(ENV_COOKIE_SECRET, 64)
+	driverName := Getenv(ENV_DRIVER_NAME)
+	dataSourceName := Getenv(ENV_DATA_SOURCE_NAME)
 
 	return &Server{
 		viewDir:                viewDir,
 		cookieSecret:           cookieSecret,
-		encKey:                 genKey(cookieSecret, envOrRandom("AFXCN_WEB_COOKIE_ENC_SALT", 16)),
-		signKey:                genKey(cookieSecret, envOrRandom("AFXCN_WEB_COOKIE_SIGN_SALT", 16)),
+		encKey:                 genKey(cookieSecret, envOrRandom(ENV_COOKIE_ENC_SALT, 16)),
+		signKey:                genKey(cookieSecret, envOrRandom(ENV_COOKIE_SIGN_SALT, 16)),
+		driverName:             driverName,
+		dataSourceName:         dataSourceName,
 		logger:                 log.New(os.Stdout, "", log.Ldate|log.Ltime),
 		redirectTrailingSlash:  true,
 		redirectFixedPath:      true,
@@ -84,6 +90,14 @@ func (s *Server) SetHandleMethodNotAllowed(handleMethodNotAllowed bool) {
 
 func (s *Server) SetHandleOptions(handleOptions bool) {
 	s.handleOptions = handleOptions
+}
+
+func (s *Server) GetDriverName() string {
+	return s.driverName
+}
+
+func (s *Server) GetDataSourceName() string {
+	return s.dataSourceName
 }
 
 func (s *Server) recv(w http.ResponseWriter, r *http.Request) {

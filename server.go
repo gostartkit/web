@@ -58,7 +58,7 @@ func createServer() *Server {
 	}
 
 	if len(staticDir) == 0 {
-		staticDir = path.Join(rootDir, "public_html")
+		staticDir = path.Join(rootDir, "public")
 	}
 
 	if len(viewDir) == 0 {

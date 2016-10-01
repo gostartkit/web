@@ -2,7 +2,6 @@ package web
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
@@ -144,10 +143,6 @@ func (ctx *Context) GetCookie(name string) string {
 		return string(plaintext)
 	}
 	return ""
-}
-
-func (ctx *Context) CreateDatabase() (*sql.DB, error) {
-	return sql.Open(ctx.Server.driverName, ctx.Server.dataSourceName)
 }
 
 type Controller interface {

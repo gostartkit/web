@@ -26,8 +26,6 @@ type Server struct {
 	cookieSecret           string
 	encKey                 []byte
 	signKey                []byte
-	driverName             string
-	dataSourceName         string
 	trees                  map[string]*node
 	logger                 *log.Logger
 	redirectTrailingSlash  bool
@@ -66,8 +64,6 @@ func createServer() *Server {
 	}
 
 	cookieSecret := envOrRandom(ENV_COOKIE_SECRET, 64)
-	driverName := Getenv(ENV_DRIVER_NAME)
-	dataSourceName := Getenv(ENV_DATA_SOURCE_NAME)
 
 	return &Server{
 		rootDir:                rootDir,
@@ -76,8 +72,6 @@ func createServer() *Server {
 		cookieSecret:           cookieSecret,
 		encKey:                 genKey(cookieSecret, envOrRandom(ENV_COOKIE_ENC_SALT, 16)),
 		signKey:                genKey(cookieSecret, envOrRandom(ENV_COOKIE_SIGN_SALT, 16)),
-		driverName:             driverName,
-		dataSourceName:         dataSourceName,
 		logger:                 log.New(os.Stdout, "", log.Ldate|log.Ltime),
 		redirectTrailingSlash:  true,
 		redirectFixedPath:      true,

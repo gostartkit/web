@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/afxcn/web.svg?branch=master)](https://travis-ci.org/afxcn/web)
+
 # web
 a MVC Web Application Framework for golang
 

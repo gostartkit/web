@@ -1,0 +1,15 @@
+language: go
+
+go:
+  - 1.4
+  - 1.5
+  - 1.6
+  - 1.7
+
+services:
+  - AFXCNWEB
+
+env:
+ - AFXCN_WEB_ROOT_DIR=/opt/local/wwwroot
+
+script: go test -v -tags integration ./...

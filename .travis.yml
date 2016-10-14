@@ -6,7 +6,6 @@ go:
 
 os:
   - linux
-  - freebsd
 
 install: go get
 

@@ -43,7 +43,7 @@ type Context struct {
 	http.ResponseWriter
 }
 
-// Get value from Params by key
+// Val Get value from Params by key
 func (ctx *Context) Val(key string) string {
 	return ctx.Params.Get(key)
 }
@@ -58,7 +58,7 @@ func (ctx *Context) Get(key string) string {
 	return ctx.Query.Get(key)
 }
 
-// Get value from post Form by key
+// Post Get value from post Form by key
 func (ctx *Context) Post(key string) string {
 
 	if ctx.Payload == nil {

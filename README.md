@@ -1,4 +1,4 @@
-# web [![Build Status](https://travis-ci.org/afxcn/web.svg?branch=master)](https://travis-ci.org/afxcn/web)
+# web [![Build Status](https://travis-ci.org/webpkg/web.svg?branch=master)](https://travis-ci.org/webpkg/web)
 
 a MVC Web Application Framework for golang
 
@@ -8,11 +8,11 @@ Make sure you have the a working Go environment. See the [install instructions](
 
 To install web.go, simply run:
 
-    go get github.com/afxcn/web
+    go get github.com/webpkg/web
 
 To compile it from source:
 
-    git clone git://github.com/afxcn/web.git
+    git clone git://github.com/webpkg/web.git
     cd web && go build
 
 ## Example
@@ -25,7 +25,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/afxcn/web"
+	"github.com/webpkg/web"
 )
 
 func Index(ctx *web.Context) {
@@ -63,7 +63,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/afxcn/web"
+	"github.com/webpkg/web"
 )
 
 func main() {

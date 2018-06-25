@@ -2,7 +2,6 @@ package web
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -114,7 +113,7 @@ func (template *Template) parsePartial(name string) (*Template, error) {
 		}
 	}
 	if filename == "" {
-		return nil, errors.New(fmt.Sprintf("Could not find partial %q", name))
+		return nil, fmt.Errorf("Could not find partial %q", name)
 	}
 
 	partial, err := ParseFile(filename)
@@ -163,7 +162,7 @@ func (template *Template) parseSection(section *sectionElement) error {
 
 			//ignore the newline when a section starts
 			if len(template.data) > template.p && template.data[template.p] == '\n' {
-				template.p += 1
+				template.p++
 			} else if len(template.data) > template.p+1 && template.data[template.p] == '\r' && template.data[template.p+1] == '\n' {
 				template.p += 2
 			}
@@ -248,7 +247,7 @@ func (template *Template) parse() error {
 			name := strings.TrimSpace(tag[1:])
 
 			if len(template.data) > template.p && template.data[template.p] == '\n' {
-				template.p += 1
+				template.p++
 			} else if len(template.data) > template.p+1 && template.data[template.p] == '\r' && template.data[template.p+1] == '\n' {
 				template.p += 2
 			}

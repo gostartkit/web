@@ -15,6 +15,7 @@ import (
 var server *Server
 var once sync.Once
 
+// Server object
 type Server struct {
 	NotFound         http.Handler
 	MethodNotAllowed http.Handler
@@ -34,6 +35,7 @@ type Server struct {
 	handleOptions          bool
 }
 
+// CreateServer return an singleton Server
 func CreateServer() *Server {
 	once.Do(func() {
 		server = createServer()

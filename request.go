@@ -1,5 +1,5 @@
 package web
 
-// Request is type of an web Request
+// Request is type of a web.Request
 type Request struct {
 }

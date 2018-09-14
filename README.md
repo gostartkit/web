@@ -14,3 +14,9 @@ To compile it from source:
 
     git clone git://github.com/webpkg/web.git
     cd web && go build
+
+## Legal and Licensing
+
+webpkg/web is licensed under the [AGPL-3.0 license][].
+
+[AGPL-3.0 license]: https://github.com/webpkg/web/blob/master/LICENSE

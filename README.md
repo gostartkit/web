@@ -17,6 +17,7 @@ To compile it from source:
 
 ## Legal and Licensing
 
-webpkg/web is licensed under the [AGPL-3.0 license][].
+[webpkg/web][] is licensed under the [AGPL-3.0 license][].
 
+[webpkg/web]: https://github.com/webpkg/web
 [AGPL-3.0 license]: https://github.com/webpkg/web/blob/master/LICENSE

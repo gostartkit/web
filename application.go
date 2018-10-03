@@ -22,6 +22,11 @@ func CreateApplication() *Application {
 	return app
 }
 
+// Callback function return a web.Application
+func (app *Application) Callback() *Application {
+	return app
+}
+
 // Use add the given middleware function to web.Application.
 func (app *Application) Use(fn func(ctx *Context)) *Application {
 	return app

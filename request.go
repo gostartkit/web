@@ -4,6 +4,31 @@ package web
 type Request struct {
 }
 
+// Header is type of Request.Header
+func (r *Request) Header() {
+
+}
+
+// Headers is type of Request.Headers
+func (r *Request) Headers() {
+
+}
+
+// Method is type of Request.Method
+func (r *Request) Method() {
+
+}
+
+// Length Return request Content-Length as a number when present, or -1
+func (r *Request) Length() int {
+	return 0
+}
+
+// URL Get request URL.
+func (r *Request) URL() {
+
+}
+
 // Href is
 func (r *Request) Href() {
 
@@ -31,11 +56,6 @@ func (r *Request) Host() {
 
 // Hostname is
 func (r *Request) Hostname() {
-
-}
-
-// URL is
-func (r *Request) URL() {
 
 }
 
@@ -84,8 +104,8 @@ func (r *Request) SubDomains() {
 
 }
 
-// IS is
-func (r *Request) IS(types string) {
+// Is is
+func (r *Request) Is(types string) {
 
 }
 

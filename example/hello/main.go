@@ -3,11 +3,11 @@ package main
 import "github.com/webpkg/web"
 
 func main() {
-	app := web.CreateApplication()
+	app := web.Singleton()
 
 	app.Use(func(ctx *web.Context) {
 
 	})
 
-	app.Listen(":3000")
+	app.Listen(":http")
 }

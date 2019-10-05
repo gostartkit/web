@@ -33,19 +33,18 @@ func newApplication() *Application {
 }
 
 // Use add the given middleware function to web.Application.
-func (app *Application) Use(callback Callback) *Application {
-	return app
+func (app *Application) Use(callback Callback) {
+
 }
 
 // On add event
-func (app *Application) On(name string, callback func(err string, ctx *Context)) *Application {
-	return app
+func (app *Application) On(name string, callback Callback) {
+
 }
 
 // Listen addr
-func (app *Application) Listen(addr string) *Application {
+func (app *Application) Listen(addr string) {
 	http.ListenAndServe(addr, nil)
-	return app
 }
 
 // Inspect method

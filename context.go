@@ -2,9 +2,8 @@ package web
 
 // Context is type of an web.Context
 type Context struct {
-	Application *Application
-	Response    *Response
-	Request     *Request
+	Response *Response
+	Request  *Request
 }
 
 // Cookies is

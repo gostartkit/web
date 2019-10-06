@@ -1,130 +1,133 @@
 package web
 
+import "net/http"
+
 // Request is type of a web.Request
 type Request struct {
+	r *http.Request
 }
 
 // Header is type of Request.Header
-func (r *Request) Header() {
+func (o *Request) Header() {
 
 }
 
 // Headers is type of Request.Headers
-func (r *Request) Headers() {
+func (o *Request) Headers() {
 
 }
 
 // Method is type of Request.Method
-func (r *Request) Method() {
+func (o *Request) Method() {
 
 }
 
-// Length Return request Content-Length as a number when present, or -1
-func (r *Request) Length() int {
+// Length Return Content-Length as a number when present, or -1
+func (o *Request) Length() int {
 	return 0
 }
 
 // URL Get request URL.
-func (r *Request) URL() {
+func (o *Request) URL() {
 
 }
 
 // Href is
-func (r *Request) Href() {
+func (o *Request) Href() {
 
 }
 
 // Path is
-func (r *Request) Path() {
+func (o *Request) Path() {
 
 }
 
 // QueryString is
-func (r *Request) QueryString() {
+func (o *Request) QueryString() {
 
 }
 
 // Search is
-func (r *Request) Search() {
+func (o *Request) Search() {
 
 }
 
 // Host is
-func (r *Request) Host() {
+func (o *Request) Host() {
 
 }
 
 // Hostname is
-func (r *Request) Hostname() {
+func (o *Request) Hostname() {
 
 }
 
 // Type is
-func (r *Request) Type() {
+func (o *Request) Type() {
 
 }
 
 // Charset is
-func (r *Request) Charset() {
+func (o *Request) Charset() {
 
 }
 
 // Query is
-func (r *Request) Query() {
+func (o *Request) Query() {
 
 }
 
 // Fresh is
-func (r *Request) Fresh() {
+func (o *Request) Fresh() {
 
 }
 
 // Stale is
-func (r *Request) Stale() {
+func (o *Request) Stale() {
 
 }
 
 // Protocol is
-func (r *Request) Protocol() {
+func (o *Request) Protocol() {
 
 }
 
 // Secure is
-func (r *Request) Secure() {
+func (o *Request) Secure() {
 
 }
 
 // IP is
-func (r *Request) IP() {
+func (o *Request) IP() {
 
 }
 
 // SubDomains is
-func (r *Request) SubDomains() {
+func (o *Request) SubDomains() {
 
 }
 
 // Is is
-func (r *Request) Is(types string) {
+func (o *Request) Is(types string) {
 
 }
 
 // Accepts is
-func (r *Request) Accepts(types string) string {
+func (o *Request) Accepts(types string) string {
 	return ""
 }
 
 // AcceptsEncodings is
-func (r *Request) AcceptsEncodings(encodings string) string {
+func (o *Request) AcceptsEncodings(encodings string) string {
 	return ""
 }
 
 // AcceptsCharsets is
-func (r *Request) AcceptsCharsets(charsets string) string {
+func (o *Request) AcceptsCharsets(charsets string) string {
 	return ""
 }
 
 // AcceptsLanguages is
-func (r *Request) AcceptsLanguages(langs string) string {
+func (o *Request) AcceptsLanguages(langs string) string {
 	return ""
 }

@@ -1,8 +1,12 @@
 package web
 
 import (
+	"log"
+	"net"
 	"net/http"
+	"os"
 	"sync"
+	"time"
 )
 
 var _app *Application
@@ -14,11 +18,11 @@ type Callback func(ctx *Context)
 // Application is type of a web.Application
 type Application struct {
 	middlewares []Callback
-	keys        []string
+	logger      *log.Logger
 }
 
-// Singleton return a singleton web.Application
-func Singleton() *Application {
+// Create return a singleton web.Application
+func Create() *Application {
 	_once.Do(func() {
 		_app = newApplication()
 	})
@@ -27,14 +31,17 @@ func Singleton() *Application {
 
 // newApplication return a web.Application
 func newApplication() *Application {
-	app := &Application{}
+	app := &Application{
+		middlewares: []Callback{},
+		logger:      log.New(os.Stdout, "", log.Ldate|log.Ltime),
+	}
 
 	return app
 }
 
 // Use add the given middleware function to web.Application.
 func (app *Application) Use(callback Callback) {
-
+	app.middlewares = append(app.middlewares, callback)
 }
 
 // On add event
@@ -42,9 +49,33 @@ func (app *Application) On(name string, callback Callback) {
 
 }
 
-// Listen addr
-func (app *Application) Listen(addr string) {
-	http.ListenAndServe(addr, nil)
+// ServeHTTP
+func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
+
+	ctx := newContext(w, r)
+
+	for i := range app.middlewares {
+		callback := app.middlewares[i]
+		callback(ctx)
+	}
+
+	endTime := time.Now()
+
+	app.logger.Printf("%s", endTime.Sub(startTime))
+}
+
+// ListenAndServe on addr
+func (app *Application) ListenAndServe(addr string) error {
+	l, err := net.Listen("tcp", addr)
+
+	if err != nil {
+		log.Fatal("Listen:", err)
+	}
+
+	app.logger.Printf("web.go serving %s\n", l.Addr())
+
+	return http.Serve(l, app)
 }
 
 // Inspect method
@@ -52,7 +83,22 @@ func (app *Application) Inspect() string {
 	return ""
 }
 
+// Log method
+func (app *Application) Log(line string) {
+
+}
+
 // newContext return a web.Context
-func newContext() *Context {
-	return &Context{}
+func newContext(w http.ResponseWriter, r *http.Request) *Context {
+
+	ctx := &Context{
+		Response: &Response{
+			w: w,
+		},
+		Request: &Request{
+			r: r,
+		},
+	}
+
+	return ctx
 }

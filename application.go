@@ -39,8 +39,13 @@ func newApplication() *Application {
 	return app
 }
 
-// Use add the given middleware function to web.Application.
+// Use Add the given callback function to this application.middlewares.
 func (app *Application) Use(callback Callback) {
+	app.middlewares = append(app.middlewares, callback)
+}
+
+// Resource Add the given callback function to this application.middlewares.
+func (app *Application) Resource(path string, callback Callback) {
 	app.middlewares = append(app.middlewares, callback)
 }
 
@@ -76,6 +81,19 @@ func (app *Application) ListenAndServe(addr string) error {
 	app.logger.Printf("web.go serving %s\n", l.Addr())
 
 	return http.Serve(l, app)
+}
+
+// ListenAndServeTLS on addr
+func (app *Application) ListenAndServeTLS(addr, certFile, keyFile string) error {
+	l, err := net.Listen("tcp", addr)
+
+	if err != nil {
+		log.Fatal("Listen:", err)
+	}
+
+	app.logger.Printf("web.go serving %s\n", l.Addr())
+
+	return http.ServeTLS(l, app, certFile, keyFile)
 }
 
 // Inspect method

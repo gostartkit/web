@@ -1,6 +1,10 @@
 package main
 
-import "github.com/webpkg/web"
+import (
+	"log"
+
+	"github.com/webpkg/web"
+)
 
 func main() {
 	app := web.Create()
@@ -17,5 +21,19 @@ func main() {
 		ctx.Response.Write("003")
 	})
 
-	app.ListenAndServe(":http")
+	app.Get("/user/:name", func(ctx *web.Context) {
+		ctx.Response.Write("Sander")
+	})
+
+	// m := autocert.Manager{
+	// 	Prompt:     autocert.AcceptTOS,
+	// 	Cache:      autocert.DirCache("certs"),
+	// 	HostPolicy: autocert.HostWhitelist("ip.onlineplaytime.com"),
+	// }
+
+	// tlsConfig := &tls.Config{
+	// 	GetCertificate: m.GetCertificate,
+	// }
+
+	log.Fatal(app.ListenAndServe(":http"))
 }

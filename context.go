@@ -4,6 +4,7 @@ package web
 type Context struct {
 	Response *Response
 	Request  *Request
+	Params   *Params
 }
 
 // Cookies is

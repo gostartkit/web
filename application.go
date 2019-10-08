@@ -72,6 +72,31 @@ func (app *Application) Get(path string, callback Callback) {
 	app.addRoute(http.MethodGet, path, callback)
 }
 
+// Post method
+func (app *Application) Post(path string, callback Callback) {
+	app.addRoute(http.MethodPost, path, callback)
+}
+
+// Put method
+func (app *Application) Put(path string, callback Callback) {
+	app.addRoute(http.MethodPut, path, callback)
+}
+
+// Patch method
+func (app *Application) Patch(path string, callback Callback) {
+	app.addRoute(http.MethodPatch, path, callback)
+}
+
+// Delete method
+func (app *Application) Delete(path string, callback Callback) {
+	app.addRoute(http.MethodDelete, path, callback)
+}
+
+// Options method
+func (app *Application) Options(path string, callback Callback) {
+	app.addRoute(http.MethodOptions, path, callback)
+}
+
 func (app *Application) addRoute(method, path string, callback Callback) {
 
 	if method == "" {
@@ -120,9 +145,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if root := app.trees[r.Method]; root != nil {
 
-		if callback, params, _ := root.getValue(path, app.getParams); callback != nil {
-
-			runTime := time.Now()
+		if callback, params, tsr := root.getValue(path, app.getParams); callback != nil {
 
 			ctx := newContext(w, r, params)
 
@@ -131,26 +154,40 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				callback(ctx)
 			}
 
+			runTime := time.Now()
 			callback(ctx)
+			endTime := time.Now()
 
-			app.logger.Printf("%s %v %s", path, params, runTime.Sub(startTime))
+			app.logger.Printf("web.go: %s %s %s %s %s", r.Method, path, endTime.Sub(startTime), runTime.Sub(startTime), endTime.Sub(runTime))
 
 			return
+
+		} else if r.Method != http.MethodConnect && path != "/" {
+
+			code := http.StatusMovedPermanently
+
+			if r.Method != http.MethodGet {
+				code = http.StatusPermanentRedirect
+			}
+
+			if tsr {
+
+				if len(path) > 1 && path[len(path)-1] == '/' {
+					r.URL.Path = path[:len(path)-1]
+				} else {
+					r.URL.Path = path + "/"
+				}
+
+				http.Redirect(w, r, r.URL.String(), code)
+
+				return
+			}
 		}
 	}
 
 	http.NotFound(w, r)
 
-	// ctx := newContext(w, r)
-
-	// for i := range app.middlewares {
-	// 	callback := app.middlewares[i]
-	// 	callback(ctx)
-	// }
-
-	endTime := time.Now()
-
-	app.logger.Printf("%s %s", path, endTime.Sub(startTime))
+	app.logger.Printf("web.go: %s %s %s", r.Method, path, time.Now().Sub(startTime))
 }
 
 // ListenAndServe on addr

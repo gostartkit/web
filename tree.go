@@ -274,44 +274,44 @@ func (n *node) insertChild(path, fullPath string, callback Callback) {
 			n.callback = callback
 			return
 
-		} else { // catchAll
-			if i+len(wildcard) != len(path) {
-				panic("catch-all routes are only allowed at the end of the path in path '" + fullPath + "'")
-			}
-
-			if len(n.path) > 0 && n.path[len(n.path)-1] == '/' {
-				panic("catch-all conflicts with existing callback for the path segment root in path '" + fullPath + "'")
-			}
-
-			// Currently fixed width 1 for '/'
-			i--
-			if path[i] != '/' {
-				panic("no / before catch-all in path '" + fullPath + "'")
-			}
-
-			n.path = path[:i]
-
-			// First node: catchAll node with empty path
-			child := &node{
-				wildChild: true,
-				nType:     catchAll,
-			}
-			n.children = []*node{child}
-			n.indices = string('/')
-			n = child
-			n.priority++
-
-			// Second node: node holding the variable
-			child = &node{
-				path:     path[i:],
-				nType:    catchAll,
-				callback: callback,
-				priority: 1,
-			}
-			n.children = []*node{child}
-
-			return
 		}
+
+		if i+len(wildcard) != len(path) {
+			panic("catch-all routes are only allowed at the end of the path in path '" + fullPath + "'")
+		}
+
+		if len(n.path) > 0 && n.path[len(n.path)-1] == '/' {
+			panic("catch-all conflicts with existing callback for the path segment root in path '" + fullPath + "'")
+		}
+
+		// Currently fixed width 1 for '/'
+		i--
+		if path[i] != '/' {
+			panic("no / before catch-all in path '" + fullPath + "'")
+		}
+
+		n.path = path[:i]
+
+		// First node: catchAll node with empty path
+		child := &node{
+			wildChild: true,
+			nType:     catchAll,
+		}
+		n.children = []*node{child}
+		n.indices = string('/')
+		n = child
+		n.priority++
+
+		// Second node: node holding the variable
+		child = &node{
+			path:     path[i:],
+			nType:    catchAll,
+			callback: callback,
+			priority: 1,
+		}
+		n.children = []*node{child}
+
+		return
 	}
 
 	// If no wildcard was found, simple insert the path and callback

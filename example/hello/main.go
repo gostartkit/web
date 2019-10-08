@@ -25,6 +25,10 @@ func main() {
 		ctx.Response.Write("Sander")
 	})
 
+	app.Get("/hello", func(ctx *web.Context) {
+		ctx.Response.Write("hello")
+	})
+
 	// m := autocert.Manager{
 	// 	Prompt:     autocert.AcceptTOS,
 	// 	Cache:      autocert.DirCache("certs"),

@@ -1,37 +1,38 @@
 package web
 
 import (
+	"context"
 	"crypto/tls"
+	"errors"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 )
 
-var _app *Application
-var _once sync.Once
+var (
+	_app  *Application
+	_once sync.Once
+)
 
 // Callback function
 type Callback func(ctx *Context)
 
-// Param struct
-type Param struct {
-	Key   string
-	Value string
-}
-
-// Params list
-type Params []Param
+// PanicCallback function
+type PanicCallback func(http.ResponseWriter, *http.Request, interface{})
 
 // Application is type of a web.Application
 type Application struct {
-	trees       map[string]*node
-	middlewares []Callback
-	logger      *log.Logger
-	paramsPool  sync.Pool
-	maxParams   uint16
+	trees         map[string]*node
+	middlewares   []Callback
+	logger        *log.Logger
+	panicCallback PanicCallback
+	paramsPool    sync.Pool
+	maxParams     uint16
 }
 
 // Create return a singleton web.Application
@@ -44,6 +45,7 @@ func Create() *Application {
 
 // newApplication return a web.Application
 func newApplication() *Application {
+
 	app := &Application{
 		middlewares: []Callback{},
 		logger:      log.New(os.Stdout, "", log.Ldate|log.Ltime),
@@ -52,14 +54,44 @@ func newApplication() *Application {
 	return app
 }
 
+// SetLogger set Logger
+func (app *Application) SetLogger(logger *log.Logger) {
+	app.logger = logger
+}
+
+// SetPanic set Logger
+func (app *Application) SetPanic(panic PanicCallback) {
+	app.panicCallback = panic
+}
+
 // Use Add the given callback function to this application.middlewares.
 func (app *Application) Use(callback Callback) {
 	app.middlewares = append(app.middlewares, callback)
 }
 
-// Resource Add the given callback function to this application.middlewares.
-func (app *Application) Resource(path string, callback Callback) {
-	app.middlewares = append(app.middlewares, callback)
+// Resource map controller path
+func (app *Application) Resource(path string, controller Controller) {
+
+	if len(path) > 0 && path[0] != '/' {
+		path = "/" + path
+	}
+
+	pos := len(path) - 1
+
+	if pos >= 0 {
+		if path[pos] != '/' {
+			path = path + "/"
+		}
+	} else {
+		path = "/"
+	}
+
+	app.Get(path, controller.Index)
+	app.Post(path, controller.Create)
+	app.Get(path+":id", controller.Detail)
+	app.Patch(path+":id", controller.Update)
+	app.Put(path+":id", controller.Update)
+	app.Delete(path+":id", controller.Destroy)
 }
 
 // On add event
@@ -139,6 +171,8 @@ func (app *Application) addRoute(method, path string, callback Callback) {
 // ServeHTTP
 func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
+	defer app.recv(w, r)
+
 	startTime := time.Now()
 
 	path := r.URL.Path
@@ -148,6 +182,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if callback, params, tsr := root.getValue(path, app.getParams); callback != nil {
 
 			ctx := newContext(w, r, params)
+			app.putParams(params)
 
 			for i := range app.middlewares {
 				callback := app.middlewares[i]
@@ -158,7 +193,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			callback(ctx)
 			endTime := time.Now()
 
-			app.logger.Printf("web.go: %s %s %s %s %s", r.Method, path, endTime.Sub(startTime), runTime.Sub(startTime), endTime.Sub(runTime))
+			app.logf("%s %s %s %s %s", r.Method, path, endTime.Sub(startTime), runTime.Sub(startTime), endTime.Sub(runTime))
 
 			return
 
@@ -186,48 +221,94 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.NotFound(w, r)
-
-	app.logger.Printf("web.go: %s %s %s", r.Method, path, time.Now().Sub(startTime))
 }
 
-// ListenAndServe on addr
-func (app *Application) ListenAndServe(addr string) error {
+// ListenAndServe Serve with options on addr
+func (app *Application) ListenAndServe(config *ServerConfig, options ...func(*http.Server)) error {
 
-	mux := http.NewServeMux()
-
-	mux.Handle("/", app)
-
-	l, err := net.Listen("tcp", addr)
+	l, err := net.Listen("tcp", config.Addr)
 
 	if err != nil {
 		log.Fatal("Listen:", err)
 	}
 
-	defer l.Close()
+	defer func() {
+		err := l.Close()
+		if err != nil {
+			app.logf("Listen: %v", err)
+		}
+	}()
 
-	app.logger.Printf("web.go serving %s\n", l.Addr())
-
-	return http.Serve(l, mux)
+	return app.serve(config, l, options...)
 }
 
-// ListenAndServeTLS on addr
-func (app *Application) ListenAndServeTLS(addr string, tlsConfig *tls.Config) error {
+// ListenAndServeTLS Serve with tls and options on addr
+func (app *Application) ListenAndServeTLS(config *ServerConfig, tlsConfig *tls.Config, options ...func(*http.Server)) error {
 
-	mux := http.NewServeMux()
-
-	mux.Handle("/", app)
-
-	l, err := tls.Listen("tcp", addr, tlsConfig)
+	l, err := tls.Listen("tcp", config.Addr, tlsConfig)
 
 	if err != nil {
 		log.Fatal("Listen:", err)
 	}
 
-	defer l.Close()
+	defer func() {
+		err := l.Close()
+		if err != nil {
+			app.logf("Listen: %v", err)
+		}
+	}()
 
-	app.logger.Printf("web.go serving %s\n", l.Addr())
+	return app.serve(config, l, options...)
+}
 
-	return http.Serve(l, mux)
+func (app *Application) serve(config *ServerConfig, listener net.Listener, options ...func(*http.Server)) error {
+
+	mux := http.NewServeMux()
+
+	mux.Handle("/", app)
+
+	srv := &http.Server{
+		Handler:           mux,
+		ReadTimeout:       config.ReadTimeout * time.Second,
+		ReadHeaderTimeout: config.ReadHeaderTimeout * time.Second,
+		WriteTimeout:      config.WriteTimeout * time.Second,
+		IdleTimeout:       config.IdleTimeout * time.Second,
+	}
+
+	for _, option := range options {
+		option(srv)
+	}
+
+	defer func() {
+		err := srv.Close()
+		if err != nil {
+			app.logf("srv: %v", err)
+		}
+	}()
+
+	idleConnsClosed := make(chan struct{})
+
+	go func() {
+		sigint := make(chan os.Signal, 1)
+		signal.Notify(sigint, os.Interrupt, syscall.SIGTERM)
+		<-sigint
+
+		if err := srv.Shutdown(context.Background()); err != nil {
+			app.logf("web.go: %v", err)
+		}
+
+		close(idleConnsClosed)
+	}()
+
+	app.logf("web.go(%d) %s", os.Getpid(), listener.Addr())
+
+	if err := srv.Serve(listener); err != nil {
+		app.logf("web.go: %v", err)
+	}
+
+	<-idleConnsClosed
+
+	return errors.New("web.go: exit")
 }
 
 // Inspect method
@@ -235,9 +316,13 @@ func (app *Application) Inspect() string {
 	return ""
 }
 
-// Log method
-func (app *Application) Log(line string) {
+func (app *Application) logf(format string, v ...interface{}) {
 
+	if app.logger != nil {
+		app.logger.Printf(format, v...)
+	} else {
+		log.Printf(format, v...)
+	}
 }
 
 func (app *Application) getParams() *Params {
@@ -252,18 +337,12 @@ func (app *Application) putParams(ps *Params) {
 	}
 }
 
-// newContext return a web.Context
-func newContext(w http.ResponseWriter, r *http.Request, params *Params) *Context {
-
-	ctx := &Context{
-		Response: &Response{
-			w: w,
-		},
-		Request: &Request{
-			r: r,
-		},
-		Params: params,
+func (app *Application) recv(w http.ResponseWriter, r *http.Request) {
+	if rcv := recover(); rcv != nil {
+		if app.panicCallback != nil {
+			app.panicCallback(w, r, rcv)
+		} else {
+			app.logf("web.go: %v", rcv)
+		}
 	}
-
-	return ctx
 }

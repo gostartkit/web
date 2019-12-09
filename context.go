@@ -3,7 +3,6 @@ package web
 import (
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	"net/http"
 	"net/url"
 )
@@ -61,25 +60,16 @@ func (ctx *Context) Header(key string) string {
 	return ctx.Request.Header.Get(key)
 }
 
-// Abort with http status and code
-func (ctx *Context) Abort(status int, code int, err error) {
+// WriteFailure with http status and code
+func (ctx *Context) WriteFailure(status int, code int, name string, err error) {
 	ctx.ResponseWriter.WriteHeader(status)
-
-	if err == nil {
-		err = fmt.Errorf("Abort with %d", status)
-	}
-
-	data := createErrorResponse(code, err)
-	ctx.WriteJSON(data)
-	panic(data)
+	ctx.WriteJSON(createFailureResponse(code, name, err))
 }
 
-// Done with status
-func (ctx *Context) Done(status int, result interface{}) {
+// WriteSuccess with status
+func (ctx *Context) WriteSuccess(status int, result interface{}) {
 	ctx.ResponseWriter.WriteHeader(status)
-
-	data := createSuccessResponse(result)
-	ctx.WriteJSON(data)
+	ctx.WriteJSON(createSuccessResponse(result))
 }
 
 // Write bytes

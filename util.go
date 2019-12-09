@@ -8,30 +8,18 @@ import (
 	"strings"
 )
 
-// ResponseData struct
-type ResponseData struct {
-	Success  bool              `json:"success"`
-	Result   interface{}       `json:"result"`
-	Errors   []ResponseMessage `json:"errors"`
-	Messages []ResponseMessage `json:"messages"`
-}
-
-// ResponseMessage struct
-type ResponseMessage struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
-func createErrorResponse(code int, err error) *ResponseData {
+func createFailureResponse(code int, name string, err error) *ResponseData {
 	data := &ResponseData{
 		Success: false,
-		Errors: []ResponseMessage{
+		Code:    code,
+		Errors: ErrorMessages{
 			{
-				Code:    code,
-				Message: err.Error(),
+				Name: name,
+				Errors: []error{
+					err,
+				},
 			},
 		},
-		Messages: []ResponseMessage{},
 	}
 
 	return data
@@ -39,10 +27,9 @@ func createErrorResponse(code int, err error) *ResponseData {
 
 func createSuccessResponse(result interface{}) *ResponseData {
 	data := &ResponseData{
-		Success:  true,
-		Result:   result,
-		Errors:   []ResponseMessage{},
-		Messages: []ResponseMessage{},
+		Success: true,
+		Result:  result,
+		Errors:  ErrorMessages{},
 	}
 
 	return data

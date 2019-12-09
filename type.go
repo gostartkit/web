@@ -15,3 +15,20 @@ type Controller interface {
 type Validation interface {
 	Validate(r *http.Request) error
 }
+
+// ResponseData struct
+type ResponseData struct {
+	Success bool          `json:"success"`
+	Code    int           `json:"code"`
+	Result  interface{}   `json:"result"`
+	Errors  ErrorMessages `json:"errors"`
+}
+
+// ErrorMessage struct
+type ErrorMessage struct {
+	Name   string  `json:"name"`
+	Errors []error `json:"errors"`
+}
+
+// ErrorMessages Error Collection
+type ErrorMessages []ErrorMessage

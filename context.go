@@ -89,11 +89,13 @@ func (ctx *Context) WriteString(val string) (int, error) {
 
 // WriteJSON Write JSON
 func (ctx *Context) WriteJSON(val interface{}) error {
+	ctx.SetContentType("application/json")
 	return json.NewEncoder(ctx.ResponseWriter).Encode(val)
 }
 
 // WriteXML Write XML
 func (ctx *Context) WriteXML(val interface{}) error {
+	ctx.SetContentType("application/xml")
 	return xml.NewEncoder(ctx.ResponseWriter).Encode(val)
 }
 

@@ -22,12 +22,21 @@ type responseData struct {
 	Error   error       `json:"error"`
 }
 
-// ResponseError struct
-type ResponseError struct {
-	Name string `json:"name"`
-	Text string `json:"text"`
+// ValidationError struct
+type ValidationError struct {
+	Name    string `json:"name"`
+	Message string `json:"message"`
 }
 
-func (r *ResponseError) Error() string {
-	return r.Text
+func (r *ValidationError) Error() string {
+	return r.Message
+}
+
+// Error struct
+type Error struct {
+	Message string `json:"message"`
+}
+
+func (r *Error) Error() string {
+	return r.Message
 }

@@ -55,6 +55,11 @@ func (ctx *Context) Parse(val interface{}) error {
 	return nil
 }
 
+// ParseAbortIf decode val from Request.Body
+func (ctx *Context) ParseAbortIf(val interface{}) {
+	ctx.AbortIf(ctx.Parse(val))
+}
+
 // AbortIf with error
 func (ctx *Context) AbortIf(err error) {
 	if err != nil {
@@ -107,7 +112,7 @@ func (ctx *Context) WriteSuccess(code int, result interface{}) *Context {
 	return ctx
 }
 
-// WriteError with http status and code
+// WriteError with http 400 and code
 func (ctx *Context) WriteError(code int, err error) *Context {
 	data := &responseData{
 		Success: false,
@@ -122,34 +127,34 @@ func (ctx *Context) WriteError(code int, err error) *Context {
 	return ctx
 }
 
+// WriteErrorAbort with http 400 and code
+func (ctx *Context) WriteErrorAbort(code int, err error) {
+	ctx.WriteError(code, err).Abort(err)
+}
+
 // WriteHeader Write Header
-func (ctx *Context) WriteHeader(statusCode int) *Context {
+func (ctx *Context) WriteHeader(statusCode int) {
 	ctx.ResponseWriter.WriteHeader(statusCode)
-	return ctx
 }
 
 // SetHeader Set Header
-func (ctx *Context) SetHeader(key string, value string) *Context {
+func (ctx *Context) SetHeader(key string, value string) {
 	ctx.ResponseWriter.Header().Set(key, value)
-	return ctx
 }
 
 // AddHeader Add Header
-func (ctx *Context) AddHeader(key string, value string) *Context {
+func (ctx *Context) AddHeader(key string, value string) {
 	ctx.ResponseWriter.Header().Add(key, value)
-	return ctx
 }
 
 // SetContentType Set Content-Type
-func (ctx *Context) SetContentType(val string) *Context {
+func (ctx *Context) SetContentType(val string) {
 	ctx.ResponseWriter.Header().Set("Content-Type", contentType(val))
-	return ctx
 }
 
 // Redirect to url with status
-func (ctx *Context) Redirect(status int, url string) *Context {
+func (ctx *Context) Redirect(status int, url string) {
 	ctx.SetHeader("Location", url)
 	ctx.WriteHeader(status)
 	ctx.WriteString("Redirecting to: " + url)
-	return ctx
 }

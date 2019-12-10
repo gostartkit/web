@@ -22,16 +22,11 @@ type Validation interface {
 // AttributeError struct
 type AttributeError struct {
 	Name  string `json:"name"`
-	Error error  `json:"error"`
+	Error string `json:"error"`
 }
 
 // ValidationError Error Collection
 type ValidationError []AttributeError
-
-// CreateValidationError return new ValidationError
-func CreateValidationError() *ValidationError {
-	return &ValidationError{}
-}
 
 func (validationError ValidationError) Error() string {
 	var str strings.Builder

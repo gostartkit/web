@@ -1,6 +1,10 @@
 package web
 
-import "net/http"
+import (
+	"fmt"
+	"net/http"
+	"strings"
+)
 
 // Controller interface
 type Controller interface {
@@ -13,22 +17,29 @@ type Controller interface {
 
 // Validation interface
 type Validation interface {
-	Validate(r *http.Request) error
+	Validate(r *http.Request) ValidationError
 }
 
-// ResponseData struct
-type ResponseData struct {
-	Success bool          `json:"success"`
-	Code    int           `json:"code"`
-	Result  interface{}   `json:"result"`
-	Errors  ErrorMessages `json:"errors"`
+// AttributeError struct
+type AttributeError struct {
+	Name  string `json:"name"`
+	Error error  `json:"error"`
 }
 
-// ErrorMessage struct
-type ErrorMessage struct {
-	Name   string  `json:"name"`
-	Errors []error `json:"errors"`
+// ValidationError Error Collection
+type ValidationError []AttributeError
+
+// CreateValidationError return new ValidationError
+func CreateValidationError() *ValidationError {
+	return &ValidationError{}
 }
 
-// ErrorMessages Error Collection
-type ErrorMessages []ErrorMessage
+func (validationError ValidationError) Error() string {
+	var str strings.Builder
+
+	for _, attributeError := range validationError {
+		fmt.Fprintf(&str, "%s: %v", attributeError.Name, attributeError.Error)
+	}
+
+	return str.String()
+}

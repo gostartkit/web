@@ -60,18 +60,6 @@ func (ctx *Context) Header(key string) string {
 	return ctx.Request.Header.Get(key)
 }
 
-// WriteFailure with http status and code
-func (ctx *Context) WriteFailure(status int, code int, name string, err error) {
-	ctx.ResponseWriter.WriteHeader(status)
-	ctx.WriteJSON(createFailureResponse(code, name, err))
-}
-
-// WriteSuccess with status
-func (ctx *Context) WriteSuccess(status int, result interface{}) {
-	ctx.ResponseWriter.WriteHeader(status)
-	ctx.WriteJSON(createSuccessResponse(result))
-}
-
 // Write bytes
 func (ctx *Context) Write(val []byte) (int, error) {
 	return ctx.ResponseWriter.Write(val)

@@ -8,33 +8,6 @@ import (
 	"strings"
 )
 
-func createFailureResponse(code int, name string, err error) *ResponseData {
-	data := &ResponseData{
-		Success: false,
-		Code:    code,
-		Errors: ErrorMessages{
-			{
-				Name: name,
-				Errors: []error{
-					err,
-				},
-			},
-		},
-	}
-
-	return data
-}
-
-func createSuccessResponse(result interface{}) *ResponseData {
-	data := &ResponseData{
-		Success: true,
-		Result:  result,
-		Errors:  ErrorMessages{},
-	}
-
-	return data
-}
-
 // newContext return a web.Context
 func newContext(w http.ResponseWriter, r *http.Request, params *Params) *Context {
 

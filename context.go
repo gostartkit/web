@@ -127,9 +127,11 @@ func (ctx *Context) WriteError(code int, err error) *Context {
 	return ctx
 }
 
-// WriteErrorAbort with http 400 and code
-func (ctx *Context) WriteErrorAbort(code int, err error) {
-	ctx.WriteError(code, err).Abort(err)
+// WriteErrorAbortIf with http 400 and code
+func (ctx *Context) WriteErrorAbortIf(code int, err error) {
+	if err != nil {
+		ctx.WriteError(code, err).Abort(err)
+	}
 }
 
 // WriteHeader Write Header

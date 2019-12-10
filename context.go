@@ -43,16 +43,16 @@ func (ctx *Context) Form(name string) string {
 	return ctx.formValues.Get(name)
 }
 
-// Validate decode and validate model
-func (ctx *Context) Validate(v Validation) error {
+// Decode model from Request.Body
+func (ctx *Context) Decode(cat interface{}) error {
 
-	if err := json.NewDecoder(ctx.Request.Body).Decode(v); err != nil {
+	if err := json.NewDecoder(ctx.Request.Body).Decode(cat); err != nil {
 		return err
 	}
 
 	defer ctx.Request.Body.Close()
 
-	return v.Validate()
+	return nil
 }
 
 // Header get value by key from header

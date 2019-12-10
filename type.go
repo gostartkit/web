@@ -2,7 +2,6 @@ package web
 
 import (
 	"fmt"
-	"net/http"
 	"strings"
 )
 
@@ -17,7 +16,7 @@ type Controller interface {
 
 // Validation interface
 type Validation interface {
-	Validate(r *http.Request) ValidationError
+	Validate() ValidationError
 }
 
 // AttributeError struct

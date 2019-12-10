@@ -52,7 +52,7 @@ func (ctx *Context) Validate(v Validation) error {
 
 	defer ctx.Request.Body.Close()
 
-	return v.Validate(ctx.Request)
+	return v.Validate()
 }
 
 // Header get value by key from header

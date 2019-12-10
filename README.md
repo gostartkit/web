@@ -12,7 +12,7 @@ signal.Notify(sigint, syscall.SIGTERM) // kill pid
 ```
 
 ### Thanks
-Thanks for all open source projects， I learned a lot from them.
+Thanks for all open source projects, I learned a lot from them.
 
 Special thanks to these two projects：
 

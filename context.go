@@ -43,16 +43,28 @@ func (ctx *Context) Form(name string) string {
 	return ctx.formValues.Get(name)
 }
 
-// Decode model from Request.Body
-func (ctx *Context) Decode(cat interface{}) error {
+// Parse decode val from Request.Body
+func (ctx *Context) Parse(val interface{}) error {
 
-	if err := json.NewDecoder(ctx.Request.Body).Decode(cat); err != nil {
+	if err := json.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
 		return err
 	}
 
 	defer ctx.Request.Body.Close()
 
 	return nil
+}
+
+// AbortIf with error
+func (ctx *Context) AbortIf(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+// Abort with error
+func (ctx *Context) Abort(err error) {
+	panic(err)
 }
 
 // Header get value by key from header
@@ -78,6 +90,28 @@ func (ctx *Context) WriteJSON(val interface{}) error {
 // WriteXML Write XML
 func (ctx *Context) WriteXML(val interface{}) error {
 	return xml.NewEncoder(ctx.ResponseWriter).Encode(val)
+}
+
+// WriteSuccess with status
+func (ctx *Context) WriteSuccess(code int, result interface{}) {
+	data := &responseData{
+		Success: true,
+		Code:    code,
+		Result:  result,
+	}
+	ctx.ResponseWriter.WriteHeader(200)
+	ctx.WriteJSON(data)
+}
+
+// WriteError with http status and code
+func (ctx *Context) WriteError(code int, err error) {
+	data := &responseData{
+		Success: false,
+		Code:    code,
+		Error:   err,
+	}
+	ctx.ResponseWriter.WriteHeader(400)
+	ctx.WriteJSON(data)
 }
 
 // WriteHeader Write Header

@@ -93,50 +93,63 @@ func (ctx *Context) WriteXML(val interface{}) error {
 }
 
 // WriteSuccess with status
-func (ctx *Context) WriteSuccess(code int, result interface{}) {
+func (ctx *Context) WriteSuccess(code int, result interface{}) *Context {
 	data := &responseData{
 		Success: true,
 		Code:    code,
 		Result:  result,
 	}
 	ctx.ResponseWriter.WriteHeader(200)
-	ctx.WriteJSON(data)
+	err := ctx.WriteJSON(data)
+	if err != nil {
+		logf("WriteSuccess: %v", err)
+	}
+	return ctx
 }
 
 // WriteError with http status and code
-func (ctx *Context) WriteError(code int, err error) {
+func (ctx *Context) WriteError(code int, err error) *Context {
 	data := &responseData{
 		Success: false,
 		Code:    code,
 		Error:   err,
 	}
 	ctx.ResponseWriter.WriteHeader(400)
-	ctx.WriteJSON(data)
+	err = ctx.WriteJSON(data)
+	if err != nil {
+		logf("WriteError: %v", err)
+	}
+	return ctx
 }
 
 // WriteHeader Write Header
-func (ctx *Context) WriteHeader(statusCode int) {
+func (ctx *Context) WriteHeader(statusCode int) *Context {
 	ctx.ResponseWriter.WriteHeader(statusCode)
+	return ctx
 }
 
 // SetHeader Set Header
-func (ctx *Context) SetHeader(key string, value string) {
+func (ctx *Context) SetHeader(key string, value string) *Context {
 	ctx.ResponseWriter.Header().Set(key, value)
+	return ctx
 }
 
 // AddHeader Add Header
-func (ctx *Context) AddHeader(key string, value string) {
+func (ctx *Context) AddHeader(key string, value string) *Context {
 	ctx.ResponseWriter.Header().Add(key, value)
+	return ctx
 }
 
 // SetContentType Set Content-Type
-func (ctx *Context) SetContentType(val string) {
+func (ctx *Context) SetContentType(val string) *Context {
 	ctx.ResponseWriter.Header().Set("Content-Type", contentType(val))
+	return ctx
 }
 
 // Redirect to url with status
-func (ctx *Context) Redirect(status int, url string) {
+func (ctx *Context) Redirect(status int, url string) *Context {
 	ctx.SetHeader("Location", url)
 	ctx.WriteHeader(status)
 	ctx.WriteString("Redirecting to: " + url)
+	return ctx
 }

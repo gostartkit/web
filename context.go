@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"net/http"
 	"net/url"
 )
@@ -43,8 +44,8 @@ func (ctx *Context) Form(name string) string {
 	return ctx.formValues.Get(name)
 }
 
-// Parse decode val from Request.Body
-func (ctx *Context) Parse(val interface{}) error {
+// TryParse decode val from Request.Body
+func (ctx *Context) TryParse(val interface{}) error {
 
 	if err := json.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
 		return err
@@ -55,24 +56,33 @@ func (ctx *Context) Parse(val interface{}) error {
 	return nil
 }
 
-// ParseAbortIf decode val from Request.Body
-func (ctx *Context) ParseAbortIf(val interface{}) {
-	ctx.AbortIf(400, ctx.Parse(val), nil)
+// Parse decode val from Request.Body
+// If parse error abort
+func (ctx *Context) Parse(val interface{}) {
+	ctx.AbortIf(ctx.TryParse(val))
+}
+
+// Abort by user
+func (ctx *Context) Abort() {
+	panic(errors.New("Abort by user"))
 }
 
 // AbortIf with error
-func (ctx *Context) AbortIf(code int, err error, fn func(code int, err error) error) {
+func (ctx *Context) AbortIf(err error) {
+	if err != nil {
+		ctx.ResponseWriter.WriteHeader(400)
+		panic(err)
+	}
+}
+
+// AbortFn with error
+func (ctx *Context) AbortFn(code int, err error, fn func(code int, err error) error) {
 	if err != nil {
 		if fn != nil {
 			fn(code, err)
 		}
 		panic(err)
 	}
-}
-
-// Abort with error
-func (ctx *Context) Abort(err error) {
-	panic(err)
 }
 
 // Header get value by key from header

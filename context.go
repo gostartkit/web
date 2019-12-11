@@ -56,21 +56,21 @@ func (ctx *Context) TryParse(val interface{}) error {
 	return nil
 }
 
-// Parse decode val from Request.Body
-// If parse error abort
+// Parse decode val from Request.Body, error abort
 func (ctx *Context) Parse(val interface{}) {
 	ctx.AbortIf(ctx.TryParse(val))
 }
 
 // Abort by user
 func (ctx *Context) Abort() {
+	ctx.ResponseWriter.WriteHeader(defaultHTTPClientError)
 	panic(errors.New("Abort by user"))
 }
 
 // AbortIf with error
 func (ctx *Context) AbortIf(err error) {
 	if err != nil {
-		ctx.ResponseWriter.WriteHeader(400)
+		ctx.ResponseWriter.WriteHeader(defaultHTTPClientError)
 		panic(err)
 	}
 }
@@ -128,7 +128,7 @@ func (ctx *Context) WriteError(code int, err error) error {
 		Code:    code,
 		Error:   err,
 	}
-	ctx.ResponseWriter.WriteHeader(400)
+	ctx.ResponseWriter.WriteHeader(defaultHTTPClientError)
 	return ctx.WriteJSON(data)
 }
 

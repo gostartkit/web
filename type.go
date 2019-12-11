@@ -1,5 +1,9 @@
 package web
 
+const (
+	defaultHTTPClientError int = 400
+)
+
 // Controller interface
 type Controller interface {
 	Index(ctx *Context)

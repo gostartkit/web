@@ -61,18 +61,18 @@ func (ctx *Context) ParseAbortIf(val interface{}) {
 }
 
 // AbortIf with error
-func (ctx *Context) AbortIf(code int, v interface{}, fn func(code int, v interface{}) error) {
-	if v != nil {
+func (ctx *Context) AbortIf(code int, err error, fn func(code int, err error) error) {
+	if err != nil {
 		if fn != nil {
-			fn(code, v)
+			fn(code, err)
 		}
-		panic(v)
+		panic(err)
 	}
 }
 
 // Abort with error
-func (ctx *Context) Abort(v interface{}) {
-	panic(v)
+func (ctx *Context) Abort(err error) {
+	panic(err)
 }
 
 // Header get value by key from header

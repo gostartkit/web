@@ -57,12 +57,15 @@ func (ctx *Context) Parse(val interface{}) error {
 
 // ParseAbortIf decode val from Request.Body
 func (ctx *Context) ParseAbortIf(val interface{}) {
-	ctx.AbortIf(ctx.Parse(val))
+	ctx.AbortIf(400, ctx.Parse(val), nil)
 }
 
 // AbortIf with error
-func (ctx *Context) AbortIf(err error) {
+func (ctx *Context) AbortIf(code int, err error, fn func(code int, err error)) {
 	if err != nil {
+		if fn != nil {
+			fn(code, err)
+		}
 		panic(err)
 	}
 }
@@ -89,51 +92,34 @@ func (ctx *Context) WriteString(val string) (int, error) {
 
 // WriteJSON Write JSON
 func (ctx *Context) WriteJSON(val interface{}) error {
-	ctx.SetContentType("application/json")
 	return json.NewEncoder(ctx.ResponseWriter).Encode(val)
 }
 
 // WriteXML Write XML
 func (ctx *Context) WriteXML(val interface{}) error {
-	ctx.SetContentType("application/xml")
 	return xml.NewEncoder(ctx.ResponseWriter).Encode(val)
 }
 
 // WriteSuccess with status
-func (ctx *Context) WriteSuccess(code int, result interface{}) *Context {
+func (ctx *Context) WriteSuccess(code int, result interface{}) error {
 	data := &responseData{
 		Success: true,
 		Code:    code,
 		Result:  result,
 	}
 	ctx.ResponseWriter.WriteHeader(200)
-	err := ctx.WriteJSON(data)
-	if err != nil {
-		logf("WriteSuccess: %v", err)
-	}
-	return ctx
+	return ctx.WriteJSON(data)
 }
 
 // WriteError with http 400 and code
-func (ctx *Context) WriteError(code int, err error) *Context {
+func (ctx *Context) WriteError(code int, err error) error {
 	data := &responseData{
 		Success: false,
 		Code:    code,
 		Error:   err,
 	}
 	ctx.ResponseWriter.WriteHeader(400)
-	err = ctx.WriteJSON(data)
-	if err != nil {
-		logf("WriteError: %v", err)
-	}
-	return ctx
-}
-
-// WriteErrorAbortIf with http 400 and code
-func (ctx *Context) WriteErrorAbortIf(code int, err error) {
-	if err != nil {
-		ctx.WriteError(code, err).Abort(err)
-	}
+	return ctx.WriteJSON(data)
 }
 
 // WriteHeader Write Header

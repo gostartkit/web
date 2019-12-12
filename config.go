@@ -42,7 +42,7 @@ type Config struct {
 }
 
 // ReadJSON read json to data
-func ReadJSON(data interface{}, filename string) error {
+func ReadJSON(v interface{}, filename string) error {
 
 	if !filepath.IsAbs(filename) {
 		dir, err := os.Getwd()
@@ -54,13 +54,13 @@ func ReadJSON(data interface{}, filename string) error {
 		filename = filepath.Join(dir, filename)
 	}
 
-	b, err := ioutil.ReadFile(filename)
+	data, err := ioutil.ReadFile(filename)
 
 	if err != nil {
 		return err
 	}
 
-	if err := json.Unmarshal(b, data); err != nil {
+	if err := json.Unmarshal(data, v); err != nil {
 		return err
 	}
 
@@ -68,7 +68,7 @@ func ReadJSON(data interface{}, filename string) error {
 }
 
 // WriteJSON write data to json
-func WriteJSON(data interface{}, filename string, force bool) error {
+func WriteJSON(v interface{}, filename string, force bool) error {
 
 	if !filepath.IsAbs(filename) {
 		dir, err := os.Getwd()
@@ -82,13 +82,13 @@ func WriteJSON(data interface{}, filename string, force bool) error {
 
 	if force || !exists(filename) {
 
-		b, err := json.MarshalIndent(data, "", "  ")
+		data, err := json.MarshalIndent(v, "", "  ")
 
 		if err != nil {
 			return err
 		}
 
-		return ioutil.WriteFile(filename, b, 0600)
+		return ioutil.WriteFile(filename, data, 0600)
 	}
 
 	return os.ErrExist

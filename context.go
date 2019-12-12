@@ -13,19 +13,20 @@ type Context struct {
 	ResponseWriter http.ResponseWriter
 	Request        *http.Request
 	paramValues    *Params
-	queryValues    url.Values
-	formValues     url.Values
+	queryValues    *url.Values
+	formValues     *url.Values
 }
 
-// Val get value from Params
-func (ctx *Context) Val(name string) string {
+// Param get value from Params
+func (ctx *Context) Param(name string) string {
 	return ctx.paramValues.Val(name)
 }
 
 // Query get value from QueryString
 func (ctx *Context) Query(name string) string {
 	if ctx.queryValues == nil {
-		ctx.queryValues = ctx.Request.URL.Query()
+		val := ctx.Request.URL.Query()
+		ctx.queryValues = &val
 	}
 
 	return ctx.queryValues.Get(name)
@@ -38,7 +39,7 @@ func (ctx *Context) Form(name string) string {
 			ctx.Request.ParseForm()
 		}
 
-		ctx.formValues = ctx.Request.Form
+		ctx.formValues = &ctx.Request.Form
 	}
 
 	return ctx.formValues.Get(name)
@@ -59,6 +60,36 @@ func (ctx *Context) TryParse(val interface{}) error {
 // Parse decode val from Request.Body, error abort
 func (ctx *Context) Parse(val interface{}) {
 	ctx.AbortIf(ctx.TryParse(val))
+}
+
+// TryParseParam decode val from Param
+func (ctx *Context) TryParseParam(name string, val interface{}) error {
+	return json.Unmarshal([]byte(ctx.Param(name)), val)
+}
+
+// ParseParam decode val from Param, error abort
+func (ctx *Context) ParseParam(name string, val interface{}) {
+	ctx.AbortIf(ctx.TryParseParam(name, val))
+}
+
+// TryParseQuery decode val from Query
+func (ctx *Context) TryParseQuery(name string, val interface{}) error {
+	return json.Unmarshal([]byte(ctx.Query(name)), val)
+}
+
+// ParseQuery decode val from Query, error abort
+func (ctx *Context) ParseQuery(name string, val interface{}) {
+	ctx.AbortIf(ctx.TryParseQuery(name, val))
+}
+
+// TryParseForm decode val from Form
+func (ctx *Context) TryParseForm(name string, val interface{}) error {
+	return json.Unmarshal([]byte(ctx.Form(name)), val)
+}
+
+// ParseForm decode val from Form, error abort
+func (ctx *Context) ParseForm(name string, val interface{}) {
+	ctx.AbortIf(ctx.TryParseForm(name, val))
 }
 
 // Abort by user

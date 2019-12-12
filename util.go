@@ -14,7 +14,7 @@ func newContext(w http.ResponseWriter, r *http.Request, params *Params) *Context
 	ctx := &Context{
 		ResponseWriter: w,
 		Request:        r,
-		paramValues:    params,
+		params:         params,
 	}
 
 	return ctx
@@ -39,7 +39,7 @@ func logf(format string, v ...interface{}) {
 	log.Printf(format, v...)
 }
 
-func exists(filename string) bool {
+func fileExists(filename string) bool {
 	info, err := os.Stat(filename)
 	if err != nil {
 		return false

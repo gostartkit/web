@@ -12,13 +12,13 @@ import (
 type Context struct {
 	ResponseWriter http.ResponseWriter
 	Request        *http.Request
-	paramValues    *Params
+	params         *Params
 	urlValues      *url.Values
 }
 
 // Param get value from Params
 func (ctx *Context) Param(name string) string {
-	return ctx.paramValues.Val(name)
+	return ctx.params.Val(name)
 }
 
 // Query get value from QueryString
@@ -41,17 +41,14 @@ func (ctx *Context) Form(name string) string {
 
 // TryParse decode val from Request.Body
 func (ctx *Context) TryParse(val interface{}) error {
-
 	if err := json.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
 		return err
 	}
-
 	defer ctx.Request.Body.Close()
-
 	return nil
 }
 
-// Parse decode val from Request.Body, error abort
+// Parse decode val from Request.Body, if error != nil abort
 func (ctx *Context) Parse(val interface{}) {
 	ctx.AbortIf(ctx.TryParse(val))
 }
@@ -61,7 +58,7 @@ func (ctx *Context) TryParseParam(name string, val interface{}) error {
 	return json.Unmarshal([]byte(ctx.Param(name)), val)
 }
 
-// ParseParam decode val from Param, error abort
+// ParseParam decode val from Param, if error != nil abort
 func (ctx *Context) ParseParam(name string, val interface{}) {
 	ctx.AbortIf(ctx.TryParseParam(name, val))
 }
@@ -71,7 +68,7 @@ func (ctx *Context) TryParseQuery(name string, val interface{}) error {
 	return json.Unmarshal([]byte(ctx.Query(name)), val)
 }
 
-// ParseQuery decode val from Query, error abort
+// ParseQuery decode val from Query, if error != nil abort
 func (ctx *Context) ParseQuery(name string, val interface{}) {
 	ctx.AbortIf(ctx.TryParseQuery(name, val))
 }
@@ -81,26 +78,26 @@ func (ctx *Context) TryParseForm(name string, val interface{}) error {
 	return json.Unmarshal([]byte(ctx.Form(name)), val)
 }
 
-// ParseForm decode val from Form, error abort
+// ParseForm decode val from Form, if error != nil abort
 func (ctx *Context) ParseForm(name string, val interface{}) {
 	ctx.AbortIf(ctx.TryParseForm(name, val))
 }
 
-// Abort by user
+// Abort WriteHeader 400 then abort
 func (ctx *Context) Abort() {
-	ctx.ResponseWriter.WriteHeader(defaultHTTPClientError)
+	ctx.ResponseWriter.WriteHeader(defaultHTTPStatusError)
 	panic(errors.New("Abort by user"))
 }
 
-// AbortIf with error
+// AbortIf if error != nill, WriteHeader 400 then abort
 func (ctx *Context) AbortIf(err error) {
 	if err != nil {
-		ctx.ResponseWriter.WriteHeader(defaultHTTPClientError)
+		ctx.ResponseWriter.WriteHeader(defaultHTTPStatusError)
 		panic(err)
 	}
 }
 
-// AbortFn with error
+// AbortFn if error != nill, call fn then abort
 func (ctx *Context) AbortFn(code int, err error, fn func(code int, err error) error) {
 	if err != nil {
 		if fn != nil {
@@ -142,7 +139,7 @@ func (ctx *Context) WriteSuccess(code int, result interface{}) error {
 		Code:    code,
 		Result:  result,
 	}
-	ctx.ResponseWriter.WriteHeader(200)
+	ctx.ResponseWriter.WriteHeader(defaultHTTPStatusSuccess)
 	return ctx.WriteJSON(data)
 }
 
@@ -153,7 +150,7 @@ func (ctx *Context) WriteError(code int, err error) error {
 		Code:    code,
 		Error:   err,
 	}
-	ctx.ResponseWriter.WriteHeader(defaultHTTPClientError)
+	ctx.ResponseWriter.WriteHeader(defaultHTTPStatusError)
 	return ctx.WriteJSON(data)
 }
 

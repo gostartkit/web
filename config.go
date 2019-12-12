@@ -80,7 +80,7 @@ func WriteJSON(v interface{}, filename string, force bool) error {
 		filename = filepath.Join(dir, filename)
 	}
 
-	if force || !exists(filename) {
+	if force || !fileExists(filename) {
 
 		data, err := json.MarshalIndent(v, "", "  ")
 

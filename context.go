@@ -13,8 +13,7 @@ type Context struct {
 	ResponseWriter http.ResponseWriter
 	Request        *http.Request
 	paramValues    *Params
-	queryValues    *url.Values
-	formValues     *url.Values
+	urlValues      *url.Values
 }
 
 // Param get value from Params
@@ -24,25 +23,20 @@ func (ctx *Context) Param(name string) string {
 
 // Query get value from QueryString
 func (ctx *Context) Query(name string) string {
-	if ctx.queryValues == nil {
-		val := ctx.Request.URL.Query()
-		ctx.queryValues = &val
+	if ctx.urlValues == nil {
+		urlValues := ctx.Request.URL.Query()
+		ctx.urlValues = &urlValues
 	}
 
-	return ctx.queryValues.Get(name)
+	return ctx.urlValues.Get(name)
 }
 
 // Form get value from Form
 func (ctx *Context) Form(name string) string {
-	if ctx.formValues == nil {
-		if ctx.Request.Form == nil {
-			ctx.Request.ParseForm()
-		}
-
-		ctx.formValues = &ctx.Request.Form
+	if ctx.Request.Form == nil {
+		ctx.Request.ParseForm()
 	}
-
-	return ctx.formValues.Get(name)
+	return ctx.Request.Form.Get(name)
 }
 
 // TryParse decode val from Request.Body

@@ -85,14 +85,14 @@ func (ctx *Context) ParseForm(name string, val interface{}) {
 
 // Abort WriteHeader 400 then abort
 func (ctx *Context) Abort() {
-	ctx.ResponseWriter.WriteHeader(defaultHTTPStatusError)
+	ctx.ResponseWriter.WriteHeader(defaultHTTPError)
 	panic(errors.New("Abort by user"))
 }
 
 // AbortIf if error != nill, WriteHeader 400 then abort
 func (ctx *Context) AbortIf(err error) {
 	if err != nil {
-		ctx.ResponseWriter.WriteHeader(defaultHTTPStatusError)
+		ctx.ResponseWriter.WriteHeader(defaultHTTPError)
 		panic(err)
 	}
 }
@@ -139,7 +139,7 @@ func (ctx *Context) WriteSuccess(code int, result interface{}) error {
 		Code:    code,
 		Result:  result,
 	}
-	ctx.ResponseWriter.WriteHeader(defaultHTTPStatusSuccess)
+	ctx.ResponseWriter.WriteHeader(defaultHTTPSuccess)
 	return ctx.WriteJSON(data)
 }
 
@@ -150,7 +150,7 @@ func (ctx *Context) WriteError(code int, err error) error {
 		Code:    code,
 		Error:   err,
 	}
-	ctx.ResponseWriter.WriteHeader(defaultHTTPStatusError)
+	ctx.ResponseWriter.WriteHeader(defaultHTTPError)
 	return ctx.WriteJSON(data)
 }
 

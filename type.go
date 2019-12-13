@@ -1,8 +1,8 @@
 package web
 
 const (
-	defaultHTTPStatusSuccess int = 200
-	defaultHTTPStatusError   int = 400
+	defaultHTTPSuccess int = 200
+	defaultHTTPError   int = 400
 )
 
 // Controller interface

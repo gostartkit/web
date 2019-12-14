@@ -1,5 +1,7 @@
 package web
 
+import "strings"
+
 const (
 	defaultHTTPSuccess int = 200
 	defaultHTTPError   int = 400
@@ -12,6 +14,25 @@ type Controller interface {
 	Detail(ctx *Context)
 	Update(ctx *Context)
 	Destroy(ctx *Context)
+}
+
+// Middleware struct
+type Middleware struct {
+	Path     string
+	Callback Callback
+}
+
+// Middlewares Middleware list
+type Middlewares []Middleware
+
+func (m Middlewares) exec(path string, ctx *Context) {
+	for i := range m {
+		if strings.HasPrefix(path, m[i].Path) {
+			if m[i].Callback != nil {
+				m[i].Callback(ctx)
+			}
+		}
+	}
 }
 
 // Validation interface

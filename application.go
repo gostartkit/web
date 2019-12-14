@@ -27,12 +27,12 @@ type PanicCallback func(http.ResponseWriter, *http.Request, interface{})
 
 // Application is type of a web.Application
 type Application struct {
-	trees         map[string]*node
-	middlewares   []Callback
-	logger        *log.Logger
-	panicCallback PanicCallback
-	paramsPool    sync.Pool
-	maxParams     uint16
+	trees       map[string]*node
+	middlewares Middlewares
+	logger      *log.Logger
+	panic       PanicCallback
+	paramsPool  sync.Pool
+	maxParams   uint16
 }
 
 // Create return a singleton web.Application
@@ -45,12 +45,10 @@ func Create() *Application {
 
 // newApplication return a web.Application
 func newApplication() *Application {
-
 	app := &Application{
-		middlewares: []Callback{},
-		logger:      log.New(os.Stdout, "", log.Ldate|log.Ltime),
+		// middlewares: middlewares{},
+		logger: log.New(os.Stdout, "", log.Ldate|log.Ltime),
 	}
-
 	return app
 }
 
@@ -61,12 +59,16 @@ func (app *Application) SetLogger(logger *log.Logger) {
 
 // SetPanic set Logger
 func (app *Application) SetPanic(panic PanicCallback) {
-	app.panicCallback = panic
+	app.panic = panic
 }
 
 // Use Add the given callback function to this application.middlewares.
-func (app *Application) Use(callback Callback) {
-	app.middlewares = append(app.middlewares, callback)
+func (app *Application) Use(path string, callback Callback) {
+	m := Middleware{
+		Path:     path,
+		Callback: callback,
+	}
+	app.middlewares = append(app.middlewares, m)
 }
 
 // Resource map controller path
@@ -170,11 +172,8 @@ func (app *Application) addRoute(method, path string, callback Callback) {
 
 // ServeHTTP
 func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
-	defer app.recv(w, r)
-
 	startTime := time.Now()
-
+	defer app.recv(w, r)
 	path := r.URL.Path
 
 	if root := app.trees[r.Method]; root != nil {
@@ -184,10 +183,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			ctx := newContext(w, r, params)
 			app.putParams(params)
 
-			for i := range app.middlewares {
-				callback := app.middlewares[i]
-				callback(ctx)
-			}
+			app.middlewares.exec(path, ctx)
 
 			runTime := time.Now()
 			callback(ctx)
@@ -232,12 +228,7 @@ func (app *Application) ListenAndServe(config *ServerConfig, options ...func(*ht
 		log.Fatal("Listen:", err)
 	}
 
-	defer func() {
-		err := l.Close()
-		if err != nil {
-			app.logf("Listen: %v", err)
-		}
-	}()
+	defer l.Close()
 
 	return app.serve(config, l, options...)
 }
@@ -251,12 +242,7 @@ func (app *Application) ListenAndServeTLS(config *ServerConfig, tlsConfig *tls.C
 		log.Fatal("Listen:", err)
 	}
 
-	defer func() {
-		err := l.Close()
-		if err != nil {
-			app.logf("Listen: %v", err)
-		}
-	}()
+	defer l.Close()
 
 	return app.serve(config, l, options...)
 }
@@ -339,8 +325,8 @@ func (app *Application) putParams(ps *Params) {
 
 func (app *Application) recv(w http.ResponseWriter, r *http.Request) {
 	if rcv := recover(); rcv != nil {
-		if app.panicCallback != nil {
-			app.panicCallback(w, r, rcv)
+		if app.panic != nil {
+			app.panic(w, r, rcv)
 		} else {
 			app.logf("web.go: %v", rcv)
 		}

@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"reflect"
+	"strconv"
 )
 
 // Context is type of an web.Context
@@ -39,6 +41,45 @@ func (ctx *Context) Form(name string) string {
 	return ctx.Request.Form.Get(name)
 }
 
+// Unmarshal parse val to v
+func (ctx *Context) Unmarshal(val string, v interface{}) error {
+	rv := reflect.ValueOf(v)
+
+	if rv.IsNil() {
+		return errors.New("Unmarshal(nil)")
+	}
+
+	if rv.Kind() != reflect.Ptr {
+		return errors.New("Unmarshal(non-pointer " + reflect.TypeOf(v).String() + ")")
+	}
+
+	for rv.Kind() == reflect.Ptr && !rv.IsNil() {
+		rv = rv.Elem()
+	}
+
+	switch rv.Interface().(type) {
+	case string:
+		rv.SetString(val)
+		return nil
+	case int, int64:
+		d, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			return err
+		}
+		rv.SetInt(d)
+		return nil
+	case int32:
+		d, err := strconv.ParseInt(val, 10, 32)
+		if err != nil {
+			return err
+		}
+		rv.SetInt(d)
+		return nil
+	default:
+		return json.Unmarshal([]byte(val), v)
+	}
+}
+
 // TryParse decode val from Request.Body
 func (ctx *Context) TryParse(val interface{}) error {
 	if err := json.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
@@ -53,9 +94,9 @@ func (ctx *Context) Parse(val interface{}) {
 	ctx.AbortIf(ctx.TryParse(val))
 }
 
-// TryParseParam decode val from Param
+// TryParseParam decode val from Query
 func (ctx *Context) TryParseParam(name string, val interface{}) error {
-	return json.Unmarshal([]byte(ctx.Param(name)), val)
+	return ctx.Unmarshal(ctx.Param(name), val)
 }
 
 // ParseParam decode val from Param, if error != nil abort
@@ -65,7 +106,7 @@ func (ctx *Context) ParseParam(name string, val interface{}) {
 
 // TryParseQuery decode val from Query
 func (ctx *Context) TryParseQuery(name string, val interface{}) error {
-	return json.Unmarshal([]byte(ctx.Query(name)), val)
+	return ctx.Unmarshal(ctx.Query(name), val)
 }
 
 // ParseQuery decode val from Query, if error != nil abort
@@ -75,7 +116,7 @@ func (ctx *Context) ParseQuery(name string, val interface{}) {
 
 // TryParseForm decode val from Form
 func (ctx *Context) TryParseForm(name string, val interface{}) error {
-	return json.Unmarshal([]byte(ctx.Form(name)), val)
+	return ctx.Unmarshal(ctx.Form(name), val)
 }
 
 // ParseForm decode val from Form, if error != nil abort

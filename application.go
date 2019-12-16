@@ -46,8 +46,8 @@ func Create() *Application {
 // newApplication return a web.Application
 func newApplication() *Application {
 	app := &Application{
-		// middlewares: middlewares{},
-		logger: log.New(os.Stdout, "", log.Ldate|log.Ltime),
+		middlewares: Middlewares{},
+		logger:      log.New(os.Stdout, "", log.Ldate|log.Ltime),
 	}
 	return app
 }
@@ -64,15 +64,35 @@ func (app *Application) SetPanic(panic PanicCallback) {
 
 // Use Add the given callback function to this application.middlewares.
 func (app *Application) Use(path string, callback Callback) {
+	if len(path) > 0 && path[0] != '/' {
+		path = "/" + path
+	}
+
+	pos := len(path) - 1
+
+	if pos >= 0 {
+		if path[pos] != '/' {
+			path = path + "/"
+		}
+	} else {
+		path = "/"
+	}
+
 	m := Middleware{
 		Path:     path,
 		Callback: callback,
 	}
+
 	app.middlewares = append(app.middlewares, m)
 }
 
 // Resource map controller path
 func (app *Application) Resource(path string, controller Controller) {
+	app.ResourceFn(path, controller, nil)
+}
+
+// ResourceFn map controller path and wrap fn
+func (app *Application) ResourceFn(path string, controller Controller, fn func(cb Callback) Callback) {
 
 	if len(path) > 0 && path[0] != '/' {
 		path = "/" + path
@@ -88,50 +108,59 @@ func (app *Application) Resource(path string, controller Controller) {
 		path = "/"
 	}
 
-	app.Get(path, controller.Index)
-	app.Post(path, controller.Create)
-	app.Get(path+":id", controller.Detail)
-	app.Patch(path+":id", controller.Update)
-	app.Put(path+":id", controller.Update)
-	app.Delete(path+":id", controller.Destroy)
+	if fn == nil {
+		app.Get(path, controller.Index)
+		app.Post(path, controller.Create)
+		app.Get(path+":id", controller.Detail)
+		app.Patch(path+":id", controller.Update)
+		app.Put(path+":id", controller.Update)
+		app.Delete(path+":id", controller.Destroy)
+	} else {
+		app.Get(path, fn(controller.Index))
+		app.Post(path, fn(controller.Create))
+		app.Get(path+":id", fn(controller.Detail))
+		app.Patch(path+":id", fn(controller.Update))
+		app.Put(path+":id", fn(controller.Update))
+		app.Delete(path+":id", fn(controller.Destroy))
+	}
 }
 
 // On add event
-func (app *Application) On(name string, callback Callback) {
+func (app *Application) On(name string, cb Callback) {
 
 }
 
 // Get method
-func (app *Application) Get(path string, callback Callback) {
-	app.addRoute(http.MethodGet, path, callback)
+func (app *Application) Get(path string, cb Callback) {
+	app.addRoute(http.MethodGet, path, cb)
 }
 
 // Post method
-func (app *Application) Post(path string, callback Callback) {
-	app.addRoute(http.MethodPost, path, callback)
+func (app *Application) Post(path string, cb Callback) {
+	app.addRoute(http.MethodPost, path, cb)
 }
 
 // Put method
-func (app *Application) Put(path string, callback Callback) {
-	app.addRoute(http.MethodPut, path, callback)
+func (app *Application) Put(path string, cb Callback) {
+	app.addRoute(http.MethodPut, path, cb)
 }
 
 // Patch method
-func (app *Application) Patch(path string, callback Callback) {
-	app.addRoute(http.MethodPatch, path, callback)
+func (app *Application) Patch(path string, cb Callback) {
+	app.addRoute(http.MethodPatch, path, cb)
 }
 
 // Delete method
-func (app *Application) Delete(path string, callback Callback) {
-	app.addRoute(http.MethodDelete, path, callback)
+func (app *Application) Delete(path string, cb Callback) {
+	app.addRoute(http.MethodDelete, path, cb)
 }
 
 // Options method
-func (app *Application) Options(path string, callback Callback) {
-	app.addRoute(http.MethodOptions, path, callback)
+func (app *Application) Options(path string, cb Callback) {
+	app.addRoute(http.MethodOptions, path, cb)
 }
 
-func (app *Application) addRoute(method, path string, callback Callback) {
+func (app *Application) addRoute(method, path string, cb Callback) {
 
 	if method == "" {
 		panic("method must not be empty")
@@ -141,7 +170,7 @@ func (app *Application) addRoute(method, path string, callback Callback) {
 		panic("path must begin with '/' in path '" + path + "'")
 	}
 
-	if callback == nil {
+	if cb == nil {
 		panic("callback must not be nil")
 	}
 
@@ -156,7 +185,7 @@ func (app *Application) addRoute(method, path string, callback Callback) {
 		app.trees[method] = root
 	}
 
-	root.addRoute(path, callback)
+	root.addRoute(path, cb)
 
 	if pc := countParams(path); pc > app.maxParams {
 		app.maxParams = pc

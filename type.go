@@ -35,11 +35,6 @@ func (m Middlewares) exec(path string, ctx *Context) {
 	}
 }
 
-// Validation interface
-type Validation interface {
-	Validate() error
-}
-
 // responseData struct
 type responseData struct {
 	Success bool        `json:"success"`
@@ -55,14 +50,5 @@ type ValidationError struct {
 }
 
 func (r *ValidationError) Error() string {
-	return r.Message
-}
-
-// Error struct
-type Error struct {
-	Message string `json:"message"`
-}
-
-func (r *Error) Error() string {
 	return r.Message
 }

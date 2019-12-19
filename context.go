@@ -16,6 +16,17 @@ type Context struct {
 	Request        *http.Request
 	params         *Params
 	urlValues      *url.Values
+	token          *string
+}
+
+// GetToken return token
+func (ctx *Context) GetToken() *string {
+	return ctx.token
+}
+
+// SetToken set token
+func (ctx *Context) SetToken(token *string) {
+	ctx.token = token
 }
 
 // Param get value from Params

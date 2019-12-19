@@ -52,3 +52,12 @@ type ValidationError struct {
 func (r *ValidationError) Error() string {
 	return r.Message
 }
+
+// Error struct
+type Error struct {
+	Message string `json:"message"`
+}
+
+func (r *Error) Error() string {
+	return r.Message
+}

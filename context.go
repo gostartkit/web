@@ -150,6 +150,14 @@ func (ctx *Context) AbortFn(code int, err error, fn func(code int, err error) er
 	}
 }
 
+// AbortError if error != nill, call WriteError then abort
+func (ctx *Context) AbortError(code int, err error) {
+	if err != nil {
+		ctx.WriteError(code, err)
+		panic(err)
+	}
+}
+
 // Header get value by key from header
 func (ctx *Context) Header(key string) string {
 	return ctx.Request.Header.Get(key)

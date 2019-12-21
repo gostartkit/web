@@ -47,12 +47,12 @@ func (ctx *Context) Form(name string) string {
 func (ctx *Context) Unmarshal(val string, v interface{}) error {
 	rv := reflect.ValueOf(v)
 
-	if rv.IsNil() {
-		return errors.New("Unmarshal(nil)")
-	}
-
 	if rv.Kind() != reflect.Ptr {
 		return errors.New("Unmarshal(non-pointer " + reflect.TypeOf(v).String() + ")")
+	}
+
+	if rv.IsNil() {
+		return errors.New("Unmarshal(nil)")
 	}
 
 	for rv.Kind() == reflect.Ptr && !rv.IsNil() {

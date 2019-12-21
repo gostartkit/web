@@ -45,6 +45,10 @@ func (ctx *Context) Form(name string) string {
 
 // Unmarshal parse val to v
 func (ctx *Context) Unmarshal(val string, v interface{}) error {
+	if v == nil {
+		return errors.New("Unmarshal(nil)")
+	}
+
 	rv := reflect.ValueOf(v)
 
 	if rv.Kind() != reflect.Ptr {
@@ -57,6 +61,10 @@ func (ctx *Context) Unmarshal(val string, v interface{}) error {
 
 	for rv.Kind() == reflect.Ptr && !rv.IsNil() {
 		rv = rv.Elem()
+	}
+
+	if !rv.CanSet() {
+		return errors.New("Unmarshal(can not set value to v)")
 	}
 
 	switch rv.Interface().(type) {

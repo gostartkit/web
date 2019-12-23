@@ -4,7 +4,6 @@ import (
 	"log"
 	"mime"
 	"net/http"
-	"os"
 	"strings"
 )
 
@@ -37,13 +36,4 @@ func contentType(val string) string {
 
 func logf(format string, v ...interface{}) {
 	log.Printf(format, v...)
-}
-
-func fileExists(filename string) bool {
-	info, err := os.Stat(filename)
-	if err != nil {
-		return false
-	}
-
-	return !info.IsDir()
 }

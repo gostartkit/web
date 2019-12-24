@@ -64,22 +64,9 @@ func (app *Application) SetPanic(panic PanicCallback) {
 
 // Use Add the given callback function to this application.middlewares.
 func (app *Application) Use(path string, callback Callback) {
-	if len(path) > 0 && path[0] != '/' {
-		path = "/" + path
-	}
-
-	pos := len(path) - 1
-
-	if pos >= 0 {
-		if path[pos] != '/' {
-			path = path + "/"
-		}
-	} else {
-		path = "/"
-	}
 
 	m := Middleware{
-		Path:     path,
+		Path:     cleanPath(path),
 		Callback: callback,
 	}
 
@@ -94,19 +81,7 @@ func (app *Application) Resource(path string, controller Controller) {
 // ResourceFn map controller path and wrap fn
 func (app *Application) ResourceFn(path string, controller Controller, fn func(cb Callback, keys ...string) Callback, keys ...string) {
 
-	if len(path) > 0 && path[0] != '/' {
-		path = "/" + path
-	}
-
-	pos := len(path) - 1
-
-	if pos >= 0 {
-		if path[pos] != '/' {
-			path = path + "/"
-		}
-	} else {
-		path = "/"
-	}
+	path = cleanPath(path)
 
 	if fn == nil {
 		app.Get(path, controller.Index)

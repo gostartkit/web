@@ -92,7 +92,7 @@ func (app *Application) Resource(path string, controller Controller) {
 }
 
 // ResourceFn map controller path and wrap fn
-func (app *Application) ResourceFn(path string, controller Controller, fn func(cb Callback, rights ...string) Callback, rights ...string) {
+func (app *Application) ResourceFn(path string, controller Controller, fn func(cb Callback, keys ...string) Callback, keys ...string) {
 
 	if len(path) > 0 && path[0] != '/' {
 		path = "/" + path
@@ -116,12 +116,12 @@ func (app *Application) ResourceFn(path string, controller Controller, fn func(c
 		app.Put(path+":id", controller.Update)
 		app.Delete(path+":id", controller.Destroy)
 	} else {
-		app.Get(path, fn(controller.Index, rights...))
-		app.Post(path, fn(controller.Create, rights...))
-		app.Get(path+":id", fn(controller.Detail, rights...))
-		app.Patch(path+":id", fn(controller.Update, rights...))
-		app.Put(path+":id", fn(controller.Update, rights...))
-		app.Delete(path+":id", fn(controller.Destroy, rights...))
+		app.Get(path, fn(controller.Index, keys...))
+		app.Post(path, fn(controller.Create, keys...))
+		app.Get(path+":id", fn(controller.Detail, keys...))
+		app.Patch(path+":id", fn(controller.Update, keys...))
+		app.Put(path+":id", fn(controller.Update, keys...))
+		app.Delete(path+":id", fn(controller.Destroy, keys...))
 	}
 }
 

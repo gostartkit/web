@@ -75,11 +75,11 @@ func (app *Application) Use(path string, callback Callback) {
 
 // Resource map controller path
 func (app *Application) Resource(path string, controller Controller) {
-	app.ResourceFn(path, controller, nil)
+	app.ResourceFn(path, controller, nil, "")
 }
 
 // ResourceFn map controller path and wrap fn
-func (app *Application) ResourceFn(path string, controller Controller, fn func(cb Callback, keys ...string) Callback, keys ...string) {
+func (app *Application) ResourceFn(path string, controller Controller, fn func(cb Callback, keys ...string) Callback, key string) {
 
 	path = cleanPath(path)
 
@@ -91,12 +91,12 @@ func (app *Application) ResourceFn(path string, controller Controller, fn func(c
 		app.Put(path+":id", controller.Update)
 		app.Delete(path+":id", controller.Destroy)
 	} else {
-		app.Get(path, fn(controller.Index, keys...))
-		app.Post(path, fn(controller.Create, keys...))
-		app.Get(path+":id", fn(controller.Detail, keys...))
-		app.Patch(path+":id", fn(controller.Update, keys...))
-		app.Put(path+":id", fn(controller.Update, keys...))
-		app.Delete(path+":id", fn(controller.Destroy, keys...))
+		app.Get(path, fn(controller.Index, key+".all", key+".self"))
+		app.Post(path, fn(controller.Create, key+".edit"))
+		app.Get(path+":id", fn(controller.Detail, key+".all", key+".self"))
+		app.Patch(path+":id", fn(controller.Update, key+".edit"))
+		app.Put(path+":id", fn(controller.Update, key+".edit"))
+		app.Delete(path+":id", fn(controller.Destroy, key+".edit"))
 	}
 }
 

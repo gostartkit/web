@@ -91,9 +91,9 @@ func (app *Application) ResourceFn(path string, controller Controller, fn func(c
 		app.Put(path+":id", controller.Update)
 		app.Delete(path+":id", controller.Destroy)
 	} else {
-		app.Get(path, fn(controller.Index, key+".all", key+".self"))
+		app.Get(path, fn(controller.Index, key+".all|"+key+".self"))
 		app.Post(path, fn(controller.Create, key+".edit"))
-		app.Get(path+":id", fn(controller.Detail, key+".all", key+".self"))
+		app.Get(path+":id", fn(controller.Detail, key+".all|"+key+".self"))
 		app.Patch(path+":id", fn(controller.Update, key+".edit"))
 		app.Put(path+":id", fn(controller.Update, key+".edit"))
 		app.Delete(path+":id", fn(controller.Destroy, key+".edit"))

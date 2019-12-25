@@ -193,7 +193,7 @@ func (ctx *Context) WriteXML(val interface{}) error {
 
 // WriteSuccess with status
 func (ctx *Context) WriteSuccess(code int, result interface{}) error {
-	data := &responseData{
+	data := &ResponseData{
 		Success: true,
 		Code:    code,
 		Result:  result,
@@ -204,7 +204,7 @@ func (ctx *Context) WriteSuccess(code int, result interface{}) error {
 
 // WriteError with http 400 and code
 func (ctx *Context) WriteError(code int, err error) error {
-	data := &responseData{
+	data := &ResponseData{
 		Success: false,
 		Code:    code,
 		Error:   err,

@@ -7,15 +7,6 @@ const (
 	defaultHTTPError   int = 400
 )
 
-// Controller interface
-type Controller interface {
-	Index(ctx *Context)
-	Create(ctx *Context)
-	Detail(ctx *Context)
-	Update(ctx *Context)
-	Destroy(ctx *Context)
-}
-
 // Middleware struct
 type Middleware struct {
 	Path     string
@@ -35,8 +26,8 @@ func (m Middlewares) exec(path string, ctx *Context) {
 	}
 }
 
-// responseData struct
-type responseData struct {
+// ResponseData struct
+type ResponseData struct {
 	Success bool        `json:"success"`
 	Code    int         `json:"code"`
 	Result  interface{} `json:"result"`

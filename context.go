@@ -16,7 +16,6 @@ type Context struct {
 	Request        *http.Request
 	params         *Params
 	urlValues      *url.Values
-	Token          *string
 	UserID         uint64
 }
 

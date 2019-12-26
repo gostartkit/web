@@ -40,8 +40,17 @@ type ValidationError struct {
 	Message string `json:"message"`
 }
 
+// Error return message
 func (r *ValidationError) Error() string {
 	return r.Message
+}
+
+// CreateValidationError create validation error with name and message
+func CreateValidationError(name string, message string) error {
+	return &ValidationError{
+		Name:    name,
+		Message: message,
+	}
 }
 
 // Error struct
@@ -49,6 +58,14 @@ type Error struct {
 	Message string `json:"message"`
 }
 
+// Error return message
 func (r *Error) Error() string {
 	return r.Message
+}
+
+// CreateError create error with message
+func CreateError(message string) error {
+	return &Error{
+		Message: message,
+	}
 }

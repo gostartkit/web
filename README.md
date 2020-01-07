@@ -65,7 +65,7 @@ var (
 	_onceUserController sync.Once
 )
 
-// CreateUserController return web.Controller
+// CreateUserController return *UserController
 func CreateUserController() *UserController {
 
 	_onceUserController.Do(func() {

@@ -139,6 +139,20 @@ func (app *Application) addRoute(method, path string, cb Callback) {
 	}
 }
 
+// ServeFiles ("/src/*filepath", http.Dir("/var/www"))
+func (app *Application) ServeFiles(path string, root http.FileSystem) {
+	if len(path) < 10 || path[len(path)-10:] != "/*filepath" {
+		panic("path must end with /*filepath in path '" + path + "'")
+	}
+
+	fileServer := http.FileServer(root)
+
+	app.Get(path, func(ctx *Context) {
+		ctx.Request.URL.Path = ctx.params.Val("filepath")
+		fileServer.ServeHTTP(ctx.ResponseWriter, ctx.Request)
+	})
+}
+
 // ServeHTTP
 func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()

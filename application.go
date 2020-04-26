@@ -27,12 +27,11 @@ type PanicCallback func(http.ResponseWriter, *http.Request, interface{})
 
 // Application is type of a web.Application
 type Application struct {
-	trees       map[string]*node
-	middlewares Middlewares
-	logger      *log.Logger
-	panic       PanicCallback
-	paramsPool  sync.Pool
-	maxParams   uint16
+	trees      map[string]*node
+	logger     *log.Logger
+	panic      PanicCallback
+	paramsPool sync.Pool
+	maxParams  uint16
 }
 
 // Create return a singleton web.Application
@@ -46,8 +45,7 @@ func Create() *Application {
 // newApplication return a web.Application
 func newApplication() *Application {
 	app := &Application{
-		middlewares: Middlewares{},
-		logger:      log.New(os.Stdout, "", log.Ldate|log.Ltime),
+		logger: log.New(os.Stdout, "", log.Ldate|log.Ltime),
 	}
 	return app
 }
@@ -65,12 +63,6 @@ func (app *Application) SetPanic(panic PanicCallback) {
 // Use Add the given callback function to this application.middlewares.
 func (app *Application) Use(path string, callback Callback) {
 
-	m := Middleware{
-		Path:     cleanPath(path),
-		Callback: callback,
-	}
-
-	app.middlewares = append(app.middlewares, m)
 }
 
 // On add event
@@ -159,8 +151,6 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			ctx := newContext(w, r, params)
 			app.putParams(params)
-
-			app.middlewares.exec(path, ctx)
 
 			runTime := time.Now()
 			callback(ctx)

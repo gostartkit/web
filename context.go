@@ -100,7 +100,7 @@ func (ctx *Context) TryParse(val interface{}) error {
 
 // Parse decode val from Request.Body, if error != nil abort
 func (ctx *Context) Parse(val interface{}) {
-	ctx.AbortIf(ctx.TryParse(val))
+	ctx.Abort(ctx.TryParse(val))
 }
 
 // TryParseParam decode val from Query
@@ -110,7 +110,7 @@ func (ctx *Context) TryParseParam(name string, val interface{}) error {
 
 // ParseParam decode val from Param, if error != nil abort
 func (ctx *Context) ParseParam(name string, val interface{}) {
-	ctx.AbortIf(ctx.TryParseParam(name, val))
+	ctx.Abort(ctx.TryParseParam(name, val))
 }
 
 // TryParseQuery decode val from Query
@@ -120,7 +120,7 @@ func (ctx *Context) TryParseQuery(name string, val interface{}) error {
 
 // ParseQuery decode val from Query, if error != nil abort
 func (ctx *Context) ParseQuery(name string, val interface{}) {
-	ctx.AbortIf(ctx.TryParseQuery(name, val))
+	ctx.Abort(ctx.TryParseQuery(name, val))
 }
 
 // TryParseForm decode val from Form
@@ -130,37 +130,13 @@ func (ctx *Context) TryParseForm(name string, val interface{}) error {
 
 // ParseForm decode val from Form, if error != nil abort
 func (ctx *Context) ParseForm(name string, val interface{}) {
-	ctx.AbortIf(ctx.TryParseForm(name, val))
+	ctx.Abort(ctx.TryParseForm(name, val))
 }
 
-// Abort WriteHeader 400 then abort
-func (ctx *Context) Abort() {
-	ctx.ResponseWriter.WriteHeader(defaultHTTPError)
-	panic(errors.New("Abort by user"))
-}
-
-// AbortIf if error != nill, WriteHeader 400 then abort
-func (ctx *Context) AbortIf(err error) {
+// Abort if error != nill, WriteHeader 400 then abort
+func (ctx *Context) Abort(err error) {
 	if err != nil {
-		ctx.ResponseWriter.WriteHeader(defaultHTTPError)
-		panic(err)
-	}
-}
-
-// AbortFn if error != nill, call fn then abort
-func (ctx *Context) AbortFn(code int, err error, fn func(code int, err error) error) {
-	if err != nil {
-		if fn != nil {
-			fn(code, err)
-		}
-		panic(err)
-	}
-}
-
-// AbortError if error != nill, call WriteError then abort
-func (ctx *Context) AbortError(code int, err error) {
-	if err != nil {
-		ctx.WriteError(code, err)
+		ctx.WriteError(err)
 		panic(err)
 	}
 }
@@ -191,25 +167,14 @@ func (ctx *Context) WriteXML(val interface{}) error {
 }
 
 // WriteSuccess with status
-func (ctx *Context) WriteSuccess(code int, result interface{}) error {
-	data := &ResponseData{
-		Success: true,
-		Code:    code,
-		Result:  result,
-	}
-	ctx.ResponseWriter.WriteHeader(defaultHTTPSuccess)
-	return ctx.WriteJSON(data)
+func (ctx *Context) WriteSuccess(result interface{}) error {
+	return ctx.WriteJSON(result)
 }
 
 // WriteError with http 400 and code
-func (ctx *Context) WriteError(code int, err error) error {
-	data := &ResponseData{
-		Success: false,
-		Code:    code,
-		Error:   err,
-	}
-	ctx.ResponseWriter.WriteHeader(defaultHTTPError)
-	return ctx.WriteJSON(data)
+func (ctx *Context) WriteError(err error) error {
+	ctx.WriteHeader(defaultHTTPError)
+	return ctx.WriteJSON(err.Error())
 }
 
 // WriteHeader Write Header
@@ -229,7 +194,7 @@ func (ctx *Context) AddHeader(key string, value string) {
 
 // SetContentType Set Content-Type
 func (ctx *Context) SetContentType(val string) {
-	ctx.ResponseWriter.Header().Set("Content-Type", contentType(val))
+	ctx.SetHeader("Content-Type", contentType(val))
 }
 
 // Redirect to url with status

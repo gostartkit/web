@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-// newContext return a web.Context
-func newContext(w http.ResponseWriter, r *http.Request, params *Params) *Context {
+// createContext return a web.Context
+func createContext(w http.ResponseWriter, r *http.Request, params *Params) *Context {
 
 	ctx := &Context{
 		ResponseWriter: w,

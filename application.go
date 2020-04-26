@@ -148,7 +148,7 @@ func (app *Application) ServeFiles(path string, root http.FileSystem) {
 	fileServer := http.FileServer(root)
 
 	app.Get(path, func(ctx *Context) {
-		ctx.Request.URL.Path = ctx.params.Val("filepath")
+		ctx.Request.URL.Path = ctx.Param("filepath")
 		fileServer.ServeHTTP(ctx.ResponseWriter, ctx.Request)
 	})
 }
@@ -163,7 +163,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if callback, params, tsr := root.getValue(path, app.getParams); callback != nil {
 
-			ctx := newContext(w, r, params)
+			ctx := createContext(w, r, params)
 			app.putParams(params)
 
 			runTime := time.Now()

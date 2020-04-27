@@ -32,6 +32,7 @@ type Application struct {
 	panic      PanicCallback
 	paramsPool sync.Pool
 	maxParams  uint16
+	NotFound   http.Handler
 }
 
 // Create return a singleton web.Application
@@ -153,7 +154,7 @@ func (app *Application) ServeFiles(path string, root http.FileSystem) {
 	})
 }
 
-// ServeHTTP
+// ServeHTTP w, r
 func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 	defer app.recv(w, r)
@@ -197,7 +198,11 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	http.NotFound(w, r)
+	if app.NotFound != nil {
+		app.NotFound.ServeHTTP(w, r)
+	} else {
+		http.NotFound(w, r)
+	}
 }
 
 // ListenAndServe Serve with options on addr

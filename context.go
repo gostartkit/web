@@ -10,6 +10,18 @@ import (
 	"strconv"
 )
 
+// createContext return a web.Context
+func createContext(w http.ResponseWriter, r *http.Request, params *Params) *Context {
+
+	ctx := &Context{
+		ResponseWriter: w,
+		Request:        r,
+		params:         params,
+	}
+
+	return ctx
+}
+
 // Context is type of an web.Context
 type Context struct {
 	ResponseWriter http.ResponseWriter
@@ -133,11 +145,24 @@ func (ctx *Context) ParseForm(name string, val interface{}) {
 	ctx.Abort(ctx.TryParseForm(name, val))
 }
 
-// Abort if error != nill, WriteHeader 400 then abort
+// Abort if error response err message with status 400 then abort
 func (ctx *Context) Abort(err error) {
 	if err != nil {
-		ctx.WriteError(err)
+		ctx.WriteHeader(defaultHTTPError)
+		ctx.WriteString(err.Error())
 		panic(err)
+	}
+}
+
+// AbortIf if error response err message with status 400 then abort
+// else response val
+func (ctx *Context) AbortIf(val interface{}, err error) {
+	if err != nil {
+		ctx.WriteHeader(defaultHTTPError)
+		ctx.WriteString(err.Error())
+		panic(err)
+	} else {
+		ctx.WriteJSON(val)
 	}
 }
 
@@ -164,17 +189,6 @@ func (ctx *Context) WriteJSON(val interface{}) error {
 // WriteXML Write XML
 func (ctx *Context) WriteXML(val interface{}) error {
 	return xml.NewEncoder(ctx.ResponseWriter).Encode(val)
-}
-
-// WriteSuccess with status
-func (ctx *Context) WriteSuccess(result interface{}) error {
-	return ctx.WriteJSON(result)
-}
-
-// WriteError with http 400 and code
-func (ctx *Context) WriteError(err error) error {
-	ctx.WriteHeader(defaultHTTPError)
-	return ctx.WriteJSON(err.Error())
 }
 
 // WriteHeader Write Header

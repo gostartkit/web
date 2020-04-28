@@ -3,21 +3,8 @@ package web
 import (
 	"log"
 	"mime"
-	"net/http"
 	"strings"
 )
-
-// createContext return a web.Context
-func createContext(w http.ResponseWriter, r *http.Request, params *Params) *Context {
-
-	ctx := &Context{
-		ResponseWriter: w,
-		Request:        r,
-		params:         params,
-	}
-
-	return ctx
-}
 
 func contentType(val string) string {
 	var ctype string

@@ -90,24 +90,16 @@ func (c *UserController) Index(ctx *web.Context) {
 	ctx.TryParseQuery("page", &page)
 	ctx.TryParseQuery("pagesize", &pageSize)
 
-	users, err := proxy.GetUsersByKey(key, page, pageSize)
-	ctx.AbortError(0, validator.Error(err))
-
-	ctx.WriteSuccess(0, users)
+	ctx.AbortIf(proxy.GetUsersByKey(key, page, pageSize))
 }
 
 // Create create user
 func (c *UserController) Create(ctx *web.Context) {
 	user := model.CreateUser()
-	ctx.Parse(&user)
-	ctx.AbortError(0, validator.CreateUser(&user))
+	ctx.Parse(user)
+	ctx.Abort(validator.CreateUser(user))
 
-	user.Password = helper.Hash(user.Password)
-
-	userID, err := proxy.CreateUser(&user)
-	ctx.AbortError(0, validator.Error(err))
-
-	ctx.WriteSuccess(0, userID)
+	ctx.Abort(proxy.CreateUser(user))
 }
 
 // Detail get user detail by id
@@ -115,33 +107,17 @@ func (c *UserController) Detail(ctx *web.Context) {
 	var id uint64
 
 	ctx.ParseParam("id", &id)
-	user, err := proxy.GetUser(id)
-	ctx.AbortError(0, validator.Error(err))
 
-	ctx.WriteSuccess(0, user)
+	ctx.AbortIf(proxy.GetUser(id))
 }
 
 // Update update user by id
 func (c *UserController) Update(ctx *web.Context) {
 	user := model.CreateUser()
-	ctx.Parse(&user)
-	ctx.AbortError(0, validator.UpdateUser(&user))
+	ctx.Parse(user)
+	ctx.Abort(validator.UpdateUser(user))
 
-	var (
-		rowsAffected int64
-		err          error
-	)
-
-	if user.Password == "" {
-		rowsAffected, err = proxy.UpdateUser(&user)
-	} else {
-		user.Password = helper.Hash(user.Password)
-		rowsAffected, err = proxy.UpdateUserWithPassword(&user)
-	}
-
-	ctx.AbortError(0, validator.Error(err))
-
-	ctx.WriteSuccess(0, rowsAffected)
+	ctx.AbortIf(proxy.UpdateUser(user))
 }
 
 // Destroy delete user by id
@@ -149,91 +125,8 @@ func (c *UserController) Destroy(ctx *web.Context) {
 	var id uint64
 
 	ctx.ParseParam("id", &id)
-	rowsAffected, err := proxy.DestroyUserSoft(id)
-	ctx.AbortError(0, validator.Error(err))
 
-	ctx.WriteSuccess(0, rowsAffected)
-}
-
-// CurrentUserRight get user rights
-func (c *UserController) CurrentUserRight(ctx *web.Context) {
-	rights, err := rbac.GetUserRights(ctx.UserID)
-	ctx.AbortError(0, validator.Error(err))
-	ctx.WriteSuccess(0, rights)
-}
-
-// Right get user rights
-func (c *UserController) Right(ctx *web.Context) {
-	var id uint64
-	ctx.ParseParam("id", &id)
-
-	rights, err := rbac.GetUserRights(id)
-	ctx.AbortError(0, validator.Error(err))
-	ctx.WriteSuccess(0, rights)
-}
-
-// UpdateRight get user rights
-func (c *UserController) UpdateRight(ctx *web.Context) {
-	var id uint64
-	ctx.ParseParam("id", &id)
-
-	var rights []string
-	ctx.Parse(&rights)
-
-	right := rbac.ConvertToRight(rights)
-
-	rowsAffected, err := proxy.UpdateUserRight(id, right)
-	ctx.AbortError(0, validator.Error(err))
-
-	ctx.WriteSuccess(0, rowsAffected)
-}
-
-// Roles get roles by userID
-func (c *UserController) Roles(ctx *web.Context) {
-	var (
-		id       uint64
-		page     int
-		pageSize int
-	)
-
-	ctx.ParseParam("id", &id)
-	ctx.TryParseQuery("page", &page)
-	ctx.TryParseQuery("pagesize", &pageSize)
-
-	roles, err := proxy.GetRolesByUserID(id, page, pageSize)
-	ctx.AbortError(0, validator.Error(err))
-
-	ctx.WriteSuccess(0, roles)
-}
-
-// LinkRoles link roles to user
-func (c *UserController) LinkRoles(ctx *web.Context) {
-	var (
-		id      uint64
-		rolesID []uint64
-	)
-	ctx.ParseParam("id", &id)
-	ctx.Parse(&rolesID)
-
-	rowsAffected, err := proxy.LinkUserRoles(id, rolesID)
-	ctx.AbortError(0, validator.Error(err))
-
-	ctx.WriteSuccess(0, rowsAffected)
-}
-
-// UnLinkRoles unlink user and roles
-func (c *UserController) UnLinkRoles(ctx *web.Context) {
-	var (
-		id      uint64
-		rolesID []uint64
-	)
-	ctx.ParseParam("id", &id)
-	ctx.Parse(&rolesID)
-
-	rowsAffected, err := proxy.UnLinkUserRoles(id, rolesID)
-	ctx.AbortError(0, validator.Error(err))
-
-	ctx.WriteSuccess(0, rowsAffected)
+	ctx.AbortIf(proxy.DestroyUserSoft(id))
 }
 
 ```

@@ -54,20 +54,20 @@ func (ctx *Context) Form(name string) string {
 	return ctx.Request.Form.Get(name)
 }
 
-// Unmarshal parse val to v
-func (ctx *Context) Unmarshal(val string, v interface{}) error {
+// TryParse try parse val to v
+func (ctx *Context) TryParse(val string, v interface{}) error {
 	if v == nil {
-		return errors.New("Unmarshal(nil)")
+		return errors.New("TryParse(nil)")
 	}
 
 	rv := reflect.ValueOf(v)
 
 	if rv.Kind() != reflect.Ptr {
-		return errors.New("Unmarshal(non-pointer " + reflect.TypeOf(v).String() + ")")
+		return errors.New("TryParse(non-pointer " + reflect.TypeOf(v).String() + ")")
 	}
 
 	if rv.IsNil() {
-		return errors.New("Unmarshal(nil)")
+		return errors.New("TryParse(nil)")
 	}
 
 	for rv.Kind() == reflect.Ptr && !rv.IsNil() {
@@ -75,7 +75,7 @@ func (ctx *Context) Unmarshal(val string, v interface{}) error {
 	}
 
 	if !rv.CanSet() {
-		return errors.New("Unmarshal(can not set value to v)")
+		return errors.New("TryParse(can not set value to v)")
 	}
 
 	switch rv.Interface().(type) {
@@ -101,8 +101,13 @@ func (ctx *Context) Unmarshal(val string, v interface{}) error {
 	}
 }
 
-// TryParse decode val from Request.Body
-func (ctx *Context) TryParse(val interface{}) error {
+// Parse parse val to v, if error abort
+func (ctx *Context) Parse(val string, v interface{}) {
+	ctx.Abort(ctx.TryParse(val, v))
+}
+
+// TryParseBody decode val from Request.Body
+func (ctx *Context) TryParseBody(val interface{}) error {
 	if err := json.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
 		return err
 	}
@@ -110,37 +115,37 @@ func (ctx *Context) TryParse(val interface{}) error {
 	return nil
 }
 
-// Parse decode val from Request.Body, if error != nil abort
-func (ctx *Context) Parse(val interface{}) {
-	ctx.Abort(ctx.TryParse(val))
+// ParseBody decode val from Request.Body, if error abort
+func (ctx *Context) ParseBody(val interface{}) {
+	ctx.Abort(ctx.TryParseBody(val))
 }
 
 // TryParseParam decode val from Query
 func (ctx *Context) TryParseParam(name string, val interface{}) error {
-	return ctx.Unmarshal(ctx.Param(name), val)
+	return ctx.TryParse(ctx.Param(name), val)
 }
 
-// ParseParam decode val from Param, if error != nil abort
+// ParseParam decode val from Param, if error abort
 func (ctx *Context) ParseParam(name string, val interface{}) {
 	ctx.Abort(ctx.TryParseParam(name, val))
 }
 
 // TryParseQuery decode val from Query
 func (ctx *Context) TryParseQuery(name string, val interface{}) error {
-	return ctx.Unmarshal(ctx.Query(name), val)
+	return ctx.TryParse(ctx.Query(name), val)
 }
 
-// ParseQuery decode val from Query, if error != nil abort
+// ParseQuery decode val from Query, if error abort
 func (ctx *Context) ParseQuery(name string, val interface{}) {
 	ctx.Abort(ctx.TryParseQuery(name, val))
 }
 
 // TryParseForm decode val from Form
 func (ctx *Context) TryParseForm(name string, val interface{}) error {
-	return ctx.Unmarshal(ctx.Form(name), val)
+	return ctx.TryParse(ctx.Form(name), val)
 }
 
-// ParseForm decode val from Form, if error != nil abort
+// ParseForm decode val from Form, if error abort
 func (ctx *Context) ParseForm(name string, val interface{}) {
 	ctx.Abort(ctx.TryParseForm(name, val))
 }

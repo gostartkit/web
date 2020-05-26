@@ -76,6 +76,11 @@ func (app *Application) Get(path string, cb Callback) {
 	app.addRoute(http.MethodGet, path, cb)
 }
 
+// Head method
+func (app *Application) Head(path string, cb Callback) {
+	app.addRoute(http.MethodHead, path, cb)
+}
+
 // Post method
 func (app *Application) Post(path string, cb Callback) {
 	app.addRoute(http.MethodPost, path, cb)
@@ -211,7 +216,7 @@ func (app *Application) ListenAndServe(addr string, fns ...func(*http.Server)) e
 	l, err := net.Listen("tcp", addr)
 
 	if err != nil {
-		log.Fatal("Listen:", err)
+		return err
 	}
 
 	defer l.Close()
@@ -225,7 +230,7 @@ func (app *Application) ListenAndServeTLS(addr string, tlsConfig *tls.Config, fn
 	l, err := tls.Listen("tcp", addr, tlsConfig)
 
 	if err != nil {
-		log.Fatal("Listen:", err)
+		return err
 	}
 
 	defer l.Close()

@@ -154,7 +154,7 @@ func (ctx *Context) ParseForm(name string, val interface{}) {
 func (ctx *Context) Abort(err error) {
 	if err != nil {
 		ctx.WriteHeader(defaultHTTPError)
-		ctx.WriteString(err.Error())
+		ctx.WriteJSON(err.Error())
 		panic(err)
 	}
 }
@@ -164,9 +164,10 @@ func (ctx *Context) Abort(err error) {
 func (ctx *Context) AbortIf(val interface{}, err error) {
 	if err != nil {
 		ctx.WriteHeader(defaultHTTPError)
-		ctx.WriteString(err.Error())
+		ctx.WriteJSON(err.Error())
 		panic(err)
 	} else {
+		ctx.WriteHeader(defaultHTTPSuccess)
 		ctx.WriteJSON(val)
 	}
 }

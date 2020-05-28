@@ -150,7 +150,7 @@ func (ctx *Context) ParseForm(name string, val interface{}) {
 	ctx.Abort(ctx.TryParseForm(name, val))
 }
 
-// Abort if error response err message with status 400 then abort
+// Abort if error about with 400
 func (ctx *Context) Abort(err error) {
 	if err != nil {
 		ctx.WriteHeader(defaultHTTPError)
@@ -159,8 +159,8 @@ func (ctx *Context) Abort(err error) {
 	}
 }
 
-// AbortIf if error response err message with status 400 then abort
-// else response val
+// AbortIf if error abort with 400
+// else response val with 200
 func (ctx *Context) AbortIf(val interface{}, err error) {
 	if err != nil {
 		ctx.WriteHeader(defaultHTTPError)
@@ -172,8 +172,26 @@ func (ctx *Context) AbortIf(val interface{}, err error) {
 	}
 }
 
-// Header get value by key from header
-func (ctx *Context) Header(key string) string {
+// Unauthorized if error abort with 401
+func (ctx *Context) Unauthorized(err error) {
+	if err != nil {
+		ctx.WriteHeader(401)
+		ctx.WriteJSON(err.Error())
+		panic(err)
+	}
+}
+
+// Forbidden if error abort with 403
+func (ctx *Context) Forbidden(err error) {
+	if err != nil {
+		ctx.WriteHeader(403)
+		ctx.WriteJSON(err.Error())
+		panic(err)
+	}
+}
+
+// GetHeader get header by key
+func (ctx *Context) GetHeader(key string) string {
 	return ctx.Request.Header.Get(key)
 }
 

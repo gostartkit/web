@@ -315,7 +315,7 @@ func (app *Application) recv(w http.ResponseWriter, r *http.Request) {
 		if app.panic != nil {
 			app.panic(w, r, rcv)
 		} else {
-			app.logf("web.go: %v", rcv)
+			app.logf("%s %s: %v", r.Method, r.URL.Path, rcv)
 		}
 	}
 }

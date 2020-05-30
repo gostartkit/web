@@ -190,9 +190,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			if tsr {
 
-				if len(path) > 1 && path[len(path)-1] == '/' {
-					r.URL.Path = path[:len(path)-1]
-				} else {
+				if len(path) > 1 && path[len(path)-1] != '/' {
 					r.URL.Path = path + "/"
 				}
 

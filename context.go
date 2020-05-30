@@ -230,6 +230,11 @@ func (ctx *Context) AddHeader(key string, value string) {
 	ctx.ResponseWriter.Header().Add(key, value)
 }
 
+// GetContentType get Content-Type
+func (ctx *Context) GetContentType() string {
+	return ctx.GetHeader("Content-Type")
+}
+
 // SetContentType Set Content-Type
 func (ctx *Context) SetContentType(val string) {
 	ctx.SetHeader("Content-Type", contentType(val))

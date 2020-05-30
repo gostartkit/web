@@ -167,37 +167,21 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if root := app.trees[r.Method]; root != nil {
 
-		if callback, params, tsr := root.getValue(path, app.getParams); callback != nil {
+		if callback, params, _ := root.getValue(path, app.getParams); callback != nil {
 
 			ctx := createContext(w, r, params)
 			app.putParams(params)
 
 			runTime := time.Now()
+
 			callback(ctx)
+
 			endTime := time.Now()
 
-			app.logf("%s %s %s %s %s", r.Method, path, endTime.Sub(startTime), runTime.Sub(startTime), endTime.Sub(runTime))
+			app.logf("%s %s %s %s %s %s", r.Host, r.Method, path, endTime.Sub(startTime), runTime.Sub(startTime), endTime.Sub(runTime))
 
 			return
 
-		} else if r.Method != http.MethodConnect && path != "/" {
-
-			code := http.StatusMovedPermanently
-
-			if r.Method != http.MethodGet {
-				code = http.StatusPermanentRedirect
-			}
-
-			if tsr {
-
-				if len(path) > 1 && path[len(path)-1] != '/' {
-					r.URL.Path = path + "/"
-				}
-
-				http.Redirect(w, r, r.URL.String(), code)
-
-				return
-			}
 		}
 	}
 

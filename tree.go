@@ -340,7 +340,6 @@ walk: // Outer loop for walking the tree
 					for i, c := range []byte(n.indices) {
 						if c == idxc {
 							n = n.children[i]
-							prefix = n.path
 							continue walk
 						}
 					}
@@ -382,7 +381,6 @@ walk: // Outer loop for walking the tree
 						if len(n.children) > 0 {
 							path = path[end:]
 							n = n.children[0]
-							prefix = n.path
 							continue walk
 						}
 

@@ -11,7 +11,6 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 )
 
 var (
@@ -161,7 +160,6 @@ func (app *Application) ServeFiles(path string, root http.FileSystem) {
 
 // ServeHTTP w, r
 func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	startTime := time.Now()
 	defer app.recv(w, r)
 	path := r.URL.Path
 
@@ -172,13 +170,9 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			ctx := createContext(w, r, params)
 			app.putParams(params)
 
-			runTime := time.Now()
-
 			callback(ctx)
 
-			endTime := time.Now()
-
-			app.logf("%s %s %s %s %s %s", r.Host, r.Method, path, endTime.Sub(startTime), runTime.Sub(startTime), endTime.Sub(runTime))
+			app.logf("%s %s %s %s", r.RemoteAddr, r.Host, r.Method, path)
 
 			return
 

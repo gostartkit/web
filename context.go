@@ -31,6 +31,21 @@ type Context struct {
 	UserID         uint64
 }
 
+// P get value from Params
+func (ctx *Context) P(name string) string {
+	return ctx.Param(name)
+}
+
+// Q get value from QueryString
+func (ctx *Context) Q(name string) string {
+	return ctx.Query(name)
+}
+
+// F get value from Form
+func (ctx *Context) F(name string) string {
+	return ctx.Form(name)
+}
+
 // Param get value from Params
 func (ctx *Context) Param(name string) string {
 	return ctx.params.Val(name)
@@ -150,10 +165,15 @@ func (ctx *Context) ParseForm(name string, val interface{}) {
 	ctx.Abort(ctx.TryParseForm(name, val))
 }
 
-// Abort if error about with 400
+// Abort if error abort with 400
 func (ctx *Context) Abort(err error) {
+	ctx.AbortCode(defaultHTTPError, err)
+}
+
+// AbortCode if error abort with code
+func (ctx *Context) AbortCode(code int, err error) {
 	if err != nil {
-		ctx.WriteHeader(defaultHTTPError)
+		ctx.WriteHeader(code)
 		ctx.WriteJSON(err.Error())
 		panic(err)
 	}
@@ -174,20 +194,12 @@ func (ctx *Context) AbortIf(val interface{}, err error) {
 
 // Unauthorized if error abort with 401
 func (ctx *Context) Unauthorized(err error) {
-	if err != nil {
-		ctx.WriteHeader(401)
-		ctx.WriteJSON(err.Error())
-		panic(err)
-	}
+	ctx.AbortCode(401, err)
 }
 
 // Forbidden if error abort with 403
 func (ctx *Context) Forbidden(err error) {
-	if err != nil {
-		ctx.WriteHeader(403)
-		ctx.WriteJSON(err.Error())
-		panic(err)
-	}
+	ctx.AbortCode(403, err)
 }
 
 // GetHeader get header by key

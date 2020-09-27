@@ -174,11 +174,22 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			val, err := callback(ctx)
 
 			if err != nil {
-				ctx.WriteHeader(defaultHTTPError)
+				switch err {
+				case ErrUnauthorized:
+					ctx.WriteHeader(http.StatusUnauthorized)
+					break
+				case ErrForbidden:
+					ctx.WriteHeader(http.StatusForbidden)
+					break
+				default:
+					ctx.WriteHeader(http.StatusBadRequest)
+					break
+				}
 				ctx.WriteJSON(err.Error())
 			} else {
-				ctx.WriteHeader(defaultHTTPSuccess)
-				ctx.WriteJSON(val)
+				if val != nil {
+					ctx.WriteJSON(val)
+				}
 			}
 
 			app.logf("%s %s %s %s", r.RemoteAddr, r.Host, r.Method, path)

@@ -1,8 +1,12 @@
 package web
 
-const (
-	defaultHTTPSuccess int = 200
-	defaultHTTPError   int = 400
+import "errors"
+
+var (
+	// ErrUnauthorized 401
+	ErrUnauthorized = errors.New("unauthorized")
+	// ErrForbidden 403
+	ErrForbidden = errors.New("forbidden")
 )
 
 // Param struct

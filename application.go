@@ -19,7 +19,7 @@ var (
 )
 
 // Callback function
-type Callback func(ctx *Context)
+type Callback func(ctx *Context) (interface{}, error)
 
 // PanicCallback function
 type PanicCallback func(http.ResponseWriter, *http.Request, interface{})
@@ -152,9 +152,10 @@ func (app *Application) ServeFiles(path string, root http.FileSystem) {
 
 	fileServer := http.FileServer(root)
 
-	app.Get(path, func(ctx *Context) {
+	app.Get(path, func(ctx *Context) (interface{}, error) {
 		ctx.Request.URL.Path = ctx.Param("filepath")
 		fileServer.ServeHTTP(ctx.ResponseWriter, ctx.Request)
+		return nil, nil
 	})
 }
 
@@ -170,7 +171,15 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			ctx := createContext(w, r, params)
 			app.putParams(params)
 
-			callback(ctx)
+			val, err := callback(ctx)
+
+			if err != nil {
+				ctx.WriteHeader(defaultHTTPError)
+				ctx.WriteJSON(err.Error())
+			} else {
+				ctx.WriteHeader(defaultHTTPSuccess)
+				ctx.WriteJSON(val)
+			}
 
 			app.logf("%s %s %s %s", r.RemoteAddr, r.Host, r.Method, path)
 

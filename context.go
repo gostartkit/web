@@ -31,21 +31,6 @@ type Context struct {
 	UserID         uint64
 }
 
-// P get value from Params
-func (ctx *Context) P(name string) string {
-	return ctx.Param(name)
-}
-
-// Q get value from QueryString
-func (ctx *Context) Q(name string) string {
-	return ctx.Query(name)
-}
-
-// F get value from Form
-func (ctx *Context) F(name string) string {
-	return ctx.Form(name)
-}
-
 // Param get value from Params
 func (ctx *Context) Param(name string) string {
 	return ctx.params.Val(name)
@@ -116,11 +101,6 @@ func (ctx *Context) TryParse(val string, v interface{}) error {
 	}
 }
 
-// Parse parse val to v, if error abort
-func (ctx *Context) Parse(val string, v interface{}) {
-	ctx.Abort(ctx.TryParse(val, v))
-}
-
 // TryParseBody decode val from Request.Body
 func (ctx *Context) TryParseBody(val interface{}) error {
 	if err := json.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
@@ -130,19 +110,9 @@ func (ctx *Context) TryParseBody(val interface{}) error {
 	return nil
 }
 
-// ParseBody decode val from Request.Body, if error abort
-func (ctx *Context) ParseBody(val interface{}) {
-	ctx.Abort(ctx.TryParseBody(val))
-}
-
 // TryParseParam decode val from Query
 func (ctx *Context) TryParseParam(name string, val interface{}) error {
 	return ctx.TryParse(ctx.Param(name), val)
-}
-
-// ParseParam decode val from Param, if error abort
-func (ctx *Context) ParseParam(name string, val interface{}) {
-	ctx.Abort(ctx.TryParseParam(name, val))
 }
 
 // TryParseQuery decode val from Query
@@ -150,56 +120,9 @@ func (ctx *Context) TryParseQuery(name string, val interface{}) error {
 	return ctx.TryParse(ctx.Query(name), val)
 }
 
-// ParseQuery decode val from Query, if error abort
-func (ctx *Context) ParseQuery(name string, val interface{}) {
-	ctx.Abort(ctx.TryParseQuery(name, val))
-}
-
 // TryParseForm decode val from Form
 func (ctx *Context) TryParseForm(name string, val interface{}) error {
 	return ctx.TryParse(ctx.Form(name), val)
-}
-
-// ParseForm decode val from Form, if error abort
-func (ctx *Context) ParseForm(name string, val interface{}) {
-	ctx.Abort(ctx.TryParseForm(name, val))
-}
-
-// Abort if error abort with 400
-func (ctx *Context) Abort(err error) {
-	ctx.AbortCode(defaultHTTPError, err)
-}
-
-// AbortCode if error abort with code
-func (ctx *Context) AbortCode(code int, err error) {
-	if err != nil {
-		ctx.WriteHeader(code)
-		ctx.WriteJSON(err.Error())
-		panic(err)
-	}
-}
-
-// AbortIf if error abort with 400
-// else response val with 200
-func (ctx *Context) AbortIf(val interface{}, err error) {
-	if err != nil {
-		ctx.WriteHeader(defaultHTTPError)
-		ctx.WriteJSON(err.Error())
-		panic(err)
-	} else {
-		ctx.WriteHeader(defaultHTTPSuccess)
-		ctx.WriteJSON(val)
-	}
-}
-
-// Unauthorized if error abort with 401
-func (ctx *Context) Unauthorized(err error) {
-	ctx.AbortCode(401, err)
-}
-
-// Forbidden if error abort with 403
-func (ctx *Context) Forbidden(err error) {
-	ctx.AbortCode(403, err)
 }
 
 // GetHeader get header by key

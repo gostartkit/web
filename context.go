@@ -130,8 +130,14 @@ func (ctx *Context) GetHeader(key string) string {
 	return ctx.Request.Header.Get(key)
 }
 
-// Write bytes
-func (ctx *Context) Write(val []byte) (int, error) {
+// WriteBytes Write bytes
+func (ctx *Context) WriteBytes(val []byte) (int, error) {
+	return ctx.ResponseWriter.Write(val)
+}
+
+// Bytes Write bytes with status code
+func (ctx *Context) Bytes(code int, val []byte) (int, error) {
+	ctx.ResponseWriter.WriteHeader(code)
 	return ctx.ResponseWriter.Write(val)
 }
 
@@ -140,8 +146,20 @@ func (ctx *Context) WriteString(val string) (int, error) {
 	return ctx.ResponseWriter.Write([]byte(val))
 }
 
+// String Write String with status code
+func (ctx *Context) String(code int, val string) (int, error) {
+	ctx.ResponseWriter.WriteHeader(code)
+	return ctx.ResponseWriter.Write([]byte(val))
+}
+
 // WriteJSON Write JSON
 func (ctx *Context) WriteJSON(val interface{}) error {
+	return json.NewEncoder(ctx.ResponseWriter).Encode(val)
+}
+
+// JSON Write JSON with status code
+func (ctx *Context) JSON(code int, val interface{}) error {
+	ctx.ResponseWriter.WriteHeader(code)
 	return json.NewEncoder(ctx.ResponseWriter).Encode(val)
 }
 
@@ -150,27 +168,33 @@ func (ctx *Context) WriteXML(val interface{}) error {
 	return xml.NewEncoder(ctx.ResponseWriter).Encode(val)
 }
 
-// WriteHeader Write Header
+// XML Write XML with status code
+func (ctx *Context) XML(code int, val interface{}) error {
+	ctx.ResponseWriter.WriteHeader(code)
+	return xml.NewEncoder(ctx.ResponseWriter).Encode(val)
+}
+
+// WriteHeader Write status code header
 func (ctx *Context) WriteHeader(statusCode int) {
 	ctx.ResponseWriter.WriteHeader(statusCode)
 }
 
-// SetHeader Set Header
+// SetHeader Set key/value to header
 func (ctx *Context) SetHeader(key string, value string) {
 	ctx.ResponseWriter.Header().Set(key, value)
 }
 
-// AddHeader Add Header
+// AddHeader Add key/value to header
 func (ctx *Context) AddHeader(key string, value string) {
 	ctx.ResponseWriter.Header().Add(key, value)
 }
 
-// GetContentType get Content-Type
+// GetContentType get Content-Type from header
 func (ctx *Context) GetContentType() string {
 	return ctx.GetHeader("Content-Type")
 }
 
-// SetContentType Set Content-Type
+// SetContentType Set Content-Type to header
 func (ctx *Context) SetContentType(val string) {
 	ctx.SetHeader("Content-Type", contentType(val))
 }

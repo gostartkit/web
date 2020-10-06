@@ -3,11 +3,8 @@ package web
 import (
 	"encoding/json"
 	"encoding/xml"
-	"errors"
 	"net/http"
 	"net/url"
-	"reflect"
-	"strconv"
 )
 
 // createContext return a web.Context
@@ -54,53 +51,6 @@ func (ctx *Context) Form(name string) string {
 	return ctx.Request.Form.Get(name)
 }
 
-// TryParse try parse val to v
-func (ctx *Context) TryParse(val string, v interface{}) error {
-	if v == nil {
-		return errors.New("TryParse(nil)")
-	}
-
-	rv := reflect.ValueOf(v)
-
-	if rv.Kind() != reflect.Ptr {
-		return errors.New("TryParse(non-pointer " + reflect.TypeOf(v).String() + ")")
-	}
-
-	if rv.IsNil() {
-		return errors.New("TryParse(nil)")
-	}
-
-	for rv.Kind() == reflect.Ptr && !rv.IsNil() {
-		rv = rv.Elem()
-	}
-
-	if !rv.CanSet() {
-		return errors.New("TryParse(can not set value to v)")
-	}
-
-	switch rv.Interface().(type) {
-	case string:
-		rv.SetString(val)
-		return nil
-	case int, int64:
-		d, err := strconv.ParseInt(val, 10, 64)
-		if err != nil {
-			return err
-		}
-		rv.SetInt(d)
-		return nil
-	case int32:
-		d, err := strconv.ParseInt(val, 10, 32)
-		if err != nil {
-			return err
-		}
-		rv.SetInt(d)
-		return nil
-	default:
-		return json.Unmarshal([]byte(val), v)
-	}
-}
-
 // TryParseBody decode val from Request.Body
 func (ctx *Context) TryParseBody(val interface{}) error {
 	if err := json.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
@@ -112,17 +62,17 @@ func (ctx *Context) TryParseBody(val interface{}) error {
 
 // TryParseParam decode val from Query
 func (ctx *Context) TryParseParam(name string, val interface{}) error {
-	return ctx.TryParse(ctx.Param(name), val)
+	return tryParse(ctx.Param(name), val)
 }
 
 // TryParseQuery decode val from Query
 func (ctx *Context) TryParseQuery(name string, val interface{}) error {
-	return ctx.TryParse(ctx.Query(name), val)
+	return tryParse(ctx.Query(name), val)
 }
 
 // TryParseForm decode val from Form
 func (ctx *Context) TryParseForm(name string, val interface{}) error {
-	return ctx.TryParse(ctx.Form(name), val)
+	return tryParse(ctx.Form(name), val)
 }
 
 // GetHeader get header by key

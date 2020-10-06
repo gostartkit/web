@@ -1,16 +1,12 @@
 package web
 
 import (
-	"context"
 	"crypto/tls"
-	"errors"
 	"log"
 	"net"
 	"net/http"
 	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 )
 
 var (
@@ -248,36 +244,15 @@ func (app *Application) serve(addr string, listener net.Listener, fns ...func(*h
 		fn(srv)
 	}
 
-	defer func() {
-		err := srv.Close()
-		if err != nil {
-			app.logf("srv: %v", err)
-		}
-	}()
-
-	idleConnsClosed := make(chan struct{})
-
-	go func() {
-		sigint := make(chan os.Signal, 1)
-		signal.Notify(sigint, os.Interrupt, syscall.SIGTERM)
-		<-sigint
-
-		if err := srv.Shutdown(context.Background()); err != nil {
-			app.logf("web.go: %v", err)
-		}
-
-		close(idleConnsClosed)
-	}()
-
-	app.logf("web.go(%d) %s", os.Getpid(), listener.Addr())
-
 	if err := srv.Serve(listener); err != nil {
-		app.logf("web.go: %v", err)
+		return err
 	}
 
-	<-idleConnsClosed
+	if err := srv.Close(); err != nil {
+		return err
+	}
 
-	return errors.New("web.go: exit")
+	return nil
 }
 
 // Inspect method

@@ -14,8 +14,11 @@ var (
 	_once sync.Once
 )
 
+// Data Data
+type Data interface{}
+
 // Callback function
-type Callback func(ctx *Context) (interface{}, error)
+type Callback func(ctx *Context) (Data, error)
 
 // PanicCallback function
 type PanicCallback func(http.ResponseWriter, *http.Request, interface{})
@@ -148,7 +151,7 @@ func (app *Application) ServeFiles(path string, root http.FileSystem) {
 
 	fileServer := http.FileServer(root)
 
-	app.Get(path, func(ctx *Context) (interface{}, error) {
+	app.Get(path, func(ctx *Context) (Data, error) {
 		ctx.Request.URL.Path = ctx.Param("filepath")
 		fileServer.ServeHTTP(ctx.ResponseWriter, ctx.Request)
 		return nil, nil

@@ -174,9 +174,9 @@ func (ctx *Context) XML(code int, val interface{}) error {
 	return xml.NewEncoder(ctx.ResponseWriter).Encode(val)
 }
 
-// WriteHeader Write status code header
-func (ctx *Context) WriteHeader(statusCode int) {
-	ctx.ResponseWriter.WriteHeader(statusCode)
+// Status Write status code to header
+func (ctx *Context) Status(code int) {
+	ctx.ResponseWriter.WriteHeader(code)
 }
 
 // SetHeader Set key/value to header
@@ -199,9 +199,9 @@ func (ctx *Context) SetContentType(val string) {
 	ctx.SetHeader("Content-Type", contentType(val))
 }
 
-// Redirect to url with status
-func (ctx *Context) Redirect(status int, url string) {
+// Redirect to url with status code
+func (ctx *Context) Redirect(code int, url string) {
 	ctx.SetHeader("Location", url)
-	ctx.WriteHeader(status)
+	ctx.ResponseWriter.WriteHeader(code)
 	ctx.WriteString("Redirecting to: " + url)
 }

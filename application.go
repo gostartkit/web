@@ -173,15 +173,16 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			val, err := callback(ctx)
 
 			if err != nil {
+
 				switch err {
 				case ErrUnauthorized:
-					ctx.WriteHeader(http.StatusUnauthorized)
+					ctx.ResponseWriter.WriteHeader(http.StatusUnauthorized)
 					break
 				case ErrForbidden:
-					ctx.WriteHeader(http.StatusForbidden)
+					ctx.ResponseWriter.WriteHeader(http.StatusForbidden)
 					break
 				default:
-					ctx.WriteHeader(http.StatusBadRequest)
+					ctx.ResponseWriter.WriteHeader(http.StatusBadRequest)
 					break
 				}
 				ctx.WriteJSON(err.Error())

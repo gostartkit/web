@@ -177,25 +177,21 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				switch err {
 				case ErrUnauthorized:
 					ctx.ResponseWriter.WriteHeader(http.StatusUnauthorized)
-					break
 				case ErrForbidden:
 					ctx.ResponseWriter.WriteHeader(http.StatusForbidden)
-					break
 				default:
 					ctx.ResponseWriter.WriteHeader(http.StatusBadRequest)
-					break
 				}
-				ctx.WriteJSON(err.Error())
-			} else {
-				if val != nil {
-					ctx.WriteJSON(val)
-				}
+				ctx.Write(err.Error())
+				app.logf("%s %s %s %s %s", r.RemoteAddr, r.Host, r.Method, path, err)
+				return
 			}
 
-			app.logf("%s %s %s %s", r.RemoteAddr, r.Host, r.Method, path)
+			if val != nil {
+				ctx.Write(val)
+			}
 
 			return
-
 		}
 	}
 

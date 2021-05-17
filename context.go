@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/gob"
 	"encoding/json"
 	"encoding/xml"
 	"net/http"
@@ -25,7 +26,18 @@ type Context struct {
 	Request        *http.Request
 	params         *Params
 	urlValues      *url.Values
-	UserID         uint64
+	userID         uint64
+	contentType    string
+}
+
+// Init init context
+func (ctx *Context) Init(userID uint64) {
+	ctx.userID = userID
+}
+
+// UserID get userID
+func (ctx *Context) UserID() uint64 {
+	return ctx.userID
 }
 
 // Param get value from Params
@@ -85,31 +97,36 @@ func (ctx *Context) WriteBytes(val []byte) (int, error) {
 	return ctx.ResponseWriter.Write(val)
 }
 
-// Bytes Write bytes with status code
-func (ctx *Context) Bytes(code int, val []byte) (int, error) {
-	ctx.ResponseWriter.WriteHeader(code)
-	return ctx.ResponseWriter.Write(val)
-}
-
 // WriteString Write String
 func (ctx *Context) WriteString(val string) (int, error) {
 	return ctx.ResponseWriter.Write([]byte(val))
 }
 
-// String Write String with status code
-func (ctx *Context) String(code int, val string) (int, error) {
-	ctx.ResponseWriter.WriteHeader(code)
-	return ctx.ResponseWriter.Write([]byte(val))
+// Write Write data
+func (ctx *Context) Write(val interface{}) error {
+
+	if ctx.contentType == "" {
+		ctx.contentType = ctx.ContentType()
+
+		if ctx.contentType == "" {
+			ctx.contentType = "application/gob"
+		}
+
+		ctx.SetContentType(ctx.contentType)
+	}
+
+	switch ctx.contentType {
+	case "application/json":
+		return ctx.WriteJSON(val)
+	case "application/xml":
+		return ctx.WriteXML(val)
+	default:
+		return ctx.WriteGOB(val)
+	}
 }
 
 // WriteJSON Write JSON
 func (ctx *Context) WriteJSON(val interface{}) error {
-	return json.NewEncoder(ctx.ResponseWriter).Encode(val)
-}
-
-// JSON Write JSON with status code
-func (ctx *Context) JSON(code int, val interface{}) error {
-	ctx.ResponseWriter.WriteHeader(code)
 	return json.NewEncoder(ctx.ResponseWriter).Encode(val)
 }
 
@@ -118,10 +135,9 @@ func (ctx *Context) WriteXML(val interface{}) error {
 	return xml.NewEncoder(ctx.ResponseWriter).Encode(val)
 }
 
-// XML Write XML with status code
-func (ctx *Context) XML(code int, val interface{}) error {
-	ctx.ResponseWriter.WriteHeader(code)
-	return xml.NewEncoder(ctx.ResponseWriter).Encode(val)
+// WriteGOB Write GOB
+func (ctx *Context) WriteGOB(val interface{}) error {
+	return gob.NewEncoder(ctx.ResponseWriter).Encode(val)
 }
 
 // Status Write status code to header
@@ -139,8 +155,8 @@ func (ctx *Context) AddHeader(key string, value string) {
 	ctx.ResponseWriter.Header().Add(key, value)
 }
 
-// GetContentType get Content-Type from header
-func (ctx *Context) GetContentType() string {
+// ContentType get Content-Type from header
+func (ctx *Context) ContentType() string {
 	return ctx.GetHeader("Content-Type")
 }
 

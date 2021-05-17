@@ -3,7 +3,6 @@ package web
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"mime"
 	"reflect"
 	"strconv"
@@ -23,35 +22,6 @@ func contentType(val string) string {
 	}
 
 	return ctype
-}
-
-func logf(format string, v ...interface{}) {
-	log.Printf(format, v...)
-}
-
-// cleanPath
-// wrap path with / like: "user" return "/user/"
-func cleanPath(path string) string {
-
-	if len(path) > 0 {
-		if path[0] != '/' {
-			path = "/" + path
-		}
-	} else {
-		path = "/"
-	}
-
-	pos := len(path) - 1
-
-	if pos >= 0 {
-		if path[pos] != '/' {
-			path = path + "/"
-		}
-	} else {
-		path = "/"
-	}
-
-	return path
 }
 
 // tryParse try parse val to v

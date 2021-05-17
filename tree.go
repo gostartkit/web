@@ -93,7 +93,6 @@ func (n *node) incrementChildPrio(pos int) int {
 	for ; newPos > 0 && cs[newPos-1].priority < prio; newPos-- {
 		// Swap node positions
 		cs[newPos-1], cs[newPos] = cs[newPos], cs[newPos-1]
-
 	}
 
 	// Build new index char string
@@ -113,7 +112,7 @@ func (n *node) addRoute(path string, callback Callback) {
 	n.priority++
 
 	// Empty tree
-	if len(n.path) == 0 && len(n.indices) == 0 {
+	if n.path == "" && n.indices == "" {
 		n.insertChild(path, fullPath, callback)
 		n.nType = root
 		return
@@ -242,7 +241,8 @@ func (n *node) insertChild(path, fullPath string, callback Callback) {
 				"' conflicts with existing children in path '" + fullPath + "'")
 		}
 
-		if wildcard[0] == ':' { // param
+		// param
+		if wildcard[0] == ':' {
 			if i > 0 {
 				// Insert prefix before the current wildcard
 				n.path = path[:i]
@@ -273,9 +273,9 @@ func (n *node) insertChild(path, fullPath string, callback Callback) {
 			// Otherwise we're done. Insert the callback in the new leaf
 			n.callback = callback
 			return
-
 		}
 
+		// catchAll
 		if i+len(wildcard) != len(path) {
 			panic("catch-all routes are only allowed at the end of the path in path '" + fullPath + "'")
 		}
@@ -314,7 +314,7 @@ func (n *node) insertChild(path, fullPath string, callback Callback) {
 		return
 	}
 
-	// If no wildcard was found, simple insert the path and callback
+	// If no wildcard was found, simply insert the path and callback
 	n.path = path
 	n.callback = callback
 }
@@ -349,7 +349,6 @@ walk: // Outer loop for walking the tree
 					// trailing slash if a leaf exists for that path.
 					tsr = (path == "/" && n.callback != nil)
 					return
-
 				}
 
 				// Callback wildcard child
@@ -395,7 +394,7 @@ walk: // Outer loop for walking the tree
 						// No callback found. Check if a callback for this path + a
 						// trailing slash exists for TSR recommendation
 						n = n.children[0]
-						tsr = (n.path == "/" && n.callback != nil)
+						tsr = (n.path == "/" && n.callback != nil) || (n.path == "" && n.indices == "/")
 					}
 
 					return
@@ -464,12 +463,22 @@ walk: // Outer loop for walking the tree
 // It returns the case-corrected path and a bool indicating whether the lookup
 // was successful.
 func (n *node) findCaseInsensitivePath(path string, fixTrailingSlash bool) (fixedPath string, found bool) {
+	const stackBufSize = 128
+
+	// Use a static sized buffer on the stack in the common case.
+	// If the path is too long, allocate a buffer on the heap instead.
+	buf := make([]byte, 0, stackBufSize)
+	if l := len(path) + 1; l > stackBufSize {
+		buf = make([]byte, 0, l)
+	}
+
 	ciPath := n.findCaseInsensitivePathRec(
 		path,
-		make([]byte, 0, len(path)+1), // Preallocate enough memory for new path
-		[4]byte{},                    // Empty rune buffer
+		buf,       // Preallocate enough memory for new path
+		[4]byte{}, // Empty rune buffer
 		fixTrailingSlash,
 	)
+
 	return string(ciPath), ciPath != nil
 }
 

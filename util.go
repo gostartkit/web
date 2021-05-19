@@ -52,19 +52,42 @@ func tryParse(val string, v interface{}) error {
 	case string:
 		rv.SetString(val)
 		return nil
-	case int, int64:
-		d, err := strconv.ParseInt(val, 10, 64)
+	case int, int8, int16, int32, int64:
+		n, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
 			return err
 		}
-		rv.SetInt(d)
+		if rv.OverflowInt(n) {
+			return errors.New("TryParse(reflect.Value.OverflowInt)")
+		}
+		rv.SetInt(n)
 		return nil
-	case int32:
-		d, err := strconv.ParseInt(val, 10, 32)
+	case uint, uint8, uint16, uint32, uint64, uintptr:
+		n, err := strconv.ParseUint(val, 10, 64)
 		if err != nil {
 			return err
 		}
-		rv.SetInt(d)
+		if rv.OverflowUint(n) {
+			return errors.New("TryParse(reflect.Value.OverflowUint)")
+		}
+		rv.SetUint(n)
+		return nil
+	case float32, float64:
+		n, err := strconv.ParseFloat(val, rv.Type().Bits())
+		if err != nil {
+			return err
+		}
+		if rv.OverflowFloat(n) {
+			return errors.New("TryParse(reflect.Value.OverflowFloat)")
+		}
+		rv.SetFloat(n)
+		return nil
+	case bool:
+		n, err := strconv.ParseBool(val)
+		if err != nil {
+			return err
+		}
+		rv.SetBool(n)
 		return nil
 	default:
 		return json.Unmarshal([]byte(val), v)

@@ -65,10 +65,22 @@ func (ctx *Context) Form(name string) string {
 
 // TryParseBody decode val from Request.Body
 func (ctx *Context) TryParseBody(val interface{}) error {
-	if err := json.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
-		return err
-	}
 	defer ctx.Request.Body.Close()
+
+	switch ctx.ContentType() {
+	case "application/json":
+		if err := json.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
+			return err
+		}
+	case "application/xml":
+		if err := xml.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
+			return err
+		}
+	default:
+		if err := gob.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -104,18 +116,7 @@ func (ctx *Context) WriteString(val string) (int, error) {
 
 // Write Write data
 func (ctx *Context) Write(val interface{}) error {
-
-	if ctx.contentType == "" {
-		ctx.contentType = ctx.ContentType()
-
-		if ctx.contentType == "" {
-			ctx.contentType = "application/gob"
-		}
-
-		ctx.SetContentType(ctx.contentType)
-	}
-
-	switch ctx.contentType {
+	switch ctx.ContentType() {
 	case "application/json":
 		return ctx.WriteJSON(val)
 	case "application/xml":
@@ -157,7 +158,14 @@ func (ctx *Context) AddHeader(key string, value string) {
 
 // ContentType get Content-Type from header
 func (ctx *Context) ContentType() string {
-	return ctx.GetHeader("Content-Type")
+	if ctx.contentType == "" {
+		ctx.contentType = ctx.GetHeader("Content-Type")
+
+		if ctx.contentType == "" {
+			ctx.contentType = "application/gob"
+		}
+	}
+	return ctx.contentType
 }
 
 // SetContentType Set Content-Type to header

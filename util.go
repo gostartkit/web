@@ -24,8 +24,8 @@ func contentType(val string) string {
 	return ctype
 }
 
-// tryParse try parse val to v
-func tryParse(val string, v interface{}) error {
+// TryParse try parse val to v
+func TryParse(val string, v interface{}) error {
 	if v == nil {
 		return errors.New("TryParse(nil)")
 	}

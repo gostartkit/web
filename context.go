@@ -65,8 +65,6 @@ func (ctx *Context) Form(name string) string {
 
 // TryParseBody decode val from Request.Body
 func (ctx *Context) TryParseBody(val interface{}) error {
-	defer ctx.Request.Body.Close()
-
 	switch ctx.ContentType() {
 	case "application/json":
 		if err := json.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
@@ -86,17 +84,17 @@ func (ctx *Context) TryParseBody(val interface{}) error {
 
 // TryParseParam decode val from Query
 func (ctx *Context) TryParseParam(name string, val interface{}) error {
-	return tryParse(ctx.Param(name), val)
+	return TryParse(ctx.Param(name), val)
 }
 
 // TryParseQuery decode val from Query
 func (ctx *Context) TryParseQuery(name string, val interface{}) error {
-	return tryParse(ctx.Query(name), val)
+	return TryParse(ctx.Query(name), val)
 }
 
 // TryParseForm decode val from Form
 func (ctx *Context) TryParseForm(name string, val interface{}) error {
-	return tryParse(ctx.Form(name), val)
+	return TryParse(ctx.Form(name), val)
 }
 
 // GetHeader get header by key

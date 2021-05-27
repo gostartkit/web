@@ -74,6 +74,10 @@ func (ctx *Context) TryParseBody(val interface{}) error {
 		if err := xml.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
 			return err
 		}
+	case "application/gob":
+		if err := gob.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
+			return err
+		}
 	default:
 		if err := gob.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
 			return err
@@ -119,6 +123,8 @@ func (ctx *Context) Write(val interface{}) error {
 		return ctx.WriteJSON(val)
 	case "application/xml":
 		return ctx.WriteXML(val)
+	case "application/gob":
+		return ctx.WriteGOB(val)
 	default:
 		return ctx.WriteGOB(val)
 	}
@@ -160,7 +166,7 @@ func (ctx *Context) ContentType() string {
 		ctx.contentType = ctx.GetHeader("Content-Type")
 
 		if ctx.contentType == "" {
-			ctx.contentType = "application/gob"
+			ctx.contentType = "application/json"
 		}
 	}
 	return ctx.contentType

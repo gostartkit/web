@@ -79,9 +79,7 @@ func (ctx *Context) TryParseBody(val interface{}) error {
 			return err
 		}
 	default:
-		if err := gob.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
-			return err
-		}
+		return ErrUnsupportedType
 	}
 	return nil
 }
@@ -126,7 +124,7 @@ func (ctx *Context) Write(val interface{}) error {
 	case "application/x-gob", "application/octet-stream":
 		return ctx.WriteGOB(val)
 	default:
-		return ctx.WriteGOB(val)
+		return ErrUnsupportedType
 	}
 }
 
@@ -166,7 +164,7 @@ func (ctx *Context) ContentType() string {
 		ctx.contentType = ctx.GetHeader("Content-Type")
 
 		if ctx.contentType == "" {
-			ctx.contentType = "application/json"
+			ctx.contentType = "text/html"
 		}
 	}
 	return ctx.contentType

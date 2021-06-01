@@ -189,7 +189,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			if val != nil {
 				if err := ctx.Write(val); err != nil {
-					ctx.ResponseWriter.WriteHeader(http.StatusNotFound)
+					ctx.ResponseWriter.WriteHeader(http.StatusBadRequest)
 					ctx.Write(err.Error())
 				}
 			}

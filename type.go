@@ -7,8 +7,6 @@ var (
 	ErrUnauthorized = errors.New("unauthorized")
 	// ErrForbidden 403
 	ErrForbidden = errors.New("forbidden")
-	// ErrUnsupportedType 415
-	ErrUnsupportedType = errors.New("unsupported type")
 )
 
 // Param struct

@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"mime"
 	"reflect"
 	"strconv"
@@ -92,4 +93,14 @@ func TryParse(val string, v interface{}) error {
 	default:
 		return json.Unmarshal([]byte(val), v)
 	}
+}
+
+// binaryRead decode data from binary
+func binaryRead(r io.Reader, data interface{}) error {
+	return errors.New("binaryRead not implemented")
+}
+
+// binaryWrite encode data to binary
+func binaryWrite(w io.Writer, data interface{}) error {
+	return errors.New("binaryWrite not implemented")
 }

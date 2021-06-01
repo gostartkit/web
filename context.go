@@ -79,7 +79,9 @@ func (ctx *Context) TryParseBody(val interface{}) error {
 			return err
 		}
 	default:
-		return ErrUnsupportedType
+		if err := binaryRead(ctx.Request.Body, val); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -97,11 +99,6 @@ func (ctx *Context) TryParseQuery(name string, val interface{}) error {
 // TryParseForm decode val from Form
 func (ctx *Context) TryParseForm(name string, val interface{}) error {
 	return TryParse(ctx.Form(name), val)
-}
-
-// GetHeader get header by key
-func (ctx *Context) GetHeader(key string) string {
-	return ctx.Request.Header.Get(key)
 }
 
 // WriteBytes Write bytes
@@ -124,7 +121,7 @@ func (ctx *Context) Write(val interface{}) error {
 	case "application/x-gob", "application/octet-stream":
 		return ctx.WriteGOB(val)
 	default:
-		return ErrUnsupportedType
+		return ctx.WriteBinary(val)
 	}
 }
 
@@ -143,37 +140,52 @@ func (ctx *Context) WriteGOB(val interface{}) error {
 	return gob.NewEncoder(ctx.ResponseWriter).Encode(val)
 }
 
+// WriteBinary Write Binary
+func (ctx *Context) WriteBinary(val interface{}) error {
+	return binaryWrite(ctx.ResponseWriter, val)
+}
+
 // Status Write status code to header
 func (ctx *Context) Status(code int) {
 	ctx.ResponseWriter.WriteHeader(code)
 }
 
-// SetHeader Set key/value to header
-func (ctx *Context) SetHeader(key string, value string) {
+// Header get header by key
+func (ctx *Context) Header(key string) string {
+	return ctx.Request.Header.Get(key)
+}
+
+// Set Set key/value to header
+func (ctx *Context) Set(key string, value string) {
 	ctx.ResponseWriter.Header().Set(key, value)
 }
 
-// AddHeader Add key/value to header
-func (ctx *Context) AddHeader(key string, value string) {
+// Add Add key/value to header
+func (ctx *Context) Add(key string, value string) {
 	ctx.ResponseWriter.Header().Add(key, value)
+}
+
+// Del del header by key
+func (ctx *Context) Del(key string) {
+	ctx.ResponseWriter.Header().Del(key)
 }
 
 // ContentType get Content-Type from header
 func (ctx *Context) ContentType() string {
 	if ctx.contentType == "" {
-		ctx.contentType = ctx.GetHeader("Content-Type")
+		ctx.contentType = ctx.Header("Content-Type")
 	}
 	return ctx.contentType
 }
 
 // SetContentType Set Content-Type to header
 func (ctx *Context) SetContentType(val string) {
-	ctx.SetHeader("Content-Type", contentType(val))
+	ctx.Set("Content-Type", contentType(val))
 }
 
 // Redirect to url with status code
 func (ctx *Context) Redirect(code int, url string) {
-	ctx.SetHeader("Location", url)
+	ctx.Set("Location", url)
 	ctx.ResponseWriter.WriteHeader(code)
 	ctx.WriteString("Redirecting to: " + url)
 }

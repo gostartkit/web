@@ -173,11 +173,11 @@ func (ctx *Context) Del(key string) {
 // ContentType get Content-Type from header
 func (ctx *Context) ContentType() string {
 	if ctx.contentType == nil {
-		contentType := ctx.Header("Content-Type")
-		if contentType == "" {
-			contentType = ctx.Query("$contentType")
+		ctype := ctx.Header("Content-Type")
+		if ctype == "" {
+			ctype = contentType(ctx.Query("$contentType"))
 		}
-		ctx.contentType = &contentType
+		ctx.contentType = &ctype
 	}
 	return *ctx.contentType
 }

@@ -113,7 +113,10 @@ func replace(val string, old byte, new byte) string {
 				str.WriteString(val[prev:pos])
 			}
 			prev = pos + 1
-			str.WriteByte('_')
+
+			if pos > 0 && prev < l {
+				str.WriteByte('_')
+			}
 		case ' ', '\t':
 			if pos > prev {
 				str.WriteString(val[prev:pos])

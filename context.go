@@ -66,15 +66,15 @@ func (ctx *Context) Form(name string) string {
 // TryParseBody decode val from Request.Body
 func (ctx *Context) TryParseBody(val interface{}) error {
 	switch ctx.ContentType() {
-	case "application/json":
+	case "application/json", "json":
 		if err := json.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
 			return err
 		}
-	case "application/x-gob", "application/octet-stream":
+	case "application/x-gob", "gob":
 		if err := gob.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
 			return err
 		}
-	case "application/xml", "text/xml":
+	case "application/xml", "xml":
 		if err := xml.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
 			return err
 		}
@@ -114,11 +114,11 @@ func (ctx *Context) WriteString(val string) (int, error) {
 // Write Write data
 func (ctx *Context) Write(val interface{}) error {
 	switch ctx.ContentType() {
-	case "application/json":
+	case "application/json", "json":
 		return ctx.WriteJSON(val)
-	case "application/x-gob", "application/octet-stream":
+	case "application/x-gob", "gob":
 		return ctx.WriteGOB(val)
-	case "application/xml", "text/xml":
+	case "application/xml", "xml":
 		return ctx.WriteXML(val)
 	default:
 		return ctx.WriteBinary(val)
@@ -175,7 +175,7 @@ func (ctx *Context) ContentType() string {
 	if ctx.contentType == nil {
 		ctype := ctx.Header("Content-Type")
 		if ctype == "" {
-			ctype = contentType(ctx.Query("$contentType"))
+			ctype = ctx.Query("$contentType")
 		}
 		ctx.contentType = &ctype
 	}

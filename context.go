@@ -70,12 +70,12 @@ func (ctx *Context) TryParseBody(val interface{}) error {
 		if err := json.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
 			return err
 		}
-	case "application/xml":
-		if err := xml.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
-			return err
-		}
 	case "application/x-gob", "application/octet-stream":
 		if err := gob.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
+			return err
+		}
+	case "application/xml", "text/xml":
+		if err := xml.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
 			return err
 		}
 	default:
@@ -118,7 +118,7 @@ func (ctx *Context) Write(val interface{}) error {
 		return ctx.WriteJSON(val)
 	case "application/x-gob", "application/octet-stream":
 		return ctx.WriteGOB(val)
-	case "application/xml":
+	case "application/xml", "text/xml":
 		return ctx.WriteXML(val)
 	default:
 		return ctx.WriteBinary(val)

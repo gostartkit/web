@@ -27,7 +27,7 @@ type Context struct {
 	params         *Params
 	urlValues      *url.Values
 	userID         uint64
-	contentType    string
+	contentType    *string
 }
 
 // Init init context
@@ -116,10 +116,10 @@ func (ctx *Context) Write(val interface{}) error {
 	switch ctx.ContentType() {
 	case "application/json":
 		return ctx.WriteJSON(val)
-	case "application/xml":
-		return ctx.WriteXML(val)
 	case "application/x-gob", "application/octet-stream":
 		return ctx.WriteGOB(val)
+	case "application/xml":
+		return ctx.WriteXML(val)
 	default:
 		return ctx.WriteBinary(val)
 	}
@@ -172,10 +172,14 @@ func (ctx *Context) Del(key string) {
 
 // ContentType get Content-Type from header
 func (ctx *Context) ContentType() string {
-	if ctx.contentType == "" {
-		ctx.contentType = ctx.Header("Content-Type")
+	if ctx.contentType == nil {
+		contentType := ctx.Header("Content-Type")
+		if contentType == "" {
+			contentType = ctx.Query("$contentType")
+		}
+		ctx.contentType = &contentType
 	}
-	return ctx.contentType
+	return *ctx.contentType
 }
 
 // SetContentType Set Content-Type to header

@@ -2,11 +2,14 @@ package web
 
 import (
 	"crypto/tls"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
+	"text/template"
 )
 
 var (
@@ -30,23 +33,17 @@ type Application struct {
 	panic      PanicCallback
 	paramsPool sync.Pool
 	maxParams  uint16
-	NotFound   http.Handler
+	template   *template.Template
+
+	NotFound http.Handler
 }
 
 // Create return a singleton web.Application
 func Create() *Application {
 	_once.Do(func() {
-		_app = newApplication()
+		_app = &Application{}
 	})
 	return _app
-}
-
-// newApplication return a web.Application
-func newApplication() *Application {
-	app := &Application{
-		logger: log.New(os.Stdout, "", log.Ldate|log.Ltime),
-	}
-	return app
 }
 
 // SetLogger set Logger
@@ -57,6 +54,29 @@ func (app *Application) SetLogger(logger *log.Logger) {
 // SetPanic set Logger
 func (app *Application) SetPanic(panic PanicCallback) {
 	app.panic = panic
+}
+
+// SetTemplate set template
+func (app *Application) SetTemplate(template *template.Template) {
+	app.template = template
+}
+
+// Template get template
+func (app *Application) Template() *template.Template {
+	if app.template == nil {
+		app.template = template.New("TOP")
+	}
+	return app.template
+}
+
+// Execute execute template
+func (app *Application) Execute(wr io.Writer, val interface{}) error {
+	return app.Template().Execute(wr, val)
+}
+
+// ExecuteTemplate execute template by name
+func (app *Application) ExecuteTemplate(wr io.Writer, name string, val interface{}) error {
+	return app.Template().ExecuteTemplate(wr, name, val)
 }
 
 // Use Add the given callback function to this application.middlewares.
@@ -182,14 +202,29 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				default:
 					ctx.ResponseWriter.WriteHeader(http.StatusBadRequest)
 				}
-				ctx.Write(err.Error())
-				app.logf("%s %s %s %s %s", r.RemoteAddr, r.Host, r.Method, path, err)
+
+				app.logf("%s %s %d %s %s %s", r.RemoteAddr, r.Host, ctx.UserID(), r.Method, path, err)
+
+				if err := ctx.Write(err.Error()); err != nil {
+					app.logf("%s %s %d %s %s %s", r.RemoteAddr, r.Host, ctx.UserID(), r.Method, path, err)
+				}
+
 				return
 			}
 
 			if val != nil {
-				if err := ctx.Write(val); err != nil {
-					app.logf("%s %s %s %s %s", r.RemoteAddr, r.Host, r.Method, path, err)
+				if strings.HasSuffix(ctx.ContentType(), "html") {
+					viewName := ctx.Query("$viewName")
+					if viewName == "" {
+						viewName = replace(path, '/', '_')
+					}
+					if err := app.ExecuteTemplate(w, viewName, val); err != nil {
+						app.logf("%s %s %d %s %s %s", r.RemoteAddr, r.Host, ctx.UserID(), r.Method, path, err)
+					}
+				} else {
+					if err := ctx.Write(val); err != nil {
+						app.logf("%s %s %d %s %s %s", r.RemoteAddr, r.Host, ctx.UserID(), r.Method, path, err)
+					}
 				}
 			}
 
@@ -262,13 +297,13 @@ func (app *Application) Inspect() string {
 	return ""
 }
 
+// logf write log
 func (app *Application) logf(format string, v ...interface{}) {
-
-	if app.logger != nil {
-		app.logger.Printf(format, v...)
-	} else {
-		log.Printf(format, v...)
+	if app.logger == nil {
+		app.logger = log.New(os.Stdout, "", log.Ldate|log.Ltime)
 	}
+
+	app.logger.Printf(format, v...)
 }
 
 func (app *Application) getParams() *Params {

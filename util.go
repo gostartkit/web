@@ -95,6 +95,40 @@ func TryParse(val string, v interface{}) error {
 	}
 }
 
+// replace replace old to new and clean space ant \t
+func replace(val string, old byte, new byte) string {
+	l := len(val)
+
+	prev := 0
+
+	var str strings.Builder
+	str.Grow(l)
+
+	for pos := 0; pos < l; pos++ {
+		r := val[pos]
+
+		switch r {
+		case '/':
+			if pos > prev {
+				str.WriteString(val[prev:pos])
+			}
+			prev = pos + 1
+			str.WriteByte('_')
+		case ' ', '\t':
+			if pos > prev {
+				str.WriteString(val[prev:pos])
+			}
+			prev = pos + 1
+		}
+	}
+
+	if prev < l {
+		str.WriteString(val[prev:])
+	}
+
+	return str.String()
+}
+
 // binaryRead decode data from binary
 func binaryRead(r io.Reader, data interface{}) error {
 	return errors.New("binaryRead not implemented")

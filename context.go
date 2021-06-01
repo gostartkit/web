@@ -150,22 +150,22 @@ func (ctx *Context) Status(code int) {
 	ctx.ResponseWriter.WriteHeader(code)
 }
 
-// Header get header by key
+// Header get header, short hand for ctx.Request.Header.Get
 func (ctx *Context) Header(key string) string {
 	return ctx.Request.Header.Get(key)
 }
 
-// Set Set key/value to header
+// Set set header, short hand for ctx.ResponseWriter.Header().Set
 func (ctx *Context) Set(key string, value string) {
 	ctx.ResponseWriter.Header().Set(key, value)
 }
 
-// Add Add key/value to header
+// Add add header, short hand for ctx.ResponseWriter.Header().Add
 func (ctx *Context) Add(key string, value string) {
 	ctx.ResponseWriter.Header().Add(key, value)
 }
 
-// Del del header by key
+// Del del header, short hand for ctx.ResponseWriter.Header().Del
 func (ctx *Context) Del(key string) {
 	ctx.ResponseWriter.Header().Del(key)
 }

@@ -162,10 +162,6 @@ func (ctx *Context) AddHeader(key string, value string) {
 func (ctx *Context) ContentType() string {
 	if ctx.contentType == "" {
 		ctx.contentType = ctx.GetHeader("Content-Type")
-
-		if ctx.contentType == "" {
-			ctx.contentType = "text/html"
-		}
 	}
 	return ctx.contentType
 }

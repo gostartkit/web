@@ -176,7 +176,7 @@ func (ctx *Context) ContentType() string {
 	if ctx.contentType == nil {
 		ctype := ctx.Get("Content-Type")
 		if ctype == "" {
-			ctype = ctx.Query("$contentType")
+			ctype = contentType(ctx.Query("$contentType"))
 		}
 		ctx.contentType = &ctype
 	}

@@ -217,7 +217,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if val != nil {
-				if strings.HasSuffix(ctx.ContentType(), "html") {
+				if strings.HasPrefix(ctx.ContentType(), "text/html") {
 					viewName := ctx.Query("$viewName")
 					if viewName == "" {
 						viewName = replace(path, '/', '_')

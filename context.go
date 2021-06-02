@@ -66,19 +66,19 @@ func (ctx *Context) Form(name string) string {
 // TryParseBody decode val from Request.Body
 func (ctx *Context) TryParseBody(val interface{}) error {
 	switch ctx.ContentType() {
-	case "application/json", "json":
+	case "application/json":
 		if err := json.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
 			return err
 		}
-	case "application/x-gob", "gob":
+	case "application/x-gob":
 		if err := gob.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
 			return err
 		}
-	case "application/xml", "xml":
+	case "application/xml":
 		if err := xml.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
 			return err
 		}
-	default:
+	case "application/octet-stream":
 		if err := binaryRead(ctx.Request.Body, val); err != nil {
 			return err
 		}
@@ -114,15 +114,16 @@ func (ctx *Context) WriteString(val string) (int, error) {
 // Write Write data
 func (ctx *Context) Write(val interface{}) error {
 	switch ctx.ContentType() {
-	case "application/json", "json":
+	case "application/json":
 		return ctx.WriteJSON(val)
-	case "application/x-gob", "gob":
+	case "application/x-gob":
 		return ctx.WriteGOB(val)
-	case "application/xml", "xml":
+	case "application/xml":
 		return ctx.WriteXML(val)
-	default:
+	case "application/octet-stream":
 		return ctx.WriteBinary(val)
 	}
+	return nil
 }
 
 // WriteJSON Write JSON
@@ -150,8 +151,8 @@ func (ctx *Context) Status(code int) {
 	ctx.ResponseWriter.WriteHeader(code)
 }
 
-// Header get header, short hand for ctx.Request.Header.Get
-func (ctx *Context) Header(key string) string {
+// Get get header, short hand for ctx.Request.Header.Get
+func (ctx *Context) Get(key string) string {
 	return ctx.Request.Header.Get(key)
 }
 
@@ -173,7 +174,7 @@ func (ctx *Context) Del(key string) {
 // ContentType get Content-Type from header
 func (ctx *Context) ContentType() string {
 	if ctx.contentType == nil {
-		ctype := ctx.Header("Content-Type")
+		ctype := ctx.Get("Content-Type")
 		if ctype == "" {
 			ctype = ctx.Query("$contentType")
 		}

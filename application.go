@@ -220,7 +220,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				if strings.HasPrefix(ctx.ContentType(), "text/html") {
 					viewName := ctx.Query("$viewName")
 					if viewName == "" {
-						viewName = replace(path, '/', '_')
+						viewName = clean(path, '/', '_')
 					}
 					if err := app.ExecuteTemplate(w, viewName, val); err != nil {
 						if err == ErrViewNotFound {

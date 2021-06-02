@@ -95,8 +95,8 @@ func TryParse(val string, v interface{}) error {
 	}
 }
 
-// replace replace old to new and clean space ant \t
-func replace(val string, old byte, new byte) string {
+// clean clean old to new and clean space ant \t
+func clean(val string, old byte, new byte) string {
 	l := len(val)
 
 	prev := 0

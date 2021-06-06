@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"mime"
 	"net/url"
 	"reflect"
@@ -153,8 +152,6 @@ func binaryWriter(w io.Writer, v interface{}) error {
 // formReader decode data from form
 // ContentType: application/x-www-form-urlencoded
 func formReader(r io.Reader, v interface{}) error {
-	bytes, err := io.ReadAll(r)
-	log.Printf("formReader: %v, %v\n", bytes, err)
 	if v == nil {
 		return errors.New("formReader(nil)")
 	}
@@ -265,7 +262,6 @@ func formReader(r io.Reader, v interface{}) error {
 }
 
 func formKevValue(key string, value string, m *map[string]int, v *reflect.Value) error {
-	log.Printf("key: %s value: %s\n", key, value)
 	var err error
 
 	key, err = url.QueryUnescape(key)

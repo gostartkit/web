@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime"
 	"net/url"
 	"reflect"
@@ -261,7 +262,8 @@ func formReader(r io.Reader, v interface{}) error {
 	return nil
 }
 
-func formKevValue(key string, value string, m *map[string]int, rv *reflect.Value) error {
+func formKevValue(key string, value string, m *map[string]int, v *reflect.Value) error {
+	log.Printf("key: %s value: %s", key, value)
 	var err error
 
 	key, err = url.QueryUnescape(key)
@@ -279,7 +281,7 @@ func formKevValue(key string, value string, m *map[string]int, rv *reflect.Value
 		}
 
 		if len(value) > 0 {
-			field := rv.Field(i)
+			field := v.Field(i)
 
 			if err := tryParseField(value, &field); err != nil {
 				return err

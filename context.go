@@ -74,12 +74,20 @@ func (ctx *Context) TryParseBody(val interface{}) error {
 		if err := gob.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
 			return err
 		}
-	case "application/xml":
-		if err := xml.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
+	case "application/x-www-form-urlencoded":
+		if err := formReader(ctx.Request.Body, val); err != nil {
+			return err
+		}
+	case "multipart/form-data":
+		if err := formDataReader(ctx.Request.Body, val); err != nil {
 			return err
 		}
 	case "application/octet-stream":
-		if err := binaryRead(ctx.Request.Body, val); err != nil {
+		if err := binaryReader(ctx.Request.Body, val); err != nil {
+			return err
+		}
+	case "application/xml":
+		if err := xml.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
 			return err
 		}
 	}
@@ -143,7 +151,7 @@ func (ctx *Context) WriteGOB(val interface{}) error {
 
 // WriteBinary Write Binary
 func (ctx *Context) WriteBinary(val interface{}) error {
-	return binaryWrite(ctx.ResponseWriter, val)
+	return binaryWriter(ctx.ResponseWriter, val)
 }
 
 // Status Write status code to header

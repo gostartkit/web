@@ -34,6 +34,11 @@ func contentType(val string) string {
 
 // TryParse try parse val to v
 func TryParse(val string, v interface{}) error {
+
+	if len(val) > 0 && (val[0] == '{' || val[0] == '[') {
+		return json.Unmarshal([]byte(val), v)
+	}
+
 	if v == nil {
 		return errors.New("TryParse(nil)")
 	}
@@ -56,87 +61,7 @@ func TryParse(val string, v interface{}) error {
 		return errors.New("TryParse(can not set value to v)")
 	}
 
-	switch rv.Kind() {
-	case reflect.String:
-		rv.SetString(val)
-		return nil
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		n, err := strconv.ParseInt(val, 10, 64)
-		if err != nil {
-			return err
-		}
-		if rv.OverflowInt(n) {
-			return errors.New("TryParse(reflect.Value.OverflowInt)")
-		}
-		rv.SetInt(n)
-		return nil
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		n, err := strconv.ParseUint(val, 10, 64)
-		if err != nil {
-			return err
-		}
-		if rv.OverflowUint(n) {
-			return errors.New("TryParse(reflect.Value.OverflowUint)")
-		}
-		rv.SetUint(n)
-		return nil
-	case reflect.Float32, reflect.Float64:
-		n, err := strconv.ParseFloat(val, rv.Type().Bits())
-		if err != nil {
-			return err
-		}
-		if rv.OverflowFloat(n) {
-			return errors.New("TryParse(reflect.Value.OverflowFloat)")
-		}
-		rv.SetFloat(n)
-		return nil
-	case reflect.Bool:
-		n, err := strconv.ParseBool(val)
-		if err != nil {
-			return err
-		}
-		rv.SetBool(n)
-		return nil
-	default:
-		return json.Unmarshal([]byte(val), v)
-	}
-}
-
-// clean clean old to new and clean space ant \t
-func clean(val string, old byte, new byte) string {
-	l := len(val)
-
-	prev := 0
-
-	var str strings.Builder
-	str.Grow(l)
-
-	for pos := 0; pos < l; pos++ {
-		r := val[pos]
-
-		switch r {
-		case '/':
-			if pos > prev {
-				str.WriteString(val[prev:pos])
-			}
-			prev = pos + 1
-
-			if pos > 0 && prev < l {
-				str.WriteByte('_')
-			}
-		case ' ', '\t':
-			if pos > prev {
-				str.WriteString(val[prev:pos])
-			}
-			prev = pos + 1
-		}
-	}
-
-	if prev < l {
-		str.WriteString(val[prev:])
-	}
-
-	return str.String()
+	return tryParse(val, &rv)
 }
 
 // binaryReader decode data from binary
@@ -287,7 +212,7 @@ func formKevValue(key string, value string, m *map[string]int, v *reflect.Value)
 		if len(value) > 0 {
 			field := v.Field(i)
 
-			if err := tryParseField(value, &field); err != nil {
+			if err := tryParse(value, &field); err != nil {
 				return err
 			}
 		}
@@ -302,8 +227,8 @@ func formDataReader(r io.ReadCloser, v interface{}) error {
 	return errors.New("formDataReader not implemented")
 }
 
-// tryParseField try parse val to v
-func tryParseField(val string, v *reflect.Value) error {
+// tryParse try parse val to v
+func tryParse(val string, v *reflect.Value) error {
 
 	if v.Kind() == reflect.Ptr {
 		if v.IsNil() {
@@ -313,11 +238,11 @@ func tryParseField(val string, v *reflect.Value) error {
 	}
 
 	if !v.IsValid() {
-		return errors.New("tryParseField(rv invalid)")
+		return errors.New("tryParse(rv invalid)")
 	}
 
 	if !v.CanSet() {
-		return errors.New("tryParseField(can not set value to rv)")
+		return errors.New("tryParse(can not set value to rv)")
 	}
 
 	switch v.Kind() {
@@ -330,7 +255,7 @@ func tryParseField(val string, v *reflect.Value) error {
 			return err
 		}
 		if v.OverflowInt(n) {
-			return errors.New("tryParseField(reflect.Value.OverflowInt)")
+			return errors.New("tryParse(reflect.Value.OverflowInt)")
 		}
 		v.SetInt(n)
 		return nil
@@ -340,7 +265,7 @@ func tryParseField(val string, v *reflect.Value) error {
 			return err
 		}
 		if v.OverflowUint(n) {
-			return errors.New("tryParseField(reflect.Value.OverflowUint)")
+			return errors.New("tryParse(reflect.Value.OverflowUint)")
 		}
 		v.SetUint(n)
 		return nil
@@ -350,7 +275,7 @@ func tryParseField(val string, v *reflect.Value) error {
 			return err
 		}
 		if v.OverflowFloat(n) {
-			return errors.New("tryParseField(reflect.Value.OverflowFloat)")
+			return errors.New("tryParse(reflect.Value.OverflowFloat)")
 		}
 		v.SetFloat(n)
 		return nil
@@ -362,6 +287,6 @@ func tryParseField(val string, v *reflect.Value) error {
 		v.SetBool(n)
 		return nil
 	default:
-		return fmt.Errorf("tryParseField(unsupported type '%s')", v.Type().String())
+		return fmt.Errorf("tryParse(unsupported type '%s')", v.Type().String())
 	}
 }

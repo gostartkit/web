@@ -27,6 +27,7 @@ type Context struct {
 	params         *Params
 	urlValues      *url.Values
 	userID         uint64
+	accept         *string
 	contentType    *string
 }
 
@@ -119,9 +120,9 @@ func (ctx *Context) WriteString(val string) (int, error) {
 	return ctx.ResponseWriter.Write([]byte(val))
 }
 
-// Write Write data
+// Write Write data base on accept header
 func (ctx *Context) Write(val interface{}) error {
-	switch ctx.ContentType() {
+	switch ctx.Accept() {
 	case "application/json":
 		return ctx.WriteJSON(val)
 	case "application/x-gob":
@@ -178,6 +179,15 @@ func (ctx *Context) Add(key string, value string) {
 // Del del header, short hand for ctx.ResponseWriter.Header().Del
 func (ctx *Context) Del(key string) {
 	ctx.ResponseWriter.Header().Del(key)
+}
+
+// Accept get Accept from header
+func (ctx *Context) Accept() string {
+	if ctx.accept == nil {
+		ac := ctx.Get("Accept")
+		ctx.accept = &ac
+	}
+	return *ctx.accept
 }
 
 // ContentType get Content-Type from header

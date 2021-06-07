@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"net/http"
 	"net/url"
 )
@@ -92,7 +93,7 @@ func (ctx *Context) TryParseBody(val interface{}) error {
 			return err
 		}
 	}
-	return nil
+	return errors.New("tryParseBody(unsupported contentType '" + ctx.ContentType() + "')")
 }
 
 // TryParseParam decode val from Query

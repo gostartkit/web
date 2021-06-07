@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"mime"
 	"net/url"
 	"reflect"
@@ -197,8 +196,6 @@ func formReader(r io.ReadCloser, v interface{}) error {
 	)
 
 	isKey := true
-
-	log.Printf("before read\n")
 
 	for {
 		prev := 0

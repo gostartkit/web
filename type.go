@@ -7,8 +7,6 @@ var (
 	ErrUnauthorized = errors.New("unauthorized")
 	// ErrForbidden 403
 	ErrForbidden = errors.New("forbidden")
-	// ErrViewNotFound 404
-	ErrViewNotFound = errors.New("view not found")
 )
 
 // Param struct

@@ -2,14 +2,11 @@ package web
 
 import (
 	"crypto/tls"
-	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
-	"text/template"
 )
 
 var (
@@ -33,7 +30,6 @@ type Application struct {
 	panic      PanicCallback
 	paramsPool sync.Pool
 	maxParams  uint16
-	template   *template.Template
 
 	NotFound http.Handler
 }
@@ -54,33 +50,6 @@ func (app *Application) SetLogger(logger *log.Logger) {
 // SetPanic set Logger
 func (app *Application) SetPanic(panic PanicCallback) {
 	app.panic = panic
-}
-
-// SetTemplate set template
-func (app *Application) SetTemplate(template *template.Template) {
-	app.template = template
-}
-
-// Template get template
-func (app *Application) Template() *template.Template {
-	if app.template == nil {
-		app.template = template.New("TOP")
-	}
-	return app.template
-}
-
-// Execute execute template
-func (app *Application) Execute(wr io.Writer, val interface{}) error {
-	return app.Template().Execute(wr, val)
-}
-
-// ExecuteTemplate execute template by name
-func (app *Application) ExecuteTemplate(wr io.Writer, name string, val interface{}) error {
-	t := app.Template().Lookup(name)
-	if t == nil {
-		return ErrViewNotFound
-	}
-	return t.Execute(wr, val)
 }
 
 // Use Add the given callback function to this application.middlewares.
@@ -217,27 +186,8 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if val != nil {
-				if strings.HasPrefix(ctx.ContentType(), "text/html") {
-					viewName := ctx.Query("$viewName")
-					if viewName == "" {
-						viewName = clean(path, '/', '_')
-					}
-					if err := app.ExecuteTemplate(w, viewName, val); err != nil {
-						if err == ErrViewNotFound {
-							ctx.ResponseWriter.WriteHeader(http.StatusNotFound)
-						} else {
-							ctx.ResponseWriter.WriteHeader(http.StatusBadRequest)
-						}
-						app.logf("%s %s %d %s %s %s", r.RemoteAddr, r.Host, ctx.UserID(), r.Method, path, err)
-
-						if err := ctx.Write(err.Error()); err != nil {
-							app.logf("%s %s %d %s %s %s", r.RemoteAddr, r.Host, ctx.UserID(), r.Method, path, err)
-						}
-					}
-				} else {
-					if err := ctx.Write(val); err != nil {
-						app.logf("%s %s %d %s %s %s", r.RemoteAddr, r.Host, ctx.UserID(), r.Method, path, err)
-					}
+				if err := ctx.Write(val); err != nil {
+					app.logf("%s %s %d %s %s %s", r.RemoteAddr, r.Host, ctx.UserID(), r.Method, path, err)
 				}
 			}
 

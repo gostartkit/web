@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime"
 	"net/url"
 	"reflect"
@@ -197,11 +198,15 @@ func formReader(r io.Reader, v interface{}) error {
 
 	isKey := true
 
+	log.Printf("before read\n")
+
 	for {
 		prev := 0
 		n, err := r.Read(buf[0:formBufSize])
 
 		if err != nil {
+
+			log.Printf("read err:%v\n", err)
 
 			if err == io.EOF {
 
@@ -215,6 +220,8 @@ func formReader(r io.Reader, v interface{}) error {
 
 			return err
 		}
+
+		log.Printf("read buf:%v\n", buf)
 
 		formSize += n
 

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"mime"
 	"net/url"
 	"reflect"
@@ -15,7 +14,6 @@ import (
 
 const (
 	maxFormSize int = 10 << 20 // 10 MB is a lot of text.
-	formBufSize int = 512
 )
 
 func contentType(val string) string {
@@ -189,15 +187,7 @@ func formReader(r io.ReadCloser, v interface{}) error {
 	// stream
 	formSize := 0
 
-	bf, err := io.ReadAll(r)
-
-	if err != nil {
-		return err
-	}
-
-	log.Printf("buf: %v\n", bf)
-
-	buf := make([]byte, 0, formBufSize)
+	buf := make([]byte, 0, 512)
 
 	var (
 		key string
@@ -208,7 +198,7 @@ func formReader(r io.ReadCloser, v interface{}) error {
 
 	for {
 		prev := 0
-		n, err := r.Read(buf[0:formBufSize])
+		n, err := r.Read(buf[0:512])
 
 		if err != nil {
 

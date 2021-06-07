@@ -130,8 +130,9 @@ func (ctx *Context) Write(val interface{}) error {
 		return ctx.WriteXML(val)
 	case "application/octet-stream":
 		return ctx.WriteBinary(val)
+	default:
+		return ctx.WriteJSON(val)
 	}
-	return nil
 }
 
 // WriteJSON Write JSON

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"mime"
 	"net/url"
 	"reflect"
@@ -202,22 +201,15 @@ func formReader(r io.ReadCloser, v interface{}) error {
 		prev := 0
 		n, err := r.Read(buf[0:formBufSize])
 
-		log.Printf("buf: %v n: %d, err: %v\n", buf, n, err)
-
 		if err != nil {
-			log.Printf("err: %v\n", err)
 
 			if err == io.EOF {
-
-				if len(key) > 0 {
-					if err := formKevValue(key, val, &m, &rv); err != nil {
-						return err
-					}
-				}
-				break
+				err = nil
 			}
 
-			return err
+			if err != nil {
+				return err
+			}
 		}
 
 		formSize += n
@@ -259,6 +251,16 @@ func formReader(r io.ReadCloser, v interface{}) error {
 			} else {
 				val += string(buf[prev:])
 			}
+		}
+
+		if n != formBufSize {
+			break
+		}
+	}
+
+	if len(key) > 0 {
+		if err := formKevValue(key, val, &m, &rv); err != nil {
+			return err
 		}
 	}
 

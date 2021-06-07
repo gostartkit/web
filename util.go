@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime"
 	"net/url"
 	"reflect"
@@ -187,6 +188,14 @@ func formReader(r io.ReadCloser, v interface{}) error {
 
 	// stream
 	formSize := 0
+
+	bf, err := io.ReadAll(r)
+
+	if err != nil {
+		return err
+	}
+
+	log.Printf("buf: %v\n", bf)
 
 	buf := make([]byte, 0, formBufSize)
 

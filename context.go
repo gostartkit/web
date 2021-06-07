@@ -92,8 +92,11 @@ func (ctx *Context) TryParseBody(val interface{}) error {
 		if err := xml.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
 			return err
 		}
+	default:
+		return errors.New("tryParseBody(unsupported contentType '" + ctx.ContentType() + "')")
 	}
-	return errors.New("tryParseBody(unsupported contentType '" + ctx.ContentType() + "')")
+
+	return nil
 }
 
 // TryParseParam decode val from Query

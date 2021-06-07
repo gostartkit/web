@@ -141,7 +141,7 @@ func clean(val string, old byte, new byte) string {
 }
 
 // binaryReader decode data from binary
-func binaryReader(r io.Reader, v interface{}) error {
+func binaryReader(r io.ReadCloser, v interface{}) error {
 	return errors.New("binaryReader not implemented")
 }
 
@@ -152,7 +152,7 @@ func binaryWriter(w io.Writer, v interface{}) error {
 
 // formReader decode data from form
 // ContentType: application/x-www-form-urlencoded
-func formReader(r io.Reader, v interface{}) error {
+func formReader(r io.ReadCloser, v interface{}) error {
 	if v == nil {
 		return errors.New("formReader(nil)")
 	}
@@ -206,8 +206,6 @@ func formReader(r io.Reader, v interface{}) error {
 
 		if err != nil {
 
-			log.Printf("read err:%v\n", err)
-
 			if err == io.EOF {
 
 				if len(key) > 0 {
@@ -220,8 +218,6 @@ func formReader(r io.Reader, v interface{}) error {
 
 			return err
 		}
-
-		log.Printf("read buf:%v\n", buf)
 
 		formSize += n
 
@@ -299,7 +295,7 @@ func formKevValue(key string, value string, m *map[string]int, v *reflect.Value)
 
 // formDataReader decode data from form
 // ContentType: multipart/form-data
-func formDataReader(r io.Reader, v interface{}) error {
+func formDataReader(r io.ReadCloser, v interface{}) error {
 	return errors.New("formDataReader not implemented")
 }
 

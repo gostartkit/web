@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // createContext return a web.Context
@@ -136,6 +137,9 @@ func (ctx *Context) Write(val interface{}) error {
 	case "application/octet-stream":
 		return ctx.WriteBinary(val)
 	default:
+		if strings.HasPrefix(ctx.Accept(), "text/html") {
+			return ctx.WriteHTML(val)
+		}
 		return ctx.WriteJSON(val)
 	}
 }
@@ -158,6 +162,11 @@ func (ctx *Context) WriteGOB(val interface{}) error {
 // WriteBinary Write Binary
 func (ctx *Context) WriteBinary(val interface{}) error {
 	return binaryWriter(ctx.ResponseWriter, val)
+}
+
+// WriteHTML Write HTML
+func (ctx *Context) WriteHTML(val interface{}) error {
+	return htmlWriter(ctx.Request.URL.Path, ctx.ResponseWriter, val)
 }
 
 // Status Write status code to header

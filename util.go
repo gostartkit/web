@@ -74,6 +74,11 @@ func binaryWriter(w io.Writer, v interface{}) error {
 	return errors.New("binaryWriter not implemented")
 }
 
+// htmlWriter encode data to html
+func htmlWriter(path string, w io.Writer, v interface{}) error {
+	return errors.New("htmlWriter not implemented")
+}
+
 // formReader decode data from form
 // ContentType: application/x-www-form-urlencoded
 func formReader(r io.ReadCloser, v interface{}) error {

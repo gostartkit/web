@@ -19,7 +19,7 @@ type Reader func(r io.ReadCloser, v interface{}) error
 type Writer func(io.Writer, interface{}) error
 
 // HtmlWriter function
-type HtmlWriter func(string, io.Writer, interface{}) error
+type HtmlWriter func(io.Writer, string, interface{}) error
 
 const (
 	maxFormSize int = 10 << 20 // 10 MB is a lot of text.
@@ -108,9 +108,9 @@ func binaryWriter(w io.Writer, v interface{}) error {
 }
 
 // htmlWriter encode data to html
-func htmlWriter(path string, w io.Writer, v interface{}) error {
+func htmlWriter(w io.Writer, path string, v interface{}) error {
 	if _htmlWriter != nil {
-		return _htmlWriter(path, w, v)
+		return _htmlWriter(w, path, v)
 	}
 	return errors.New("htmlWriter not implemented")
 }

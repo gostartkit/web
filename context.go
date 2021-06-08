@@ -166,7 +166,7 @@ func (ctx *Context) WriteBinary(val interface{}) error {
 
 // WriteHTML Write HTML
 func (ctx *Context) WriteHTML(val interface{}) error {
-	return htmlWriter(ctx.ResponseWriter, ctx.Request.URL.Path, val)
+	return htmlWriter(ctx.ResponseWriter, ctx.Request.URL.Path, ctx.Request.Method, val)
 }
 
 // Status Write status code to header

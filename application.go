@@ -145,8 +145,8 @@ func (app *Application) ServeFiles(path string, root http.FileSystem) {
 	fileServer := http.FileServer(root)
 
 	app.Get(path, func(ctx *Context) (Data, error) {
-		ctx.Request.URL.Path = ctx.Param("filepath")
-		fileServer.ServeHTTP(ctx.ResponseWriter, ctx.Request)
+		ctx.r.URL.Path = ctx.Param("filepath")
+		fileServer.ServeHTTP(ctx.w, ctx.r)
 		return nil, nil
 	})
 }
@@ -169,11 +169,11 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 				switch err {
 				case ErrUnauthorized:
-					ctx.ResponseWriter.WriteHeader(http.StatusUnauthorized)
+					ctx.SetStatus(http.StatusUnauthorized)
 				case ErrForbidden:
-					ctx.ResponseWriter.WriteHeader(http.StatusForbidden)
+					ctx.SetStatus(http.StatusForbidden)
 				default:
-					ctx.ResponseWriter.WriteHeader(http.StatusBadRequest)
+					ctx.SetStatus(http.StatusBadRequest)
 				}
 
 				app.logf("%s %s %d %s %s %s", r.RemoteAddr, r.Host, ctx.UserID(), r.Method, path, err)

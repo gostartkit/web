@@ -14,9 +14,10 @@ import (
 func createContext(w http.ResponseWriter, r *http.Request, params *Params) *Context {
 
 	ctx := &Context{
-		ResponseWriter: w,
-		Request:        r,
-		params:         params,
+		w:          w,
+		r:          r,
+		params:     params,
+		statusCode: 200,
 	}
 
 	return ctx
@@ -24,13 +25,14 @@ func createContext(w http.ResponseWriter, r *http.Request, params *Params) *Cont
 
 // Context is type of an web.Context
 type Context struct {
-	ResponseWriter http.ResponseWriter
-	Request        *http.Request
-	params         *Params
-	urlValues      *url.Values
-	userID         uint64
-	accept         *string
-	contentType    *string
+	w           http.ResponseWriter
+	r           *http.Request
+	params      *Params
+	urlValues   *url.Values
+	userID      uint64
+	accept      *string
+	contentType *string
+	statusCode  int
 }
 
 // Init init context
@@ -51,7 +53,7 @@ func (ctx *Context) Param(name string) string {
 // Query get value from QueryString
 func (ctx *Context) Query(name string) string {
 	if ctx.urlValues == nil {
-		urlValues := ctx.Request.URL.Query()
+		urlValues := ctx.r.URL.Query()
 		ctx.urlValues = &urlValues
 	}
 
@@ -60,37 +62,37 @@ func (ctx *Context) Query(name string) string {
 
 // Form get value from Form
 func (ctx *Context) Form(name string) string {
-	if ctx.Request.Form == nil {
-		ctx.Request.ParseForm()
+	if ctx.r.Form == nil {
+		ctx.r.ParseForm()
 	}
-	return ctx.Request.Form.Get(name)
+	return ctx.r.Form.Get(name)
 }
 
 // TryParseBody decode val from Request.Body
 func (ctx *Context) TryParseBody(val interface{}) error {
 	switch ctx.ContentType() {
 	case "application/json":
-		if err := json.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
+		if err := json.NewDecoder(ctx.r.Body).Decode(val); err != nil {
 			return err
 		}
 	case "application/x-gob":
-		if err := gob.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
+		if err := gob.NewDecoder(ctx.r.Body).Decode(val); err != nil {
 			return err
 		}
 	case "application/x-www-form-urlencoded":
-		if err := formReader(ctx.Request.Body, val); err != nil {
+		if err := formReader(ctx.r.Body, val); err != nil {
 			return err
 		}
 	case "multipart/form-data":
-		if err := formDataReader(ctx.Request.Body, val); err != nil {
+		if err := formDataReader(ctx.r.Body, val); err != nil {
 			return err
 		}
 	case "application/octet-stream":
-		if err := binaryReader(ctx.Request.Body, val); err != nil {
+		if err := binaryReader(ctx.r.Body, val); err != nil {
 			return err
 		}
 	case "application/xml":
-		if err := xml.NewDecoder(ctx.Request.Body).Decode(val); err != nil {
+		if err := xml.NewDecoder(ctx.r.Body).Decode(val); err != nil {
 			return err
 		}
 	default:
@@ -117,12 +119,12 @@ func (ctx *Context) TryParseForm(name string, val interface{}) error {
 
 // WriteBytes Write bytes
 func (ctx *Context) WriteBytes(val []byte) (int, error) {
-	return ctx.ResponseWriter.Write(val)
+	return ctx.w.Write(val)
 }
 
 // WriteString Write String
 func (ctx *Context) WriteString(val string) (int, error) {
-	return ctx.ResponseWriter.Write([]byte(val))
+	return ctx.w.Write([]byte(val))
 }
 
 // Write Write data base on accept header
@@ -146,52 +148,58 @@ func (ctx *Context) Write(val interface{}) error {
 
 // WriteJSON Write JSON
 func (ctx *Context) WriteJSON(val interface{}) error {
-	return json.NewEncoder(ctx.ResponseWriter).Encode(val)
+	return json.NewEncoder(ctx.w).Encode(val)
 }
 
 // WriteXML Write XML
 func (ctx *Context) WriteXML(val interface{}) error {
-	return xml.NewEncoder(ctx.ResponseWriter).Encode(val)
+	return xml.NewEncoder(ctx.w).Encode(val)
 }
 
 // WriteGOB Write GOB
 func (ctx *Context) WriteGOB(val interface{}) error {
-	return gob.NewEncoder(ctx.ResponseWriter).Encode(val)
+	return gob.NewEncoder(ctx.w).Encode(val)
 }
 
 // WriteBinary Write Binary
 func (ctx *Context) WriteBinary(val interface{}) error {
-	return binaryWriter(ctx.ResponseWriter, val)
+	return binaryWriter(ctx.w, val)
 }
 
 // WriteHTML Write HTML
 func (ctx *Context) WriteHTML(val interface{}) error {
-	return htmlWriter(ctx.ResponseWriter, ctx.Request.URL.Path, ctx.Request.Method, val)
+	return htmlWriter(ctx.w, ctx.r.URL.Path, ctx.r.Method, ctx.Status(), val)
 }
 
-// Status Write status code to header
-func (ctx *Context) Status(code int) {
-	ctx.ResponseWriter.WriteHeader(code)
+// SetStatus Write status code to header
+func (ctx *Context) SetStatus(code int) {
+	ctx.statusCode = code
+	ctx.w.WriteHeader(code)
+}
+
+// Status return status code
+func (ctx *Context) Status() int {
+	return ctx.statusCode
 }
 
 // Get get header, short hand for ctx.Request.Header.Get
 func (ctx *Context) Get(key string) string {
-	return ctx.Request.Header.Get(key)
+	return ctx.r.Header.Get(key)
 }
 
 // Set set header, short hand for ctx.ResponseWriter.Header().Set
 func (ctx *Context) Set(key string, value string) {
-	ctx.ResponseWriter.Header().Set(key, value)
+	ctx.w.Header().Set(key, value)
 }
 
 // Add add header, short hand for ctx.ResponseWriter.Header().Add
 func (ctx *Context) Add(key string, value string) {
-	ctx.ResponseWriter.Header().Add(key, value)
+	ctx.w.Header().Add(key, value)
 }
 
 // Del del header, short hand for ctx.ResponseWriter.Header().Del
 func (ctx *Context) Del(key string) {
-	ctx.ResponseWriter.Header().Del(key)
+	ctx.w.Header().Del(key)
 }
 
 // Accept get Accept from header
@@ -220,6 +228,6 @@ func (ctx *Context) SetContentType(val string) {
 // Redirect to url with status code
 func (ctx *Context) Redirect(code int, url string) {
 	ctx.Set("Location", url)
-	ctx.ResponseWriter.WriteHeader(code)
+	ctx.w.WriteHeader(code)
 	ctx.WriteString("Redirecting to: " + url)
 }

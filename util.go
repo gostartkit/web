@@ -12,24 +12,51 @@ import (
 	"strings"
 )
 
+// Reader function
+type Reader func(r io.ReadCloser, v interface{}) error
+
+// Writer function
+type Writer func(io.Writer, interface{}) error
+
+// HtmlWriter function
+type HtmlWriter func(string, io.Writer, interface{}) error
+
 const (
 	maxFormSize int = 10 << 20 // 10 MB is a lot of text.
 	formBufSize int = 512
 )
 
-func contentType(val string) string {
-	var ctype string
+var (
+	_binaryReader   Reader
+	_formReader     Reader
+	_formDataReader Reader
+	_binaryWriter   Writer
+	_htmlWriter     HtmlWriter
+)
 
-	if strings.ContainsRune(val, '/') {
-		ctype = val
-	} else {
-		if !strings.HasPrefix(val, ".") {
-			val = "." + val
-		}
-		ctype = mime.TypeByExtension(val)
-	}
+// SetBinaryReader set binaryReader
+func SetBinaryReader(r Reader) {
+	_binaryReader = r
+}
 
-	return ctype
+// SetFormReader set formReader
+func SetFormReader(r Reader) {
+	_formReader = r
+}
+
+// SetFormDataReader set formDataReader
+func SetFormDataReader(r Reader) {
+	_formDataReader = r
+}
+
+// SetBinaryWriter set binaryWriter
+func SetBinaryWriter(w Writer) {
+	_binaryWriter = w
+}
+
+// SetHtmlWriter set htmlWriter
+func SetHtmlWriter(w HtmlWriter) {
+	_htmlWriter = w
 }
 
 // TryParse try parse val to v
@@ -66,22 +93,35 @@ func TryParse(val string, v interface{}) error {
 
 // binaryReader decode data from binary
 func binaryReader(r io.ReadCloser, v interface{}) error {
+	if _binaryReader != nil {
+		return _binaryReader(r, v)
+	}
 	return errors.New("binaryReader not implemented")
 }
 
 // binaryWriter encode data to binary
 func binaryWriter(w io.Writer, v interface{}) error {
+	if _binaryWriter != nil {
+		return _binaryWriter(w, v)
+	}
 	return errors.New("binaryWriter not implemented")
 }
 
 // htmlWriter encode data to html
 func htmlWriter(path string, w io.Writer, v interface{}) error {
+	if _htmlWriter != nil {
+		return _htmlWriter(path, w, v)
+	}
 	return errors.New("htmlWriter not implemented")
 }
 
 // formReader decode data from form
 // ContentType: application/x-www-form-urlencoded
 func formReader(r io.ReadCloser, v interface{}) error {
+	if _formReader != nil {
+		return _formReader(r, v)
+	}
+
 	if v == nil {
 		return errors.New("formReader(nil)")
 	}
@@ -229,6 +269,9 @@ func formKevValue(key string, value string, m *map[string]int, v *reflect.Value)
 // formDataReader decode data from form
 // ContentType: multipart/form-data
 func formDataReader(r io.ReadCloser, v interface{}) error {
+	if _formDataReader != nil {
+		return _formDataReader(r, v)
+	}
 	return errors.New("formDataReader not implemented")
 }
 
@@ -294,4 +337,19 @@ func tryParse(val string, v *reflect.Value) error {
 	default:
 		return fmt.Errorf("tryParse(unsupported type '%s')", v.Type().String())
 	}
+}
+
+func contentType(val string) string {
+	var ctype string
+
+	if strings.ContainsRune(val, '/') {
+		ctype = val
+	} else {
+		if !strings.HasPrefix(val, ".") {
+			val = "." + val
+		}
+		ctype = mime.TypeByExtension(val)
+	}
+
+	return ctype
 }

@@ -68,6 +68,16 @@ func (ctx *Context) Form(name string) string {
 	return ctx.r.Form.Get(name)
 }
 
+// Path return ctx.r.URL.Path
+func (ctx *Context) Path() string {
+	return ctx.r.URL.Path
+}
+
+// Method return ctx.r.Method
+func (ctx *Context) Method() string {
+	return ctx.r.Method
+}
+
 // TryParseBody decode val from Request.Body
 func (ctx *Context) TryParseBody(val interface{}) error {
 	switch ctx.ContentType() {
@@ -168,18 +178,18 @@ func (ctx *Context) writeBinary(val interface{}) error {
 
 // writeHTML Write HTML
 func (ctx *Context) writeHTML(val interface{}) error {
-	return htmlWriter(ctx.w, ctx.r.URL.Path, ctx.r.Method, ctx.Status(), val)
+	return htmlWriter(ctx.w, ctx, val)
+}
+
+// Status return status code
+func (ctx *Context) Status() int {
+	return ctx.statusCode
 }
 
 // SetStatus Write status code to header
 func (ctx *Context) SetStatus(code int) {
 	ctx.statusCode = code
 	ctx.w.WriteHeader(code)
-}
-
-// Status return status code
-func (ctx *Context) Status() int {
-	return ctx.statusCode
 }
 
 // Get get header, short hand for ctx.Request.Header.Get
@@ -228,6 +238,6 @@ func (ctx *Context) SetContentType(val string) {
 // Redirect to url with status code
 func (ctx *Context) Redirect(code int, url string) {
 	ctx.Set("Location", url)
-	ctx.w.WriteHeader(code)
+	ctx.SetStatus(code)
 	ctx.writeString("Redirecting to: " + url)
 }

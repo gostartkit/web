@@ -117,57 +117,57 @@ func (ctx *Context) TryParseForm(name string, val interface{}) error {
 	return TryParse(ctx.Form(name), val)
 }
 
-// WriteBytes Write bytes
-func (ctx *Context) WriteBytes(val []byte) (int, error) {
+// writeBytes Write bytes
+func (ctx *Context) writeBytes(val []byte) (int, error) {
 	return ctx.w.Write(val)
 }
 
-// WriteString Write String
-func (ctx *Context) WriteString(val string) (int, error) {
+// writeString Write String
+func (ctx *Context) writeString(val string) (int, error) {
 	return ctx.w.Write([]byte(val))
 }
 
-// Write Write data base on accept header
-func (ctx *Context) Write(val interface{}) error {
+// write write data base on accept header
+func (ctx *Context) write(val interface{}) error {
 	switch ctx.Accept() {
 	case "application/json":
-		return ctx.WriteJSON(val)
+		return ctx.writeJSON(val)
 	case "application/x-gob":
-		return ctx.WriteGOB(val)
+		return ctx.writeGOB(val)
 	case "application/xml":
-		return ctx.WriteXML(val)
+		return ctx.writeXML(val)
 	case "application/octet-stream":
-		return ctx.WriteBinary(val)
+		return ctx.writeBinary(val)
 	default:
 		if strings.HasPrefix(ctx.Accept(), "text/html") {
-			return ctx.WriteHTML(val)
+			return ctx.writeHTML(val)
 		}
-		return ctx.WriteJSON(val)
+		return ctx.writeJSON(val)
 	}
 }
 
-// WriteJSON Write JSON
-func (ctx *Context) WriteJSON(val interface{}) error {
+// writeJSON Write JSON
+func (ctx *Context) writeJSON(val interface{}) error {
 	return json.NewEncoder(ctx.w).Encode(val)
 }
 
-// WriteXML Write XML
-func (ctx *Context) WriteXML(val interface{}) error {
+// writeXML Write XML
+func (ctx *Context) writeXML(val interface{}) error {
 	return xml.NewEncoder(ctx.w).Encode(val)
 }
 
-// WriteGOB Write GOB
-func (ctx *Context) WriteGOB(val interface{}) error {
+// writeGOB Write GOB
+func (ctx *Context) writeGOB(val interface{}) error {
 	return gob.NewEncoder(ctx.w).Encode(val)
 }
 
-// WriteBinary Write Binary
-func (ctx *Context) WriteBinary(val interface{}) error {
+// writeBinary Write Binary
+func (ctx *Context) writeBinary(val interface{}) error {
 	return binaryWriter(ctx.w, val)
 }
 
-// WriteHTML Write HTML
-func (ctx *Context) WriteHTML(val interface{}) error {
+// writeHTML Write HTML
+func (ctx *Context) writeHTML(val interface{}) error {
 	return htmlWriter(ctx.w, ctx.r.URL.Path, ctx.r.Method, ctx.Status(), val)
 }
 
@@ -229,5 +229,5 @@ func (ctx *Context) SetContentType(val string) {
 func (ctx *Context) Redirect(code int, url string) {
 	ctx.Set("Location", url)
 	ctx.w.WriteHeader(code)
-	ctx.WriteString("Redirecting to: " + url)
+	ctx.writeString("Redirecting to: " + url)
 }

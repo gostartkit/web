@@ -178,7 +178,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 				app.logf("%s %s %d %s %s %s", r.RemoteAddr, r.Host, ctx.UserID(), r.Method, path, err)
 
-				if err := ctx.Write(err.Error()); err != nil {
+				if err := ctx.write(err.Error()); err != nil {
 					app.logf("ctx.Write err: %v", err)
 				}
 
@@ -186,7 +186,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if val != nil {
-				if err := ctx.Write(val); err != nil {
+				if err := ctx.write(val); err != nil {
 					app.logf("ctx.Write err: %v", err)
 				}
 			}

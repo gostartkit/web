@@ -34,8 +34,8 @@ type Application struct {
 	NotFound http.Handler
 }
 
-// Create return a singleton web.Application
-func Create() *Application {
+// CreateApplication return a singleton web.Application
+func CreateApplication() *Application {
 	_once.Do(func() {
 		_app = &Application{}
 	})

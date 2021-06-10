@@ -68,6 +68,11 @@ func (ctx *Context) Form(name string) string {
 	return ctx.r.Form.Get(name)
 }
 
+// Host return ctx.r.Host
+func (ctx *Context) Host() string {
+	return ctx.r.Host
+}
+
 // Path return ctx.r.URL.Path
 func (ctx *Context) Path() string {
 	return ctx.r.URL.Path
@@ -76,6 +81,11 @@ func (ctx *Context) Path() string {
 // Method return ctx.r.Method
 func (ctx *Context) Method() string {
 	return ctx.r.Method
+}
+
+// RemoteAddr return remote ip address
+func (ctx *Context) RemoteAddr() string {
+	return ctx.r.RemoteAddr
 }
 
 // TryParseBody decode val from Request.Body
@@ -239,5 +249,4 @@ func (ctx *Context) SetContentType(val string) {
 func (ctx *Context) Redirect(code int, url string) {
 	ctx.Set("Location", url)
 	ctx.SetStatus(code)
-	ctx.writeString("Redirecting to: " + url)
 }

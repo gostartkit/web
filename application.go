@@ -176,10 +176,10 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					ctx.SetStatus(http.StatusBadRequest)
 				}
 
-				app.logf("%s %s %d %s %s %s", r.RemoteAddr, r.Host, ctx.UserID(), r.Method, path, err)
+				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, ctx.UserID(), r.Method, path, ctx.Status(), err)
 
 				if err := ctx.write(err.Error()); err != nil {
-					app.logf("ctx.Write err: %v", err)
+					app.logf("ctx.write err: %v", err)
 				}
 
 				return
@@ -187,7 +187,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			if val != nil {
 				if err := ctx.write(val); err != nil {
-					app.logf("ctx.Write err: %v", err)
+					app.logf("ctx.write err: %v", err)
 				}
 			}
 
@@ -286,7 +286,7 @@ func (app *Application) recv(w http.ResponseWriter, r *http.Request) {
 		if app.panic != nil {
 			app.panic(w, r, rcv)
 		} else {
-			app.logf("%s %s %s: %v", r.Host, r.Method, r.URL.Path, rcv)
+			app.logf("%s %s %s %s rcv: %v", r.RemoteAddr, r.Host, r.Method, r.URL.Path, rcv)
 		}
 	}
 }

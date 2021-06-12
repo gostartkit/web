@@ -88,6 +88,16 @@ func (ctx *Context) RemoteAddr() string {
 	return ctx.r.RemoteAddr
 }
 
+// UserAgent return User-Agent header
+func (ctx *Context) UserAgent() string {
+	return ctx.Get("User-Agent")
+}
+
+// IsAjax if X-Requested-With header is XMLHttpRequest return true, else false
+func (ctx *Context) IsAjax() bool {
+	return ctx.Get("X-Requested-With") == "XMLHttpRequest"
+}
+
 // TryParseBody decode val from Request.Body
 func (ctx *Context) TryParseBody(val interface{}) error {
 	switch ctx.ContentType() {

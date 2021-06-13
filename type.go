@@ -1,29 +1,12 @@
 package web
 
-import "errors"
+import "io"
 
-var (
-	// ErrUnauthorized 401
-	ErrUnauthorized = errors.New("unauthorized")
-	// ErrForbidden 403
-	ErrForbidden = errors.New("forbidden")
-)
+// Reader function
+type Reader func(r io.ReadCloser, v interface{}) error
 
-// Param struct
-type Param struct {
-	Key   string
-	Value string
-}
+// Writer function
+type Writer func(io.Writer, interface{}) error
 
-// Params list
-type Params []Param
-
-// Val get value from Params by name
-func (ps Params) Val(name string) string {
-	for i := range ps {
-		if ps[i].Key == name {
-			return ps[i].Value
-		}
-	}
-	return ""
-}
+// HtmlWriter function
+type HtmlWriter func(io.Writer, *Context, interface{}) error

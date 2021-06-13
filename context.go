@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"errors"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -14,10 +15,10 @@ import (
 func createContext(w http.ResponseWriter, r *http.Request, params *Params) *Context {
 
 	ctx := &Context{
-		w:          w,
-		r:          r,
-		params:     params,
-		statusCode: 200,
+		w:     w,
+		r:     r,
+		param: params,
+		code:  200,
 	}
 
 	return ctx
@@ -27,12 +28,13 @@ func createContext(w http.ResponseWriter, r *http.Request, params *Params) *Cont
 type Context struct {
 	w           http.ResponseWriter
 	r           *http.Request
-	params      *Params
-	urlValues   *url.Values
+	param       *Params
+	query       *url.Values
+	form        *url.Values
 	userID      uint64
 	accept      *string
 	contentType *string
-	statusCode  int
+	code        int
 }
 
 // Init init context
@@ -47,25 +49,25 @@ func (ctx *Context) UserID() uint64 {
 
 // Param get value from Params
 func (ctx *Context) Param(name string) string {
-	return ctx.params.Val(name)
+	return ctx.param.Val(name)
 }
 
 // Query get value from QueryString
 func (ctx *Context) Query(name string) string {
-	if ctx.urlValues == nil {
-		urlValues := ctx.r.URL.Query()
-		ctx.urlValues = &urlValues
+	if ctx.query == nil {
+		query := ctx.r.URL.Query()
+		ctx.query = &query
 	}
 
-	return ctx.urlValues.Get(name)
+	return ctx.query.Get(name)
 }
 
 // Form get value from Form
 func (ctx *Context) Form(name string) string {
-	if ctx.r.Form == nil {
-		ctx.r.ParseForm()
+	if ctx.form == nil {
+		ctx.form, _ = ctx.parseForm()
 	}
-	return ctx.r.Form.Get(name)
+	return ctx.form.Get(name)
 }
 
 // Host return ctx.r.Host
@@ -110,15 +112,15 @@ func (ctx *Context) TryParseBody(val interface{}) error {
 			return err
 		}
 	case "application/x-www-form-urlencoded":
-		if err := formReader(ctx.r.Body, val); err != nil {
+		if err := formReader(ctx, val); err != nil {
 			return err
 		}
 	case "multipart/form-data":
-		if err := formDataReader(ctx.r.Body, val); err != nil {
+		if err := formDataReader(ctx, val); err != nil {
 			return err
 		}
 	case "application/octet-stream":
-		if err := binaryReader(ctx.r.Body, val); err != nil {
+		if err := binaryReader(ctx, val); err != nil {
 			return err
 		}
 	case "application/xml":
@@ -147,15 +149,15 @@ func (ctx *Context) TryParseForm(name string, val interface{}) error {
 	return TryParse(ctx.Form(name), val)
 }
 
-// writeBytes Write bytes
-func (ctx *Context) writeBytes(val []byte) (int, error) {
-	return ctx.w.Write(val)
-}
+// // writeBytes Write bytes
+// func (ctx *Context) writeBytes(val []byte) (int, error) {
+// 	return ctx.w.Write(val)
+// }
 
-// writeString Write String
-func (ctx *Context) writeString(val string) (int, error) {
-	return ctx.w.Write([]byte(val))
-}
+// // writeString Write String
+// func (ctx *Context) writeString(val string) (int, error) {
+// 	return ctx.w.Write([]byte(val))
+// }
 
 // write write data base on accept header
 func (ctx *Context) write(val interface{}) error {
@@ -203,12 +205,12 @@ func (ctx *Context) writeHTML(val interface{}) error {
 
 // Status return status code
 func (ctx *Context) Status() int {
-	return ctx.statusCode
+	return ctx.code
 }
 
 // SetStatus Write status code to header
 func (ctx *Context) SetStatus(code int) {
-	ctx.statusCode = code
+	ctx.code = code
 	ctx.w.WriteHeader(code)
 }
 
@@ -259,4 +261,112 @@ func (ctx *Context) SetContentType(val string) {
 func (ctx *Context) Redirect(code int, url string) {
 	ctx.Set("Location", url)
 	ctx.SetStatus(code)
+}
+
+// parseForm parse form from ctx.r.Body
+func (ctx *Context) parseForm() (*url.Values, error) {
+	m := make(url.Values)
+	err := ctx.parseQuery(ctx.r.Body, func(key, value []byte) error {
+		k, err := queryUnescape(key)
+
+		if err != nil {
+			return err
+		}
+
+		val, err := queryUnescape(value)
+
+		if err != nil {
+			return err
+		}
+
+		m[k] = append(m[k], val)
+
+		return nil
+	})
+	return &m, err
+}
+
+// parseQuery parse form from stream
+// callback fn when got key, value
+// application/x-www-form-urlencoded
+func (ctx *Context) parseQuery(r io.ReadCloser, fn func(key []byte, value []byte) error) error {
+	formSize := 0
+
+	buf := make([]byte, 0, _formBufSize)
+
+	var (
+		key []byte = make([]byte, 0, _formKeyBufSize)
+		val []byte = make([]byte, 0, _formValueBufSize)
+	)
+
+	isKey := true
+
+	for {
+		prev := 0
+		n, err := r.Read(buf[0:_formBufSize])
+
+		if err != nil {
+
+			if err == io.EOF {
+				err = nil
+			}
+
+			if err != nil {
+				return err
+			}
+		}
+
+		formSize += n
+
+		if formSize > _maxFormSize {
+			return errors.New("http: POST too large")
+		}
+
+		buf = buf[:n]
+
+		for i := 0; i < n; i++ {
+			r := buf[i]
+			switch r {
+			case '&', ';':
+				if i > prev {
+					val = append(val, buf[prev:i]...)
+				}
+
+				if err := fn(key, val); err != nil {
+					return err
+				}
+
+				key = key[0:0]
+				val = val[0:0]
+				prev = i + 1
+				isKey = true
+			case '=':
+				if i > prev {
+					key = append(key, buf[prev:i]...)
+				}
+				prev = i + 1
+				isKey = false
+			}
+		}
+
+		if prev < n {
+			if isKey {
+				key = append(key, buf[prev:]...)
+			} else {
+				val = append(val, buf[prev:]...)
+			}
+		}
+
+		if n != _formBufSize {
+			break
+		}
+	}
+
+	if len(key) > 0 {
+		if err := fn(key, val); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

@@ -3,16 +3,15 @@ package web
 import (
 	"errors"
 	"fmt"
-	"io"
 	"reflect"
 	"strings"
 )
 
 const (
-	maxFormSize      int = 10 << 20 // 10 MB is a lot of text.
-	formBufSize      int = 512
-	formKeyBufSize   int = 32
-	formValueBufSize int = 64
+	_maxFormSize      int = 10 << 20 // 10 MB is a lot of text.
+	_formBufSize      int = 512
+	_formKeyBufSize   int = 32
+	_formValueBufSize int = 64
 )
 
 var (
@@ -30,11 +29,11 @@ func SetFormDataReader(r Reader) {
 	_formDataReader = r
 }
 
-// formReader decode data from form
+// formReader decode data from request body
 // ContentType: application/x-www-form-urlencoded
-func formReader(r io.ReadCloser, v interface{}) error {
+func formReader(ctx *Context, v Data) error {
 	if _formReader != nil {
-		return _formReader(r, v)
+		return _formReader(ctx, v)
 	}
 
 	if v == nil {
@@ -59,120 +58,26 @@ func formReader(r io.ReadCloser, v interface{}) error {
 		return fmt.Errorf("formReader(unsupported type '%s')", rv.Type().String())
 	}
 
-	rt := rv.Type()
+	if ctx.form == nil {
 
-	m := make(map[string]int)
+		var err error
+
+		if ctx.form, err = ctx.parseForm(); err != nil {
+			return err
+		}
+	}
+
+	rt := rv.Type()
 
 	for i := 0; i < rt.NumField(); i++ {
 		tag := rt.Field(i).Tag.Get("json")
 		if len(tag) > 0 && tag != "-" {
-			m[tag] = i
-		}
-	}
-
-	// stream
-	formSize := 0
-
-	buf := make([]byte, 0, formBufSize)
-
-	var (
-		key = make([]byte, 0, formKeyBufSize)
-		val = make([]byte, 0, formValueBufSize)
-	)
-
-	isKey := true
-
-	for {
-		prev := 0
-		n, err := r.Read(buf[0:formBufSize])
-
-		if err != nil {
-
-			if err == io.EOF {
-				err = nil
-			}
-
-			if err != nil {
-				return err
-			}
-		}
-
-		formSize += n
-
-		if formSize > maxFormSize {
-			return errors.New("http: POST too large")
-		}
-
-		buf = buf[:n]
-
-		for i := 0; i < n; i++ {
-			r := buf[i]
-			switch r {
-			case '&', ';':
-				if i > prev {
-					val = append(val, buf[prev:i]...)
-				}
-
-				if err := formKevValue(key, val, &m, &rv); err != nil {
+			val := ctx.form.Get(tag)
+			if val != "" {
+				field := rv.Field(i)
+				if err := tryParse(val, &field); err != nil {
 					return err
 				}
-
-				key = key[0:0]
-				val = val[0:0]
-				prev = i + 1
-				isKey = true
-			case '=':
-				if i > prev {
-					key = append(key, buf[prev:i]...)
-				}
-				prev = i + 1
-				isKey = false
-			}
-		}
-
-		if prev < n {
-			if isKey {
-				key = append(key, buf[prev:]...)
-			} else {
-				val = append(val, buf[prev:]...)
-			}
-		}
-
-		if n != formBufSize {
-			break
-		}
-	}
-
-	if len(key) > 0 {
-		if err := formKevValue(key, val, &m, &rv); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func formKevValue(key []byte, value []byte, m *map[string]int, v *reflect.Value) error {
-
-	k, err := queryUnescape(key)
-
-	if err != nil {
-		return err
-	}
-
-	if i, ok := (*m)[k]; ok {
-
-		val, err := queryUnescape(value)
-
-		if err != nil {
-			return err
-		}
-
-		if len(val) > 0 {
-			field := v.Field(i)
-
-			if err := tryParse(val, &field); err != nil {
-				return err
 			}
 		}
 	}
@@ -182,9 +87,9 @@ func formKevValue(key []byte, value []byte, m *map[string]int, v *reflect.Value)
 
 // formDataReader decode data from form
 // ContentType: multipart/form-data
-func formDataReader(r io.ReadCloser, v interface{}) error {
+func formDataReader(ctx *Context, v Data) error {
 	if _formDataReader != nil {
-		return _formDataReader(r, v)
+		return _formDataReader(ctx, v)
 	}
 	return errors.New("formDataReader not implemented")
 }

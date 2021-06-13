@@ -21,15 +21,15 @@ func SetBinaryWriter(w Writer) {
 }
 
 // binaryReader decode data from binary
-func binaryReader(r io.ReadCloser, v interface{}) error {
+func binaryReader(ctx *Context, v Data) error {
 	if _binaryReader != nil {
-		return _binaryReader(r, v)
+		return _binaryReader(ctx, v)
 	}
 	return errors.New("binaryReader not implemented")
 }
 
 // binaryWriter encode data to binary
-func binaryWriter(w io.Writer, v interface{}) error {
+func binaryWriter(w io.Writer, v Data) error {
 	if _binaryWriter != nil {
 		return _binaryWriter(w, v)
 	}

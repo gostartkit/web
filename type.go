@@ -3,10 +3,10 @@ package web
 import "io"
 
 // Reader function
-type Reader func(r io.ReadCloser, v interface{}) error
+type Reader func(ctx *Context, v Data) error
 
 // Writer function
-type Writer func(io.Writer, interface{}) error
+type Writer func(w io.Writer, v Data) error
 
 // HtmlWriter function
-type HtmlWriter func(io.Writer, *Context, interface{}) error
+type HtmlWriter func(w io.Writer, ctx *Context, v Data) error

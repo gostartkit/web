@@ -167,7 +167,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if callback, params, _ := root.getValue(path, app.getParams); callback != nil {
 
-			ctx := createContext(w, r, params, &query)
+			ctx := createContext(w, r, &method, params, &query)
 			app.putParams(params)
 
 			val, err := callback(ctx)

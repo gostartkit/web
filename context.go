@@ -102,36 +102,22 @@ func (ctx *Context) IsAjax() bool {
 
 // TryParseBody decode val from Request.Body
 func (ctx *Context) TryParseBody(val interface{}) error {
-	switch ctx.ContentType() {
-	case "application/json":
-		if err := json.NewDecoder(ctx.r.Body).Decode(val); err != nil {
-			return err
-		}
-	case "application/x-gob":
-		if err := gob.NewDecoder(ctx.r.Body).Decode(val); err != nil {
-			return err
-		}
-	case "application/x-www-form-urlencoded":
-		if err := formReader(ctx, val); err != nil {
-			return err
-		}
-	case "multipart/form-data":
-		if err := formDataReader(ctx, val); err != nil {
-			return err
-		}
-	case "application/octet-stream":
-		if err := binaryReader(ctx, val); err != nil {
-			return err
-		}
-	case "application/xml":
-		if err := xml.NewDecoder(ctx.r.Body).Decode(val); err != nil {
-			return err
-		}
+	switch {
+	case strings.HasPrefix(ctx.ContentType(), "application/json"):
+		return json.NewDecoder(ctx.r.Body).Decode(val)
+	case strings.HasPrefix(ctx.ContentType(), "application/x-gob"):
+		return gob.NewDecoder(ctx.r.Body).Decode(val)
+	case strings.HasPrefix(ctx.ContentType(), "application/x-www-form-urlencoded"):
+		return formReader(ctx, val)
+	case strings.HasPrefix(ctx.ContentType(), "multipart/form-data"):
+		return formDataReader(ctx, val)
+	case strings.HasPrefix(ctx.ContentType(), "application/octet-stream"):
+		return binaryReader(ctx, val)
+	case strings.HasPrefix(ctx.ContentType(), "application/xml"):
+		return xml.NewDecoder(ctx.r.Body).Decode(val)
 	default:
 		return errors.New("tryParseBody(unsupported contentType '" + ctx.ContentType() + "')")
 	}
-
-	return nil
 }
 
 // TryParseParam decode val from Query

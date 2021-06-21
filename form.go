@@ -70,14 +70,11 @@ func formReader(ctx *Context, v Data) error {
 	rt := rv.Type()
 
 	for i := 0; i < rt.NumField(); i++ {
-		tag := rt.Field(i).Tag.Get("json")
-		if len(tag) > 0 && tag != "-" {
-			val := ctx.form.Get(tag)
-			if val != "" {
-				field := rv.Field(i)
-				if err := tryParse(val, &field); err != nil {
-					return err
-				}
+		val := ctx.form.Get(rt.Field(i).Name)
+		if val != "" {
+			field := rv.Field(i)
+			if err := tryParse(val, &field); err != nil {
+				return err
 			}
 		}
 	}

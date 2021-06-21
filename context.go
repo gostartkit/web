@@ -12,12 +12,13 @@ import (
 )
 
 // createContext return a web.Context
-func createContext(w http.ResponseWriter, r *http.Request, params *Params) *Context {
+func createContext(w http.ResponseWriter, r *http.Request, params *Params, query *url.Values) *Context {
 
 	ctx := &Context{
 		w:     w,
 		r:     r,
 		param: params,
+		query: query,
 		code:  200,
 	}
 
@@ -54,11 +55,6 @@ func (ctx *Context) Param(name string) string {
 
 // Query get value from QueryString
 func (ctx *Context) Query(name string) string {
-	if ctx.query == nil {
-		query := ctx.r.URL.Query()
-		ctx.query = &query
-	}
-
 	return ctx.query.Get(name)
 }
 

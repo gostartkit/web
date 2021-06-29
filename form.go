@@ -70,7 +70,17 @@ func formReader(ctx *Context, v Data) error {
 	rt := rv.Type()
 
 	for i := 0; i < rt.NumField(); i++ {
-		val := ctx.form.Get(rt.Field(i).Name)
+
+		tagName := rt.Field(i).Tag.Get("web")
+
+		var val string
+
+		if len(tagName) > 0 {
+			val = ctx.form.Get(tagName)
+		} else {
+			val = ctx.form.Get(rt.Field(i).Name)
+		}
+
 		if val != "" {
 			field := rv.Field(i)
 			if err := tryParse(val, &field); err != nil {

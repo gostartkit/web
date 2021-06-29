@@ -75,8 +75,10 @@ func formReader(ctx *Context, v Data) error {
 
 		var val string
 
-		if len(tagName) > 0 && tagName != "-" {
-			val = ctx.form.Get(tagName)
+		if len(tagName) > 0 {
+			if tagName != "-" {
+				val = ctx.form.Get(tagName)
+			}
 		} else {
 			val = ctx.form.Get(rt.Field(i).Name)
 		}

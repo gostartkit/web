@@ -37,7 +37,9 @@ type Application struct {
 // CreateApplication return a singleton web.Application
 func CreateApplication() *Application {
 	_once.Do(func() {
-		_app = &Application{}
+		_app = &Application{
+			maxParams: 4,
+		}
 	})
 	return _app
 }

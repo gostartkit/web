@@ -1,7 +1,6 @@
 package web
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -11,8 +10,8 @@ import (
 // TryParse try parse val to v
 func TryParse(val string, v interface{}) error {
 
-	if len(val) > 0 && (val[0] == '{' || val[0] == '[') {
-		return json.Unmarshal([]byte(val), v)
+	if len(val) == 0 {
+		return nil
 	}
 
 	if v == nil {

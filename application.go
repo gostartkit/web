@@ -37,9 +37,7 @@ type Application struct {
 // CreateApplication return a singleton web.Application
 func CreateApplication() *Application {
 	_once.Do(func() {
-		_app = &Application{
-			maxParams: 4,
-		}
+		_app = &Application{}
 	})
 	return _app
 }
@@ -128,13 +126,6 @@ func (app *Application) addRoute(method, path string, cb Callback) {
 
 	if pc := countParams(path); pc > app.maxParams {
 		app.maxParams = pc
-	}
-
-	if app.paramsPool.New == nil && app.maxParams > 0 {
-		app.paramsPool.New = func() interface{} {
-			ps := make(Params, 0, app.maxParams)
-			return &ps
-		}
 	}
 }
 
@@ -251,6 +242,13 @@ func (app *Application) serve(addr string, listener net.Listener, fns ...func(*h
 
 	for _, fn := range fns {
 		fn(srv)
+	}
+
+	if app.paramsPool.New == nil && app.maxParams > 0 {
+		app.paramsPool.New = func() interface{} {
+			ps := make(Params, 0, app.maxParams)
+			return &ps
+		}
 	}
 
 	if err := srv.Serve(listener); err != nil {

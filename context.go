@@ -12,15 +12,13 @@ import (
 )
 
 // createContext return a web.Context
-func createContext(w http.ResponseWriter, r *http.Request, method *string, params *Params, query *url.Values) *Context {
+func createContext(w http.ResponseWriter, r *http.Request, params *Params) *Context {
 
 	ctx := &Context{
-		w:      w,
-		r:      r,
-		method: method,
-		param:  params,
-		query:  query,
-		code:   200,
+		w:     w,
+		r:     r,
+		param: params,
+		code:  200,
 	}
 
 	return ctx
@@ -30,7 +28,6 @@ func createContext(w http.ResponseWriter, r *http.Request, method *string, param
 type Context struct {
 	w           http.ResponseWriter
 	r           *http.Request
-	method      *string
 	param       *Params
 	query       *url.Values
 	form        *url.Values
@@ -57,6 +54,10 @@ func (ctx *Context) Param(name string) string {
 
 // Query get value from QueryString
 func (ctx *Context) Query(name string) string {
+	if ctx.query == nil {
+		query := ctx.r.URL.Query()
+		ctx.query = &query
+	}
 	return ctx.query.Get(name)
 }
 
@@ -80,7 +81,7 @@ func (ctx *Context) Path() string {
 
 // Method return ctx.r.Method
 func (ctx *Context) Method() string {
-	return *ctx.method
+	return ctx.r.Method
 }
 
 // RemoteAddr return remote ip address

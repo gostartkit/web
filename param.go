@@ -2,7 +2,6 @@ package web
 
 import (
 	"errors"
-	"log"
 )
 
 var (
@@ -23,7 +22,6 @@ type Params []Param
 
 // Val get value from Params by name
 func (o Params) Val(name string) string {
-	log.Printf("name: %s params: %v \n", name, o)
 	for i := range o {
 		if o[i].Key == name {
 			return o[i].Value

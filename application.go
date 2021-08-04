@@ -127,14 +127,6 @@ func (app *Application) addRoute(method, path string, cb Callback) {
 	if pc := countParams(path); pc > app.maxParams {
 		app.maxParams = pc
 	}
-
-	if app.paramsPool.New == nil && app.maxParams > 0 {
-		log.Printf("maxParams: %d \n", app.maxParams)
-		app.paramsPool.New = func() interface{} {
-			ps := make(Params, 0, app.maxParams)
-			return &ps
-		}
-	}
 }
 
 // ServeFiles ("/src/*filepath", http.Dir("/var/www"))
@@ -160,10 +152,12 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if root := app.trees[r.Method]; root != nil {
 
 		if callback, params, _ := root.getValue(path, app.getParams); callback != nil {
+
 			ctx := createContext(w, r, params)
-			app.putParams(params)
 
 			val, err := callback(ctx)
+
+			app.putParams(params)
 
 			if err != nil {
 
@@ -176,7 +170,6 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					ctx.SetStatus(http.StatusBadRequest)
 				}
 
-				app.logf("params: %v\n", params)
 				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, ctx.UserID(), r.Method, path, ctx.Status(), err)
 
 				if err := ctx.write(err.Error()); err != nil {
@@ -243,6 +236,13 @@ func (app *Application) serve(addr string, listener net.Listener, fns ...func(*h
 
 	for _, fn := range fns {
 		fn(srv)
+	}
+
+	if app.paramsPool.New == nil && app.maxParams > 0 {
+		app.paramsPool.New = func() interface{} {
+			ps := make(Params, 0, app.maxParams)
+			return &ps
+		}
 	}
 
 	if err := srv.Serve(listener); err != nil {

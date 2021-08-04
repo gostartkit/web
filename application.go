@@ -127,13 +127,6 @@ func (app *Application) addRoute(method, path string, cb Callback) {
 	if pc := countParams(path); pc > app.maxParams {
 		app.maxParams = pc
 	}
-
-	if app.paramsPool.New == nil && app.maxParams > 0 {
-		app.paramsPool.New = func() interface{} {
-			ps := make(Params, 0, app.maxParams)
-			return &ps
-		}
-	}
 }
 
 // ServeFiles ("/src/*filepath", http.Dir("/var/www"))
@@ -242,6 +235,14 @@ func (app *Application) serve(addr string, listener net.Listener, fns ...func(*h
 
 	for _, fn := range fns {
 		fn(srv)
+	}
+
+	if app.paramsPool.New == nil && app.maxParams > 0 {
+		app.logf("maxParams %d\n", app.maxParams)
+		app.paramsPool.New = func() interface{} {
+			ps := make(Params, 0, app.maxParams)
+			return &ps
+		}
 	}
 
 	if err := srv.Serve(listener); err != nil {

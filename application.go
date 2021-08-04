@@ -152,9 +152,6 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if root := app.trees[r.Method]; root != nil {
 
 		if callback, params, _ := root.getValue(path, app.getParams); callback != nil {
-			app.logf("path: %s\n", path)
-			app.logf("params: %v\n", params)
-
 			ctx := createContext(w, r, params)
 			app.putParams(params)
 
@@ -171,6 +168,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					ctx.SetStatus(http.StatusBadRequest)
 				}
 
+				app.logf("params: %v\n", params)
 				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, ctx.UserID(), r.Method, path, ctx.Status(), err)
 
 				if err := ctx.write(err.Error()); err != nil {

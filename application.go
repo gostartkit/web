@@ -25,11 +25,16 @@ type PanicCallback func(http.ResponseWriter, *http.Request, interface{})
 
 // Application is type of a web.Application
 type Application struct {
-	trees      map[string]*node
-	logger     *log.Logger
-	panic      PanicCallback
-	paramsPool sync.Pool
-	maxParams  uint16
+	trees          map[string]*node
+	formReader     Reader
+	formDataReader Reader
+	binaryReader   Reader
+	binaryWriter   Writer
+	viewWriter     ViewWriter
+	logger         *log.Logger
+	panic          PanicCallback
+	paramsPool     sync.Pool
+	maxParams      uint16
 
 	NotFound http.Handler
 }
@@ -40,6 +45,36 @@ func CreateApplication() *Application {
 		_app = &Application{}
 	})
 	return _app
+}
+
+// App return web.Application
+func App() *Application {
+	return _app
+}
+
+// SetFormReader set formReader
+func (app *Application) SetFormReader(formReader Reader) {
+	app.formReader = formReader
+}
+
+// SetFormDataReader set formDataReader
+func (app *Application) SetFormDataReader(formDataReader Reader) {
+	app.formDataReader = formDataReader
+}
+
+// SetBinaryReader set binaryReader
+func (app *Application) SetBinaryReader(binaryReader Reader) {
+	app.binaryReader = binaryReader
+}
+
+// SetBinaryWriter set binaryWriter
+func (app *Application) SetBinaryWriter(binaryWriter Writer) {
+	app.binaryWriter = binaryWriter
+}
+
+// SetViewWriter set htmlWriter
+func (app *Application) SetViewWriter(viewWriter ViewWriter) {
+	app.viewWriter = viewWriter
 }
 
 // SetLogger set Logger

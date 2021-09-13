@@ -14,26 +14,11 @@ const (
 	_formValueBufSize int = 64
 )
 
-var (
-	_formReader     Reader
-	_formDataReader Reader
-)
-
-// SetFormReader set formReader
-func SetFormReader(r Reader) {
-	_formReader = r
-}
-
-// SetFormDataReader set formDataReader
-func SetFormDataReader(r Reader) {
-	_formDataReader = r
-}
-
 // formReader decode data from request body
 // ContentType: application/x-www-form-urlencoded
 func formReader(ctx *Context, v Data) error {
-	if _formReader != nil {
-		return _formReader(ctx, v)
+	if App().formReader != nil {
+		return App().formReader(ctx, v)
 	}
 
 	if v == nil {
@@ -97,8 +82,8 @@ func formReader(ctx *Context, v Data) error {
 // formDataReader decode data from form
 // ContentType: multipart/form-data
 func formDataReader(ctx *Context, v Data) error {
-	if _formDataReader != nil {
-		return _formDataReader(ctx, v)
+	if App().formDataReader != nil {
+		return App().formDataReader(ctx, v)
 	}
 	return errors.New("formDataReader not implemented")
 }

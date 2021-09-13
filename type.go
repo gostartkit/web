@@ -8,5 +8,5 @@ type Reader func(ctx *Context, v Data) error
 // Writer function
 type Writer func(w io.Writer, v Data) error
 
-// HtmlWriter function
-type HtmlWriter func(w io.Writer, ctx *Context, v Data) error
+// ViewWriter function
+type ViewWriter func(w io.Writer, ctx *Context, v Data) error

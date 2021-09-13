@@ -157,7 +157,7 @@ func (ctx *Context) write(val interface{}) error {
 		return ctx.writeBinary(val)
 	default:
 		if strings.HasPrefix(ctx.Accept(), "text/html") {
-			return ctx.writeHTML(val)
+			return ctx.writeView(val)
 		}
 		return ctx.writeJSON(val)
 	}
@@ -183,9 +183,9 @@ func (ctx *Context) writeBinary(val interface{}) error {
 	return binaryWriter(ctx.w, val)
 }
 
-// writeHTML Write HTML
-func (ctx *Context) writeHTML(val interface{}) error {
-	return htmlWriter(ctx.w, ctx, val)
+// writeView Write View
+func (ctx *Context) writeView(val interface{}) error {
+	return viewWriter(ctx.w, ctx, val)
 }
 
 // Status return status code

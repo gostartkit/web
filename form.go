@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"fmt"
+	"io"
 	"reflect"
 	"strings"
 )
@@ -129,4 +130,89 @@ func queryUnescape(s []byte) (string, error) {
 		}
 	}
 	return sb.String(), nil
+}
+
+// parseQuery parse form from stream
+// callback fn when got key, value
+// application/x-www-form-urlencoded
+func parseQuery(r io.ReadCloser, fn func(key []byte, value []byte) error) error {
+	formSize := 0
+
+	buf := make([]byte, 0, _formBufSize)
+
+	var (
+		key []byte = make([]byte, 0, _formKeyBufSize)
+		val []byte = make([]byte, 0, _formValueBufSize)
+	)
+
+	isKey := true
+
+	for {
+		prev := 0
+		n, err := r.Read(buf[0:_formBufSize])
+
+		if err != nil {
+
+			if err == io.EOF {
+				err = nil
+			}
+
+			if err != nil {
+				return err
+			}
+		}
+
+		formSize += n
+
+		if formSize > _maxFormSize {
+			return errors.New("http: POST too large")
+		}
+
+		buf = buf[:n]
+
+		for i := 0; i < n; i++ {
+			r := buf[i]
+			switch r {
+			case '&', ';':
+				if i > prev {
+					val = append(val, buf[prev:i]...)
+				}
+
+				if err := fn(key, val); err != nil {
+					return err
+				}
+
+				key = key[0:0]
+				val = val[0:0]
+				prev = i + 1
+				isKey = true
+			case '=':
+				if i > prev {
+					key = append(key, buf[prev:i]...)
+				}
+				prev = i + 1
+				isKey = false
+			}
+		}
+
+		if prev < n {
+			if isKey {
+				key = append(key, buf[prev:]...)
+			} else {
+				val = append(val, buf[prev:]...)
+			}
+		}
+
+		if n != _formBufSize {
+			break
+		}
+	}
+
+	if len(key) > 0 {
+		if err := fn(key, val); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

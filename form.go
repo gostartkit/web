@@ -18,8 +18,8 @@ const (
 // formReader decode data from request body
 // ContentType: application/x-www-form-urlencoded
 func formReader(ctx *Context, v Data) error {
-	if App().formReader != nil {
-		return App().formReader(ctx, v)
+	if app().formReader != nil {
+		return app().formReader(ctx, v)
 	}
 
 	if v == nil {
@@ -83,8 +83,8 @@ func formReader(ctx *Context, v Data) error {
 // formDataReader decode data from form
 // ContentType: multipart/form-data
 func formDataReader(ctx *Context, v Data) error {
-	if App().formDataReader != nil {
-		return App().formDataReader(ctx, v)
+	if app().formDataReader != nil {
+		return app().formDataReader(ctx, v)
 	}
 	return errors.New("formDataReader not implemented")
 }

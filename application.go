@@ -47,8 +47,8 @@ func CreateApplication() *Application {
 	return _app
 }
 
-// App return web.Application
-func App() *Application {
+// app return web.Application
+func app() *Application {
 	return _app
 }
 

@@ -133,16 +133,6 @@ func (ctx *Context) TryParseForm(name string, val interface{}) error {
 	return TryParse(ctx.Form(name), val)
 }
 
-// // writeBytes Write bytes
-// func (ctx *Context) writeBytes(val []byte) (int, error) {
-// 	return ctx.w.Write(val)
-// }
-
-// // writeString Write String
-// func (ctx *Context) writeString(val string) (int, error) {
-// 	return ctx.w.Write([]byte(val))
-// }
-
 // write write data base on accept header
 func (ctx *Context) write(val interface{}) error {
 	switch ctx.Accept() {

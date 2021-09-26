@@ -7,8 +7,8 @@ import (
 
 // viewWriter encode data to html
 func viewWriter(w io.Writer, ctx *Context, v interface{}) error {
-	if App().viewWriter != nil {
-		return App().viewWriter(w, ctx, v)
+	if app().viewWriter != nil {
+		return app().viewWriter(w, ctx, v)
 	}
-	return errors.New("htmlWriter not implemented")
+	return errors.New("viewWriter not implemented")
 }

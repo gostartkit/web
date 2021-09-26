@@ -7,16 +7,16 @@ import (
 
 // binaryReader decode data from binary
 func binaryReader(ctx *Context, v Data) error {
-	if App().binaryReader != nil {
-		return App().binaryReader(ctx, v)
+	if app().binaryReader != nil {
+		return app().binaryReader(ctx, v)
 	}
 	return errors.New("binaryReader not implemented")
 }
 
 // binaryWriter encode data to binary
 func binaryWriter(w io.Writer, v Data) error {
-	if App().binaryWriter != nil {
-		return App().binaryWriter(w, v)
+	if app().binaryWriter != nil {
+		return app().binaryWriter(w, v)
 	}
 	return errors.New("binaryWriter not implemented")
 }

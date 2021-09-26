@@ -1,7 +1,6 @@
 package web
 
 import (
-	"errors"
 	"io"
 )
 
@@ -10,5 +9,5 @@ func viewWriter(w io.Writer, ctx *Context, v interface{}) error {
 	if app().viewWriter != nil {
 		return app().viewWriter(w, ctx, v)
 	}
-	return errors.New("viewWriter not implemented")
+	return ErrViewWriterNotImplemented
 }

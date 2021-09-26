@@ -1,16 +1,5 @@
 package web
 
-import (
-	"errors"
-)
-
-var (
-	// ErrUnauthorized 401
-	ErrUnauthorized = errors.New("unauthorized")
-	// ErrForbidden 403
-	ErrForbidden = errors.New("forbidden")
-)
-
 // Param struct
 type Param struct {
 	Key   string

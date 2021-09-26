@@ -148,7 +148,7 @@ func (ctx *Context) write(val interface{}) error {
 		if strings.HasPrefix(ctx.Accept(), "text/html") {
 			return ctx.writeView(val)
 		}
-		return ctx.writeJSON(val)
+		return errors.New("write(unsupported accept '" + ctx.Accept() + "')")
 	}
 }
 

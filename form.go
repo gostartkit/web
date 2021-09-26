@@ -86,7 +86,7 @@ func formDataReader(ctx *Context, v Data) error {
 	if app().formDataReader != nil {
 		return app().formDataReader(ctx, v)
 	}
-	return errors.New("formDataReader not implemented")
+	return ErrFormDataReaderNotImplemented
 }
 
 // queryUnescape unescapes a string;

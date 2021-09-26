@@ -174,7 +174,7 @@ func (ctx *Context) writeBinary(val interface{}) error {
 
 // writeView Write View
 func (ctx *Context) writeView(val interface{}) error {
-	return viewWriter(ctx.w, ctx, val)
+	return viewWriter(ctx.w, val)
 }
 
 // Status return status code

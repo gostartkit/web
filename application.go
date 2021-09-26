@@ -30,7 +30,7 @@ type Application struct {
 	formDataReader Reader
 	binaryReader   Reader
 	binaryWriter   Writer
-	viewWriter     ViewWriter
+	viewWriter     Writer
 	logger         *log.Logger
 	panic          PanicCallback
 	paramsPool     sync.Pool
@@ -73,7 +73,7 @@ func (app *Application) SetBinaryWriter(binaryWriter Writer) {
 }
 
 // SetViewWriter set htmlWriter
-func (app *Application) SetViewWriter(viewWriter ViewWriter) {
+func (app *Application) SetViewWriter(viewWriter Writer) {
 	app.viewWriter = viewWriter
 }
 

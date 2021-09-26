@@ -5,9 +5,9 @@ import (
 )
 
 // viewWriter encode data to html
-func viewWriter(w io.Writer, ctx *Context, v interface{}) error {
+func viewWriter(w io.Writer, v interface{}) error {
 	if app().viewWriter != nil {
-		return app().viewWriter(w, ctx, v)
+		return app().viewWriter(w, v)
 	}
 	return ErrViewWriterNotImplemented
 }

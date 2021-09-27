@@ -64,7 +64,7 @@ func (ctx *Context) Query(name string) string {
 // Form get value from Form
 func (ctx *Context) Form(name string) string {
 	if ctx.form == nil {
-		ctx.form, _ = ctx.parseForm()
+		ctx.form, _ = parseForm(ctx.R.Body)
 	}
 	return ctx.form.Get(name)
 }
@@ -236,27 +236,4 @@ func (ctx *Context) SetContentType(val string) {
 func (ctx *Context) Redirect(code int, url string) {
 	ctx.Set("Location", url)
 	ctx.SetStatus(code)
-}
-
-// parseForm parse form from ctx.r.Body
-func (ctx *Context) parseForm() (*url.Values, error) {
-	m := make(url.Values)
-	err := parseQuery(ctx.R.Body, func(key, value []byte) error {
-		k, err := queryUnescape(key)
-
-		if err != nil {
-			return err
-		}
-
-		val, err := queryUnescape(value)
-
-		if err != nil {
-			return err
-		}
-
-		m[k] = append(m[k], val)
-
-		return nil
-	})
-	return &m, err
 }

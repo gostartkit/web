@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"reflect"
 	"strings"
 )
@@ -48,7 +49,7 @@ func formReader(ctx *Context, v Data) error {
 
 		var err error
 
-		if ctx.form, err = ctx.parseForm(); err != nil {
+		if ctx.form, err = parseForm(ctx.R.Body); err != nil {
 			return err
 		}
 	}
@@ -87,6 +88,29 @@ func formDataReader(ctx *Context, v Data) error {
 		return app().formDataReader(ctx, v)
 	}
 	return ErrFormDataReaderNotImplemented
+}
+
+// parseForm parse form from ctx.r.Body
+func parseForm(r io.ReadCloser) (*url.Values, error) {
+	m := make(url.Values)
+	err := parseQuery(r, func(key, value []byte) error {
+		k, err := queryUnescape(key)
+
+		if err != nil {
+			return err
+		}
+
+		val, err := queryUnescape(value)
+
+		if err != nil {
+			return err
+		}
+
+		m[k] = append(m[k], val)
+
+		return nil
+	})
+	return &m, err
 }
 
 // queryUnescape unescapes a string;

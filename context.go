@@ -155,16 +155,19 @@ func (ctx *Context) Write(val interface{}) error {
 
 // WriteJSON Write JSON
 func (ctx *Context) WriteJSON(val interface{}) error {
+	ctx.W.WriteHeader(ctx.code)
 	return json.NewEncoder(ctx.W).Encode(val)
 }
 
 // WriteXML Write XML
 func (ctx *Context) WriteXML(val interface{}) error {
+	ctx.W.WriteHeader(ctx.code)
 	return xml.NewEncoder(ctx.W).Encode(val)
 }
 
 // WriteGOB Write GOB
 func (ctx *Context) WriteGOB(val interface{}) error {
+	ctx.W.WriteHeader(ctx.code)
 	return gob.NewEncoder(ctx.W).Encode(val)
 }
 
@@ -186,7 +189,6 @@ func (ctx *Context) Status() int {
 // SetStatus Write status code to header
 func (ctx *Context) SetStatus(code int) {
 	ctx.code = code
-	ctx.W.WriteHeader(code)
 }
 
 // Get get header, short hand for ctx.Request.Header.Get
@@ -236,4 +238,5 @@ func (ctx *Context) SetContentType(val string) {
 func (ctx *Context) Redirect(code int, url string) {
 	ctx.Set("Location", url)
 	ctx.SetStatus(code)
+	ctx.W.WriteHeader(code)
 }

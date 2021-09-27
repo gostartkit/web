@@ -1,9 +1,5 @@
 package web
 
-import (
-	"io"
-)
-
 // binaryReader decode data from binary
 func binaryReader(ctx *Context, v Data) error {
 	if app().binaryReader != nil {
@@ -13,9 +9,9 @@ func binaryReader(ctx *Context, v Data) error {
 }
 
 // binaryWriter encode data to binary
-func binaryWriter(w io.Writer, v Data) error {
+func binaryWriter(ctx *Context, v Data) error {
 	if app().binaryWriter != nil {
-		return app().binaryWriter(w, v)
+		return app().binaryWriter(ctx, v)
 	}
 	return ErrBinaryWriterNotImplemented
 }

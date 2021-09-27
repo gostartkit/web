@@ -1,13 +1,9 @@
 package web
 
-import (
-	"io"
-)
-
 // viewWriter encode data to html
-func viewWriter(w io.Writer, v interface{}) error {
+func viewWriter(ctx *Context, v interface{}) error {
 	if app().viewWriter != nil {
-		return app().viewWriter(w, v)
+		return app().viewWriter(ctx, v)
 	}
 	return ErrViewWriterNotImplemented
 }

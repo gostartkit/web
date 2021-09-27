@@ -14,8 +14,8 @@ import (
 func createContext(w http.ResponseWriter, r *http.Request, params *Params) *Context {
 
 	ctx := &Context{
-		w:     w,
-		r:     r,
+		W:     w,
+		R:     r,
 		param: params,
 		code:  200,
 	}
@@ -25,8 +25,9 @@ func createContext(w http.ResponseWriter, r *http.Request, params *Params) *Cont
 
 // Context is type of an web.Context
 type Context struct {
-	w           http.ResponseWriter
-	r           *http.Request
+	W http.ResponseWriter
+	R *http.Request
+
 	param       *Params
 	query       *url.Values
 	form        *url.Values
@@ -54,7 +55,7 @@ func (ctx *Context) Param(name string) string {
 // Query get value from QueryString
 func (ctx *Context) Query(name string) string {
 	if ctx.query == nil {
-		query := ctx.r.URL.Query()
+		query := ctx.R.URL.Query()
 		ctx.query = &query
 	}
 	return ctx.query.Get(name)
@@ -70,22 +71,22 @@ func (ctx *Context) Form(name string) string {
 
 // Host return ctx.r.Host
 func (ctx *Context) Host() string {
-	return ctx.r.Host
+	return ctx.R.Host
 }
 
 // Path return ctx.r.URL.Path
 func (ctx *Context) Path() string {
-	return ctx.r.URL.Path
+	return ctx.R.URL.Path
 }
 
 // Method return ctx.r.Method
 func (ctx *Context) Method() string {
-	return ctx.r.Method
+	return ctx.R.Method
 }
 
 // RemoteAddr return remote ip address
 func (ctx *Context) RemoteAddr() string {
-	return ctx.r.RemoteAddr
+	return ctx.R.RemoteAddr
 }
 
 // UserAgent return User-Agent header
@@ -102,9 +103,9 @@ func (ctx *Context) IsAjax() bool {
 func (ctx *Context) TryParseBody(val interface{}) error {
 	switch {
 	case strings.HasPrefix(ctx.ContentType(), "application/json"):
-		return json.NewDecoder(ctx.r.Body).Decode(val)
+		return json.NewDecoder(ctx.R.Body).Decode(val)
 	case strings.HasPrefix(ctx.ContentType(), "application/x-gob"):
-		return gob.NewDecoder(ctx.r.Body).Decode(val)
+		return gob.NewDecoder(ctx.R.Body).Decode(val)
 	case strings.HasPrefix(ctx.ContentType(), "application/x-www-form-urlencoded"):
 		return formReader(ctx, val)
 	case strings.HasPrefix(ctx.ContentType(), "multipart/form-data"):
@@ -112,7 +113,7 @@ func (ctx *Context) TryParseBody(val interface{}) error {
 	case strings.HasPrefix(ctx.ContentType(), "application/octet-stream"):
 		return binaryReader(ctx, val)
 	case strings.HasPrefix(ctx.ContentType(), "application/xml"):
-		return xml.NewDecoder(ctx.r.Body).Decode(val)
+		return xml.NewDecoder(ctx.R.Body).Decode(val)
 	default:
 		return errors.New("tryParseBody(unsupported contentType '" + ctx.ContentType() + "')")
 	}
@@ -133,48 +134,48 @@ func (ctx *Context) TryParseForm(name string, val interface{}) error {
 	return TryParse(ctx.Form(name), val)
 }
 
-// write write data base on accept header
-func (ctx *Context) write(val interface{}) error {
+// Write Write data base on accept header
+func (ctx *Context) Write(val interface{}) error {
 	switch ctx.Accept() {
 	case "application/json":
-		return ctx.writeJSON(val)
+		return ctx.WriteJSON(val)
 	case "application/x-gob":
-		return ctx.writeGOB(val)
+		return ctx.WriteGOB(val)
 	case "application/xml":
-		return ctx.writeXML(val)
+		return ctx.WriteXML(val)
 	case "application/octet-stream":
-		return ctx.writeBinary(val)
+		return ctx.WriteBinary(val)
 	default:
 		if strings.HasPrefix(ctx.Accept(), "text/html") {
-			return ctx.writeView(val)
+			return ctx.WriteView(val)
 		}
 		return errors.New("write(unsupported accept '" + ctx.Accept() + "')")
 	}
 }
 
-// writeJSON Write JSON
-func (ctx *Context) writeJSON(val interface{}) error {
-	return json.NewEncoder(ctx.w).Encode(val)
+// WriteJSON Write JSON
+func (ctx *Context) WriteJSON(val interface{}) error {
+	return json.NewEncoder(ctx.W).Encode(val)
 }
 
-// writeXML Write XML
-func (ctx *Context) writeXML(val interface{}) error {
-	return xml.NewEncoder(ctx.w).Encode(val)
+// WriteXML Write XML
+func (ctx *Context) WriteXML(val interface{}) error {
+	return xml.NewEncoder(ctx.W).Encode(val)
 }
 
-// writeGOB Write GOB
-func (ctx *Context) writeGOB(val interface{}) error {
-	return gob.NewEncoder(ctx.w).Encode(val)
+// WriteGOB Write GOB
+func (ctx *Context) WriteGOB(val interface{}) error {
+	return gob.NewEncoder(ctx.W).Encode(val)
 }
 
-// writeBinary Write Binary
-func (ctx *Context) writeBinary(val interface{}) error {
-	return binaryWriter(ctx.w, val)
+// WriteBinary Write Binary
+func (ctx *Context) WriteBinary(val interface{}) error {
+	return binaryWriter(ctx, val)
 }
 
-// writeView Write View
-func (ctx *Context) writeView(val interface{}) error {
-	return viewWriter(ctx.w, val)
+// WriteView Write View
+func (ctx *Context) WriteView(val interface{}) error {
+	return viewWriter(ctx, val)
 }
 
 // Status return status code
@@ -185,27 +186,27 @@ func (ctx *Context) Status() int {
 // SetStatus Write status code to header
 func (ctx *Context) SetStatus(code int) {
 	ctx.code = code
-	ctx.w.WriteHeader(code)
+	ctx.W.WriteHeader(code)
 }
 
 // Get get header, short hand for ctx.Request.Header.Get
 func (ctx *Context) Get(key string) string {
-	return ctx.r.Header.Get(key)
+	return ctx.R.Header.Get(key)
 }
 
 // Set set header, short hand for ctx.ResponseWriter.Header().Set
 func (ctx *Context) Set(key string, value string) {
-	ctx.w.Header().Set(key, value)
+	ctx.W.Header().Set(key, value)
 }
 
 // Add add header, short hand for ctx.ResponseWriter.Header().Add
 func (ctx *Context) Add(key string, value string) {
-	ctx.w.Header().Add(key, value)
+	ctx.W.Header().Add(key, value)
 }
 
 // Del del header, short hand for ctx.ResponseWriter.Header().Del
 func (ctx *Context) Del(key string) {
-	ctx.w.Header().Del(key)
+	ctx.W.Header().Del(key)
 }
 
 // Accept get Accept from header
@@ -240,7 +241,7 @@ func (ctx *Context) Redirect(code int, url string) {
 // parseForm parse form from ctx.r.Body
 func (ctx *Context) parseForm() (*url.Values, error) {
 	m := make(url.Values)
-	err := parseQuery(ctx.r.Body, func(key, value []byte) error {
+	err := parseQuery(ctx.R.Body, func(key, value []byte) error {
 		k, err := queryUnescape(key)
 
 		if err != nil {

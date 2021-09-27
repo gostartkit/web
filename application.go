@@ -49,6 +49,9 @@ func CreateApplication() *Application {
 
 // app return web.Application
 func app() *Application {
+	if _app == nil {
+		return CreateApplication()
+	}
 	return _app
 }
 

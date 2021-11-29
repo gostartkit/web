@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sync"
 )
 
@@ -187,7 +188,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer app.recv(w, r)
 	path := r.URL.Path
 
-	if root := app.trees[r.Method]; root != nil {
+	if root := app.trees[r.Method]; root != nil && filepath.Ext(path) == "" {
 
 		if callback, params, _ := root.getValue(path, app.getParams); callback != nil {
 

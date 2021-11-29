@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -36,6 +37,7 @@ type Application struct {
 	panic          PanicCallback
 	paramsPool     sync.Pool
 	maxParams      uint16
+	extension      string
 
 	NotFound http.Handler
 }
@@ -86,9 +88,17 @@ func (app *Application) SetLogger(logger *log.Logger) {
 	app.logger = logger
 }
 
-// SetPanic set Logger
+// SetPanic set set Panic
 func (app *Application) SetPanic(panic PanicCallback) {
 	app.panic = panic
+}
+
+// SetExtension set Extension
+func (app *Application) SetExtension(ext string) {
+	if !strings.HasPrefix(ext, ".") {
+		ext = "." + ext
+	}
+	app.extension = ext
 }
 
 // Use Add the given callback function to this application.middlewares.
@@ -189,7 +199,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	path := r.URL.Path
 
-	if filepath.Ext(path) != "" {
+	if filepath.Ext(path) != app.extension {
 		http.NotFound(w, r)
 		return
 	}

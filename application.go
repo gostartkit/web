@@ -188,7 +188,11 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer app.recv(w, r)
 	path := r.URL.Path
 
-	if root := app.trees[r.Method]; root != nil && filepath.Ext(path) == "" {
+	if ext := filepath.Ext(path); ext != "" {
+		return
+	}
+
+	if root := app.trees[r.Method]; root != nil {
 
 		if callback, params, _ := root.getValue(path, app.getParams); callback != nil {
 

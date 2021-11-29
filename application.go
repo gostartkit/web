@@ -188,7 +188,8 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer app.recv(w, r)
 	path := r.URL.Path
 
-	if ext := filepath.Ext(path); ext != "" {
+	if filepath.Ext(path) != "" {
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
@@ -231,7 +232,6 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
 	if app.NotFound != nil {
 		app.NotFound.ServeHTTP(w, r)
 	} else {

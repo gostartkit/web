@@ -146,9 +146,6 @@ func (ctx *Context) Write(val interface{}) error {
 	case "application/octet-stream":
 		return ctx.WriteBinary(val)
 	default:
-		if strings.HasPrefix(ctx.Accept(), "text/html") {
-			return ctx.WriteView(val)
-		}
 		return errors.New("write(unsupported accept '" + ctx.Accept() + "')")
 	}
 }
@@ -174,11 +171,6 @@ func (ctx *Context) WriteGOB(val interface{}) error {
 // WriteBinary Write Binary
 func (ctx *Context) WriteBinary(val interface{}) error {
 	return binaryWriter(ctx, val)
-}
-
-// WriteView Write View
-func (ctx *Context) WriteView(val interface{}) error {
-	return viewWriter(ctx, val)
 }
 
 // Status return status code

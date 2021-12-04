@@ -230,10 +230,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			if val != nil {
 				if err := ctx.Write(val); err != nil {
-					ctx.SetStatus(http.StatusBadRequest)
-					if err := ctx.Write(err.Error()); err != nil {
-						app.logf("ctx.write err: %v", err)
-					}
+					app.logf("ctx.write err: %v", err)
 				}
 			}
 

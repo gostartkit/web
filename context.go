@@ -137,14 +137,12 @@ func (ctx *Context) TryParseForm(name string, val interface{}) error {
 // Write Write data base on accept header
 func (ctx *Context) Write(val interface{}) error {
 	switch ctx.Accept() {
-	case "application/json":
-		return ctx.WriteJSON(val)
+	case "application/octet-stream", "application/x-avro":
+		return ctx.WriteBinary(val)
 	case "application/x-gob":
 		return ctx.WriteGOB(val)
 	case "application/xml":
 		return ctx.WriteXML(val)
-	case "application/octet-stream":
-		return ctx.WriteBinary(val)
 	default:
 		return ctx.WriteJSON(val)
 	}

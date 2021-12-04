@@ -146,7 +146,7 @@ func (ctx *Context) Write(val interface{}) error {
 	case "application/octet-stream":
 		return ctx.WriteBinary(val)
 	default:
-		return errors.New("write(unsupported accept '" + ctx.Accept() + "')")
+		return ctx.WriteJSON(val)
 	}
 }
 

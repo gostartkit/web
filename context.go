@@ -230,3 +230,16 @@ func (ctx *Context) Redirect(code int, url string) {
 	ctx.SetStatus(code)
 	ctx.W.WriteHeader(code)
 }
+
+// WriteContentType write content type to client
+func (ctx *Context) WriteContentType() {
+
+	ac := ctx.Accept()
+
+	switch ac {
+	case "application/octet-stream", "application/x-avro", "application/x-gob", "application/xml":
+		ctx.SetContentType(ac)
+	default:
+		ctx.SetContentType("application/json")
+	}
+}

@@ -231,11 +231,9 @@ func (ctx *Context) Redirect(code int, url string) {
 	ctx.W.WriteHeader(code)
 }
 
-// WriteContentType write content type to client
-func (ctx *Context) WriteContentType() {
-
+// AcceptContentType set 'Accept' header to 'Content-Type' header
+func (ctx *Context) AcceptContentType() {
 	ac := ctx.Accept()
-
 	switch ac {
 	case "application/octet-stream", "application/x-avro", "application/x-gob", "application/xml":
 		ctx.SetContentType(ac)

@@ -246,9 +246,9 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListenAndServe Serve with options on addr
-func (app *Application) ListenAndServe(addr string, fns ...func(*http.Server)) error {
+func (app *Application) ListenAndServe(network string, addr string, fns ...func(*http.Server)) error {
 
-	l, err := net.Listen("tcp", addr)
+	l, err := net.Listen(network, addr)
 
 	if err != nil {
 		return err
@@ -256,13 +256,13 @@ func (app *Application) ListenAndServe(addr string, fns ...func(*http.Server)) e
 
 	defer l.Close()
 
-	return app.serve(addr, l, fns...)
+	return app.serve(l, fns...)
 }
 
 // ListenAndServeTLS Serve with tls and options on addr
-func (app *Application) ListenAndServeTLS(addr string, tlsConfig *tls.Config, fns ...func(*http.Server)) error {
+func (app *Application) ListenAndServeTLS(network string, addr string, tlsConfig *tls.Config, fns ...func(*http.Server)) error {
 
-	l, err := tls.Listen("tcp", addr, tlsConfig)
+	l, err := tls.Listen(network, addr, tlsConfig)
 
 	if err != nil {
 		return err
@@ -270,10 +270,10 @@ func (app *Application) ListenAndServeTLS(addr string, tlsConfig *tls.Config, fn
 
 	defer l.Close()
 
-	return app.serve(addr, l, fns...)
+	return app.serve(l, fns...)
 }
 
-func (app *Application) serve(addr string, listener net.Listener, fns ...func(*http.Server)) error {
+func (app *Application) serve(listener net.Listener, fns ...func(*http.Server)) error {
 
 	mux := http.NewServeMux()
 

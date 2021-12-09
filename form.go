@@ -58,7 +58,7 @@ func formReader(ctx *Context, v Data) error {
 
 	for i := 0; i < rt.NumField(); i++ {
 
-		tagName := rt.Field(i).Tag.Get("web")
+		tagName := rt.Field(i).Tag.Get("json")
 
 		var val string
 

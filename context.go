@@ -32,19 +32,26 @@ type Context struct {
 	query       *url.Values
 	form        *url.Values
 	userID      uint64
+	userRight   int64
 	accept      *string
 	contentType *string
 	code        int
 }
 
 // Init init context
-func (ctx *Context) Init(userID uint64) {
+func (ctx *Context) Init(userID uint64, userRight int64) {
 	ctx.userID = userID
+	ctx.userRight = userRight
 }
 
 // UserID get userID
 func (ctx *Context) UserID() uint64 {
 	return ctx.userID
+}
+
+// UserRight get UserRight
+func (ctx *Context) UserRight() int64 {
+	return ctx.userRight
 }
 
 // Param get value from Params

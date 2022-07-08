@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-// Filter create sql for filter and args
-func Filter(filter string, str *strings.Builder, args *[]interface{}, prefix string, fn func(key string, val string) (string, interface{}, error)) error {
+// SqlFilter create sql for filter and args
+func SqlFilter(filter string, str *strings.Builder, args *[]interface{}, prefix string, fn func(key string, val string) (string, interface{}, error)) error {
 
 	vals := filterParse(filter)
 

@@ -5,8 +5,8 @@ import (
 	"strings"
 )
 
-// OrderBy create sql for order by
-func OrderBy(orderBy string, str *strings.Builder, prefix string, fn func(variableName string) (string, string, string, error)) error {
+// SqlOrderBy create sql for order by
+func SqlOrderBy(orderBy string, str *strings.Builder, prefix string, fn func(variableName string) (string, string, string, error)) error {
 	vals := orderByParse(orderBy)
 
 	l := len(vals)

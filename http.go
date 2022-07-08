@@ -1,23 +1,80 @@
 package web
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 )
 
-// Get http get method
-func Get(client *http.Client, uri string, accessToken string, v interface{}) error {
+// Get do http get
+func Get(client *http.Client, url string, accessToken string, v interface{}) error {
+	return httpDo(client, http.MethodGet, url, accessToken, nil, v)
+}
 
-	req, err := http.NewRequest(http.MethodGet, uri, nil)
+// Post do http post
+func Post(client *http.Client, url string, accessToken string, data interface{}, v interface{}) error {
+
+	body := new(bytes.Buffer)
+
+	err := json.NewEncoder(body).Encode(data)
+
+	if err != nil {
+		return err
+	}
+
+	return httpDo(client, http.MethodPost, url, accessToken, body, v)
+}
+
+// Put do http put
+func Put(client *http.Client, url string, accessToken string, data interface{}, v interface{}) error {
+
+	body := new(bytes.Buffer)
+
+	err := json.NewEncoder(body).Encode(data)
+
+	if err != nil {
+		return err
+	}
+
+	return httpDo(client, http.MethodPut, url, accessToken, body, v)
+}
+
+// Patch do http patch
+func Patch(client *http.Client, url string, accessToken string, data interface{}, v interface{}) error {
+
+	body := new(bytes.Buffer)
+
+	err := json.NewEncoder(body).Encode(data)
+
+	if err != nil {
+		return err
+	}
+
+	return httpDo(client, http.MethodPatch, url, accessToken, body, v)
+}
+
+// Delete do http delete
+func Delete(client *http.Client, url string, accessToken string, v interface{}) error {
+	return httpDo(client, http.MethodDelete, url, accessToken, nil, v)
+}
+
+// httpDo do http request
+func httpDo(client *http.Client, method string, url string, accessToken string, body io.Reader, v interface{}) error {
+
+	req, err := http.NewRequest(method, url, body)
 
 	if err != nil {
 		return err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
+
+	if accessToken != "" {
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+	}
 
 	resp, err := client.Do(req)
 
@@ -33,13 +90,16 @@ func Get(client *http.Client, uri string, accessToken string, v interface{}) err
 			return err
 		}
 		return nil
-	case 400, 401, 403:
+	case 400:
 		errMessage := ""
-
 		if err := json.NewDecoder(resp.Body).Decode(&errMessage); err != nil {
 			return err
 		}
 		return errors.New(errMessage)
+	case 401:
+		return ErrUnauthorized
+	case 403:
+		return ErrForbidden
 	default:
 		return ErrUnExpectedError
 	}

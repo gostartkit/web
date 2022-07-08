@@ -7,6 +7,8 @@ var (
 	ErrUnauthorized = errors.New("unauthorized")
 	// ErrForbidden 403
 	ErrForbidden = errors.New("forbidden")
+	// ErrUnExpectedError unexpected error
+	ErrUnExpectedError = errors.New("unexpected error")
 
 	// ErrViewWriterNotImplemented viewWriter not implemented
 	ErrViewWriterNotImplemented = errors.New("viewWriter not implemented")

@@ -188,6 +188,23 @@ func (ctx *Context) SetStatus(code int) {
 	ctx.code = code
 }
 
+// SetLocation set Location with status code
+func (ctx *Context) SetLocation(code int, url string) {
+	ctx.SetStatus(code)
+	ctx.Set("Location", url)
+}
+
+// SetCreatedLocation set Location with http.StatusCreated status
+func (ctx *Context) SetCreatedLocation(url string) {
+	ctx.SetLocation(http.StatusCreated, url)
+}
+
+// SetAcceptedLocation set Operation-Location with http.StatusAccepted status
+func (ctx *Context) SetAcceptedLocation(url string) {
+	ctx.SetStatus(http.StatusAccepted)
+	ctx.Set("Operation-Location", url)
+}
+
 // Get get header, short hand for ctx.Request.Header.Get
 func (ctx *Context) Get(key string) string {
 	return ctx.R.Header.Get(key)
@@ -229,13 +246,6 @@ func (ctx *Context) ContentType() string {
 // SetContentType Set Content-Type to header
 func (ctx *Context) SetContentType(val string) {
 	ctx.Set("Content-Type", contentType(val))
-}
-
-// Redirect to url with status code
-func (ctx *Context) Redirect(code int, url string) {
-	ctx.Set("Location", url)
-	ctx.SetStatus(code)
-	ctx.W.WriteHeader(code)
 }
 
 // AcceptContentType set 'Accept' header to 'Content-Type' header

@@ -85,7 +85,7 @@ func httpDo(client *http.Client, method string, url string, accessToken string, 
 	defer resp.Body.Close()
 
 	switch resp.StatusCode {
-	case 200:
+	case 200, 201, 202:
 		if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
 			return err
 		}

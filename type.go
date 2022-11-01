@@ -6,7 +6,7 @@ const (
 	QueryOrderBy  = "$orderBy"
 	QueryPage     = "$page"
 	QueryPageSize = "$pageSize"
-	HeaderAttrs   = "$attrs"
+	HeaderAttrs   = "Attrs"
 )
 
 // Reader function

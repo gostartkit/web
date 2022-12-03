@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -193,34 +192,6 @@ func (ctx *Context) SetStatus(code int) {
 func (ctx *Context) SetLocation(code int, url string) {
 	ctx.SetStatus(code)
 	ctx.Set("Location", url)
-}
-
-// SetCreatedLocation set Location with http.StatusCreated status
-func (ctx *Context) SetCreatedLocation(keys ...uint64) {
-
-	var w strings.Builder
-
-	w.WriteString(ctx.R.URL.Path)
-
-	if !strings.HasSuffix(ctx.R.URL.Path, "/") {
-		w.WriteString("/")
-	}
-
-	for i, key := range keys {
-		if i > 0 {
-			w.WriteString("/")
-		}
-
-		fmt.Fprintf(&w, "%d", key)
-	}
-
-	ctx.SetLocation(http.StatusCreated, w.String())
-}
-
-// SetAcceptedLocation set Operation-Location with http.StatusAccepted status
-func (ctx *Context) SetAcceptedLocation(url string) {
-	ctx.SetStatus(http.StatusAccepted)
-	ctx.Set("Operation-Location", url)
 }
 
 // Get get header, short hand for ctx.Request.Header.Get

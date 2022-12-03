@@ -229,6 +229,11 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if val != nil {
+				switch r.Method {
+				case http.MethodPost:
+					ctx.SetStatus(http.StatusCreated)
+				}
+
 				if err := ctx.Write(val); err != nil {
 					app.logf("ctx.write err: %v", err)
 				}

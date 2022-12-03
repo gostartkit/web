@@ -189,6 +189,7 @@ func (app *Application) ServeFiles(path string, root http.FileSystem) {
 
 // ServeHTTP w, r
 func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+
 	defer app.recv(w, r)
 
 	path := r.URL.Path

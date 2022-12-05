@@ -230,9 +230,14 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if val != nil {
+
 				switch r.Method {
 				case http.MethodPost:
 					ctx.SetStatus(http.StatusCreated)
+				case http.MethodDelete:
+					ctx.SetStatus(http.StatusNoContent)
+				default:
+					ctx.SetStatus(http.StatusOK)
 				}
 
 				if err := ctx.Write(val); err != nil {

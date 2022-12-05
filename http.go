@@ -85,20 +85,20 @@ func httpDo(client *http.Client, method string, url string, accessToken string, 
 	defer resp.Body.Close()
 
 	switch resp.StatusCode {
-	case 200, 201, 202:
+	case http.StatusOK, http.StatusCreated, http.StatusAccepted, http.StatusNoContent:
 		if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
 			return err
 		}
 		return nil
-	case 400:
+	case http.StatusBadRequest:
 		errMessage := ""
 		if err := json.NewDecoder(resp.Body).Decode(&errMessage); err != nil {
 			return err
 		}
 		return errors.New(errMessage)
-	case 401:
+	case http.StatusUnauthorized:
 		return ErrUnauthorized
-	case 403:
+	case http.StatusForbidden:
 		return ErrForbidden
 	default:
 		return ErrUnExpectedError

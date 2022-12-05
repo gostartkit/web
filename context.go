@@ -143,6 +143,13 @@ func (ctx *Context) TryParseForm(name string, val interface{}) error {
 
 // Write Write data base on accept header
 func (ctx *Context) Write(val interface{}) error {
+
+	ctx.W.WriteHeader(ctx.code)
+
+	if ctx.code == http.StatusNoContent {
+		return nil
+	}
+
 	switch ctx.Accept() {
 	case "application/octet-stream", "application/x-avro":
 		return ctx.WriteBinary(val)
@@ -157,19 +164,16 @@ func (ctx *Context) Write(val interface{}) error {
 
 // WriteJSON Write JSON
 func (ctx *Context) WriteJSON(val interface{}) error {
-	ctx.W.WriteHeader(ctx.code)
 	return json.NewEncoder(ctx.W).Encode(val)
 }
 
 // WriteXML Write XML
 func (ctx *Context) WriteXML(val interface{}) error {
-	ctx.W.WriteHeader(ctx.code)
 	return xml.NewEncoder(ctx.W).Encode(val)
 }
 
 // WriteGOB Write GOB
 func (ctx *Context) WriteGOB(val interface{}) error {
-	ctx.W.WriteHeader(ctx.code)
 	return gob.NewEncoder(ctx.W).Encode(val)
 }
 

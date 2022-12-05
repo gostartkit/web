@@ -223,7 +223,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, ctx.UserID(), r.Method, path, ctx.Status(), err)
 
 				if err := ctx.Write(err.Error()); err != nil {
-					app.logf("ctx.write err: %v", err)
+					app.logf("ctx.write: %v", err)
 				}
 
 				return
@@ -241,7 +241,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 
 				if err := ctx.Write(val); err != nil {
-					app.logf("ctx.write err: %v", err)
+					app.logf("ctx.write: %v", err)
 				}
 			}
 

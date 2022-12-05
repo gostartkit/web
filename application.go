@@ -241,6 +241,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				if err := ctx.Write(val); err != nil {
 					app.logf("ctx.write: %v", err)
 				}
+
 			} else {
 				ctx.SetStatus(http.StatusNoContent)
 				ctx.W.WriteHeader(ctx.code)

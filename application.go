@@ -234,8 +234,6 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				switch r.Method {
 				case http.MethodPost:
 					ctx.SetStatus(http.StatusCreated)
-				case http.MethodDelete:
-					ctx.SetStatus(http.StatusNoContent)
 				default:
 					ctx.SetStatus(http.StatusOK)
 				}
@@ -243,6 +241,9 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				if err := ctx.Write(val); err != nil {
 					app.logf("ctx.write: %v", err)
 				}
+			} else {
+				ctx.SetStatus(http.StatusNoContent)
+				ctx.W.WriteHeader(ctx.code)
 			}
 
 			return

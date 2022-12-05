@@ -146,10 +146,6 @@ func (ctx *Context) Write(val interface{}) error {
 
 	ctx.W.WriteHeader(ctx.code)
 
-	if ctx.code == http.StatusNoContent {
-		return nil
-	}
-
 	switch ctx.Accept() {
 	case "application/octet-stream", "application/x-avro":
 		return ctx.WriteBinary(val)

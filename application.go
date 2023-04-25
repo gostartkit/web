@@ -346,6 +346,7 @@ func (app *Application) putParams(ps *Params) {
 
 func (app *Application) recv(w http.ResponseWriter, r *http.Request) {
 	if rcv := recover(); rcv != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		if app.panic != nil {
 			app.panic(w, r, rcv)
 		} else {

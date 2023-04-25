@@ -14,10 +14,9 @@ import (
 func createContext(w http.ResponseWriter, r *http.Request, params *Params) *Context {
 
 	ctx := &Context{
-		W:     w,
-		R:     r,
+		w:     w,
+		r:     r,
 		param: params,
-		code:  200,
 	}
 
 	return ctx
@@ -25,9 +24,8 @@ func createContext(w http.ResponseWriter, r *http.Request, params *Params) *Cont
 
 // Context is type of an web.Context
 type Context struct {
-	W http.ResponseWriter
-	R *http.Request
-
+	w           http.ResponseWriter
+	r           *http.Request
 	param       *Params
 	query       *url.Values
 	form        *url.Values
@@ -35,7 +33,6 @@ type Context struct {
 	userRight   int64
 	accept      *string
 	contentType *string
-	code        int
 }
 
 // Init init context
@@ -62,7 +59,7 @@ func (ctx *Context) Param(name string) string {
 // Query get value from QueryString
 func (ctx *Context) Query(name string) string {
 	if ctx.query == nil {
-		query := ctx.R.URL.Query()
+		query := ctx.r.URL.Query()
 		ctx.query = &query
 	}
 	return ctx.query.Get(name)
@@ -71,29 +68,29 @@ func (ctx *Context) Query(name string) string {
 // Form get value from Form
 func (ctx *Context) Form(name string) string {
 	if ctx.form == nil {
-		ctx.form, _ = parseForm(ctx.R.Body)
+		ctx.form, _ = parseForm(ctx.r.Body)
 	}
 	return ctx.form.Get(name)
 }
 
 // Host return ctx.r.Host
 func (ctx *Context) Host() string {
-	return ctx.R.Host
+	return ctx.r.Host
 }
 
 // Path return ctx.r.URL.Path
 func (ctx *Context) Path() string {
-	return ctx.R.URL.Path
+	return ctx.r.URL.Path
 }
 
 // Method return ctx.r.Method
 func (ctx *Context) Method() string {
-	return ctx.R.Method
+	return ctx.r.Method
 }
 
 // RemoteAddr return remote ip address
 func (ctx *Context) RemoteAddr() string {
-	return ctx.R.RemoteAddr
+	return ctx.r.RemoteAddr
 }
 
 // UserAgent return User-Agent header
@@ -110,9 +107,9 @@ func (ctx *Context) IsAjax() bool {
 func (ctx *Context) TryParseBody(val interface{}) error {
 	switch {
 	case strings.HasPrefix(ctx.ContentType(), "application/json"):
-		return json.NewDecoder(ctx.R.Body).Decode(val)
+		return json.NewDecoder(ctx.r.Body).Decode(val)
 	case strings.HasPrefix(ctx.ContentType(), "application/x-gob"):
-		return gob.NewDecoder(ctx.R.Body).Decode(val)
+		return gob.NewDecoder(ctx.r.Body).Decode(val)
 	case strings.HasPrefix(ctx.ContentType(), "application/x-www-form-urlencoded"):
 		return formReader(ctx, val)
 	case strings.HasPrefix(ctx.ContentType(), "multipart/form-data"):
@@ -120,7 +117,7 @@ func (ctx *Context) TryParseBody(val interface{}) error {
 	case strings.HasPrefix(ctx.ContentType(), "application/octet-stream"):
 		return binaryReader(ctx, val)
 	case strings.HasPrefix(ctx.ContentType(), "application/xml"):
-		return xml.NewDecoder(ctx.R.Body).Decode(val)
+		return xml.NewDecoder(ctx.r.Body).Decode(val)
 	default:
 		return errors.New("tryParseBody(unsupported contentType '" + ctx.ContentType() + "')")
 	}
@@ -144,8 +141,6 @@ func (ctx *Context) TryParseForm(name string, val interface{}) error {
 // Write Write data base on accept header
 func (ctx *Context) Write(val interface{}) error {
 
-	ctx.W.WriteHeader(ctx.code)
-
 	switch ctx.Accept() {
 	case "application/octet-stream", "application/x-avro":
 		return ctx.WriteBinary(val)
@@ -160,17 +155,17 @@ func (ctx *Context) Write(val interface{}) error {
 
 // WriteJSON Write JSON
 func (ctx *Context) WriteJSON(val interface{}) error {
-	return json.NewEncoder(ctx.W).Encode(val)
+	return json.NewEncoder(ctx.w).Encode(val)
 }
 
 // WriteXML Write XML
 func (ctx *Context) WriteXML(val interface{}) error {
-	return xml.NewEncoder(ctx.W).Encode(val)
+	return xml.NewEncoder(ctx.w).Encode(val)
 }
 
 // WriteGOB Write GOB
 func (ctx *Context) WriteGOB(val interface{}) error {
-	return gob.NewEncoder(ctx.W).Encode(val)
+	return gob.NewEncoder(ctx.w).Encode(val)
 }
 
 // WriteBinary Write Binary
@@ -178,40 +173,29 @@ func (ctx *Context) WriteBinary(val interface{}) error {
 	return binaryWriter(ctx, val)
 }
 
-// Status return status code
-func (ctx *Context) Status() int {
-	return ctx.code
-}
-
-// SetStatus Write status code to header
-func (ctx *Context) SetStatus(code int) {
-	ctx.code = code
-}
-
 // SetLocation set Location with status code
-func (ctx *Context) SetLocation(code int, url string) {
-	ctx.SetStatus(code)
+func (ctx *Context) SetLocation(url string) {
 	ctx.Set("Location", url)
 }
 
 // Get get header, short hand for ctx.Request.Header.Get
 func (ctx *Context) Get(key string) string {
-	return ctx.R.Header.Get(key)
+	return ctx.r.Header.Get(key)
 }
 
 // Set set header, short hand for ctx.ResponseWriter.Header().Set
 func (ctx *Context) Set(key string, value string) {
-	ctx.W.Header().Set(key, value)
+	ctx.w.Header().Set(key, value)
 }
 
 // Add add header, short hand for ctx.ResponseWriter.Header().Add
 func (ctx *Context) Add(key string, value string) {
-	ctx.W.Header().Add(key, value)
+	ctx.w.Header().Add(key, value)
 }
 
 // Del del header, short hand for ctx.ResponseWriter.Header().Del
 func (ctx *Context) Del(key string) {
-	ctx.W.Header().Del(key)
+	ctx.w.Header().Del(key)
 }
 
 // Accept get Accept from header

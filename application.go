@@ -181,8 +181,8 @@ func (app *Application) ServeFiles(path string, root http.FileSystem) {
 	fileServer := http.FileServer(root)
 
 	app.Get(path, func(ctx *Context) (Data, error) {
-		ctx.R.URL.Path = ctx.Param("filepath")
-		fileServer.ServeHTTP(ctx.W, ctx.R)
+		ctx.r.URL.Path = ctx.Param("filepath")
+		fileServer.ServeHTTP(ctx.w, ctx.r)
 		return nil, nil
 	})
 }
@@ -211,41 +211,40 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			if err != nil {
 
+				status := http.StatusBadRequest
+
 				switch err {
 				case ErrUnauthorized:
-					ctx.SetStatus(http.StatusUnauthorized)
+					status = http.StatusUnauthorized
 				case ErrForbidden:
-					ctx.SetStatus(http.StatusForbidden)
-				default:
-					ctx.SetStatus(http.StatusBadRequest)
+					status = http.StatusForbidden
 				}
 
-				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, ctx.UserID(), r.Method, path, ctx.Status(), err)
+				w.WriteHeader(status)
+				ctx.Write(err.Error())
 
-				if err := ctx.Write(err.Error()); err != nil {
-					app.logf("ctx.write: %v", err)
-				}
+				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, ctx.UserID(), r.Method, path, status, err)
 
 				return
 			}
 
 			if val != nil {
 
+				status := http.StatusOK
+
 				switch r.Method {
 				case http.MethodPost:
-					ctx.SetStatus(http.StatusCreated)
-				default:
-					ctx.SetStatus(http.StatusOK)
+					status = http.StatusCreated
 				}
 
-				if err := ctx.Write(val); err != nil {
-					app.logf("ctx.write: %v", err)
-				}
+				w.WriteHeader(status)
+				ctx.Write(val)
 
-			} else {
-				ctx.SetStatus(http.StatusNoContent)
-				ctx.W.WriteHeader(ctx.code)
+				return
+
 			}
+
+			w.WriteHeader(http.StatusNoContent)
 
 			return
 		}

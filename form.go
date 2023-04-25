@@ -49,7 +49,7 @@ func formReader(ctx *Context, v Data) error {
 
 		var err error
 
-		if ctx.form, err = parseForm(ctx.R.Body); err != nil {
+		if ctx.form, err = parseForm(ctx.r.Body); err != nil {
 			return err
 		}
 	}

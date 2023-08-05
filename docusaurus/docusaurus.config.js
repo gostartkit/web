@@ -7,14 +7,14 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'webpkg/web',
-  tagline: 'a mini web application tool',
+  tagline: 'a mini mvc web application',
   favicon: 'img/favicon.ico',
 
   // Set the production url of your site here
-  url: 'https://webpkg.github.io',
+  url: 'https://minimvc.com',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/web/',
+  baseUrl: '/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -64,9 +64,9 @@ const config = {
       // Replace with your project's social card
       image: 'img/docusaurus-social-card.jpg',
       navbar: {
-        title: 'My Site',
+        title: 'MiniMVC',
         logo: {
-          alt: 'My Site Logo',
+          alt: 'MiniMVC Logo',
           src: 'img/logo.svg',
         },
         items: [

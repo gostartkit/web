@@ -127,7 +127,7 @@ const config = {
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} GoStartKit, Inc.`,
+        copyright: `Copyright © ${new Date().getFullYear()} MiniMVC, Inc.`,
       },
       prism: {
         theme: lightCodeTheme,

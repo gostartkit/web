@@ -1,11 +1,27 @@
 package web
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
 )
+
+// RandomString random string
+func RandomString(len int) (string, error) {
+
+	b := make([]byte, len/2)
+
+	_, err := rand.Read(b)
+
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(b), nil
+}
 
 // TryParse try parse val to v
 func TryParse(val string, v interface{}) error {

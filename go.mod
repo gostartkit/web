@@ -1,3 +1,3 @@
-module github.com/webpkg/web
+module pkg.gostartkit.com/web
 
 go 1.13

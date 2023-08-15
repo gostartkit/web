@@ -7,7 +7,7 @@ package route
 import (
 	"github.com/gostartkit/auth/controller"
 	"github.com/gostartkit/auth/middleware"
-	"github.com/webpkg/web"
+	"pkg.gostartkit.com/web"
 )
 
 func userRoute(app *web.Application, prefix string) {
@@ -34,7 +34,7 @@ import (
 	"github.com/gostartkit/auth/model"
 	"github.com/gostartkit/auth/proxy"
 	"github.com/gostartkit/auth/validator"
-	"github.com/webpkg/web"
+	"pkg.gostartkit.com/web"
 )
 
 var (

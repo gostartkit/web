@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"errors"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -81,6 +82,11 @@ func (ctx *Context) Host() string {
 // Path return ctx.r.URL.Path
 func (ctx *Context) Path() string {
 	return ctx.r.URL.Path
+}
+
+// Path return ctx.r.Body
+func (ctx *Context) Body() io.ReadCloser {
+	return ctx.r.Body
 }
 
 // Method return ctx.r.Method

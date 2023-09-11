@@ -1,12 +1,12 @@
 package web
 
 const (
-	QueryType     = "$type"
-	QueryFilter   = "$filter"
-	QueryOrderBy  = "$orderBy"
-	QueryPage     = "$page"
-	QueryPageSize = "$pageSize"
-	HeaderAttrs   = "Attrs"
+	QueryType     = "_type"
+	QueryFilter   = "_filter"
+	QueryOrderBy  = "_orderBy"
+	QueryPage     = "_page"
+	QueryPageSize = "_pageSize"
+	HeaderAttrs   = "_attrs"
 )
 
 // Reader function

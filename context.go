@@ -15,9 +15,10 @@ import (
 func createWebContext(w http.ResponseWriter, r *http.Request, params *Params) *WebContext {
 
 	c := &WebContext{
-		w:     w,
-		r:     r,
-		param: params,
+		w:      w,
+		r:      r,
+		param:  params,
+		parsed: false,
 	}
 
 	return c
@@ -29,7 +30,7 @@ type WebContext struct {
 	r           *http.Request
 	param       *Params
 	query       *url.Values
-	form        *url.Values
+	parsed      bool
 	userID      uint64
 	userRight   int64
 	accept      *string
@@ -68,10 +69,11 @@ func (c *WebContext) Query(name string) string {
 
 // Form get value from Form
 func (c *WebContext) Form(name string) string {
-	if c.form == nil {
-		c.form, _ = parseForm(c.r.Body)
+	if !c.parsed {
+		c.r.ParseForm()
+		c.parsed = true
 	}
-	return c.form.Get(name)
+	return c.r.FormValue(name)
 }
 
 // Host return c.r.Host
@@ -116,10 +118,6 @@ func (c *WebContext) TryParseBody(val interface{}) error {
 		return json.NewDecoder(c.r.Body).Decode(val)
 	case strings.HasPrefix(c.ContentType(), "application/x-gob"):
 		return gob.NewDecoder(c.r.Body).Decode(val)
-	case strings.HasPrefix(c.ContentType(), "application/x-www-form-urlencoded"):
-		return formReader(c, val)
-	case strings.HasPrefix(c.ContentType(), "multipart/form-data"):
-		return formDataReader(c, val)
 	case strings.HasPrefix(c.ContentType(), "application/octet-stream"):
 		return binaryReader(c, val)
 	case strings.HasPrefix(c.ContentType(), "application/xml"):

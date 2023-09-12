@@ -10,12 +10,8 @@ var (
 	// ErrUnExpectedError unexpected error
 	ErrUnExpectedError = errors.New("unexpected error")
 
-	// ErrViewWriterNotImplemented viewWriter not implemented
-	ErrViewWriterNotImplemented = errors.New("viewWriter not implemented")
-	// ErrFormDataReaderNotImplemented formDataReader not implemented
-	ErrFormDataReaderNotImplemented = errors.New("formDataReader not implemented")
-	// ErrBinaryReaderNotImplemented binaryReader not implemented
-	ErrBinaryReaderNotImplemented = errors.New("binaryReader not implemented")
-	// ErrBinaryWriterNotImplemented binaryWriter not implemented
-	ErrBinaryWriterNotImplemented = errors.New("binaryWriter not implemented")
+	// ErrContentTypeNotSupported content-type not supported
+	ErrContentTypeNotSupported = errors.New("content-type not supported")
+	// ErrMethodNotImplemented method not implemented
+	ErrMethodNotImplemented = errors.New("method not implemented")
 )

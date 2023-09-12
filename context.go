@@ -4,7 +4,6 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"encoding/xml"
-	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -119,11 +118,11 @@ func (c *WebContext) TryParseBody(val interface{}) error {
 	case strings.HasPrefix(c.ContentType(), "application/x-gob"):
 		return gob.NewDecoder(c.r.Body).Decode(val)
 	case strings.HasPrefix(c.ContentType(), "application/octet-stream"):
-		return binaryReader(c, val)
+		return ErrContentTypeNotSupported
 	case strings.HasPrefix(c.ContentType(), "application/xml"):
 		return xml.NewDecoder(c.r.Body).Decode(val)
 	default:
-		return errors.New("tryParseBody(unsupported contentType '" + c.ContentType() + "')")
+		return ErrContentTypeNotSupported
 	}
 }
 
@@ -146,10 +145,14 @@ func (c *WebContext) TryParseForm(name string, val interface{}) error {
 func (c *WebContext) Write(val interface{}) error {
 
 	switch c.Accept() {
-	case "application/octet-stream", "application/x-avro":
-		return c.WriteBinary(val)
+	case "application/json":
+		return c.WriteJSON(val)
 	case "application/x-gob":
 		return c.WriteGOB(val)
+	case "application/octet-stream":
+		return c.WriteBinary(val)
+	case "application/x-avro":
+		return c.WriteAvro(val)
 	case "application/xml":
 		return c.WriteXML(val)
 	default:
@@ -174,7 +177,12 @@ func (c *WebContext) WriteGOB(val interface{}) error {
 
 // WriteBinary Write Binary
 func (c *WebContext) WriteBinary(val interface{}) error {
-	return binaryWriter(c, val)
+	return ErrMethodNotImplemented
+}
+
+// WriteAvro Write Avro
+func (c *WebContext) WriteAvro(val interface{}) error {
+	return ErrMethodNotImplemented
 }
 
 // SetLocation set Location with status code
@@ -229,9 +237,7 @@ func (c *WebContext) SetContentType(val string) {
 func (c *WebContext) AcceptContentType() {
 	ac := c.Accept()
 	switch ac {
-	case "application/octet-stream", "application/x-avro", "application/x-gob", "application/xml":
+	case "application/json", "application/octet-stream", "application/x-avro", "application/x-gob", "application/xml":
 		c.SetContentType(ac)
-	default:
-		c.SetContentType("application/json")
 	}
 }

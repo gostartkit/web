@@ -18,9 +18,9 @@ const (
 
 // formReader decode data from request body
 // ContentType: application/x-www-form-urlencoded
-func formReader(ctx *Context, v Data) error {
+func formReader(c *WebContext, v Data) error {
 	if app().formReader != nil {
-		return app().formReader(ctx, v)
+		return app().formReader(c, v)
 	}
 
 	if v == nil {
@@ -45,11 +45,11 @@ func formReader(ctx *Context, v Data) error {
 		return fmt.Errorf("formReader(unsupported type '%s')", rv.Type().String())
 	}
 
-	if ctx.form == nil {
+	if c.form == nil {
 
 		var err error
 
-		if ctx.form, err = parseForm(ctx.r.Body); err != nil {
+		if c.form, err = parseForm(c.r.Body); err != nil {
 			return err
 		}
 	}
@@ -64,10 +64,10 @@ func formReader(ctx *Context, v Data) error {
 
 		if len(tagName) > 0 {
 			if tagName != "-" {
-				val = ctx.form.Get(tagName)
+				val = c.form.Get(tagName)
 			}
 		} else {
-			val = ctx.form.Get(rt.Field(i).Name)
+			val = c.form.Get(rt.Field(i).Name)
 		}
 
 		if val != "" {
@@ -83,14 +83,14 @@ func formReader(ctx *Context, v Data) error {
 
 // formDataReader decode data from form
 // ContentType: multipart/form-data
-func formDataReader(ctx *Context, v Data) error {
+func formDataReader(c *WebContext, v Data) error {
 	if app().formDataReader != nil {
-		return app().formDataReader(ctx, v)
+		return app().formDataReader(c, v)
 	}
 	return ErrFormDataReaderNotImplemented
 }
 
-// parseForm parse form from ctx.r.Body
+// parseForm parse form from c.r.Body
 func parseForm(r io.ReadCloser) (*url.Values, error) {
 	m := make(url.Values)
 	err := parseQuery(r, func(key, value []byte) error {

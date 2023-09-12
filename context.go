@@ -11,20 +11,20 @@ import (
 	"strings"
 )
 
-// createContext return a web.Context
-func createContext(w http.ResponseWriter, r *http.Request, params *Params) *Context {
+// createWebContext return a web.Context
+func createWebContext(w http.ResponseWriter, r *http.Request, params *Params) *WebContext {
 
-	ctx := &Context{
+	c := &WebContext{
 		w:     w,
 		r:     r,
 		param: params,
 	}
 
-	return ctx
+	return c
 }
 
-// Context is type of an web.Context
-type Context struct {
+// WebContext is type of an web.WebContext
+type WebContext struct {
 	w           http.ResponseWriter
 	r           *http.Request
 	param       *Params
@@ -37,203 +37,203 @@ type Context struct {
 }
 
 // Init init context
-func (ctx *Context) Init(userID uint64, userRight int64) {
-	ctx.userID = userID
-	ctx.userRight = userRight
+func (c *WebContext) Init(userID uint64, userRight int64) {
+	c.userID = userID
+	c.userRight = userRight
 }
 
 // UserID get userID
-func (ctx *Context) UserID() uint64 {
-	return ctx.userID
+func (c *WebContext) UserID() uint64 {
+	return c.userID
 }
 
 // UserRight get UserRight
-func (ctx *Context) UserRight() int64 {
-	return ctx.userRight
+func (c *WebContext) UserRight() int64 {
+	return c.userRight
 }
 
 // Param get value from Params
-func (ctx *Context) Param(name string) string {
-	return ctx.param.Val(name)
+func (c *WebContext) Param(name string) string {
+	return c.param.Val(name)
 }
 
 // Query get value from QueryString
-func (ctx *Context) Query(name string) string {
-	if ctx.query == nil {
-		query := ctx.r.URL.Query()
-		ctx.query = &query
+func (c *WebContext) Query(name string) string {
+	if c.query == nil {
+		query := c.r.URL.Query()
+		c.query = &query
 	}
-	return ctx.query.Get(name)
+	return c.query.Get(name)
 }
 
 // Form get value from Form
-func (ctx *Context) Form(name string) string {
-	if ctx.form == nil {
-		ctx.form, _ = parseForm(ctx.r.Body)
+func (c *WebContext) Form(name string) string {
+	if c.form == nil {
+		c.form, _ = parseForm(c.r.Body)
 	}
-	return ctx.form.Get(name)
+	return c.form.Get(name)
 }
 
-// Host return ctx.r.Host
-func (ctx *Context) Host() string {
-	return ctx.r.Host
+// Host return c.r.Host
+func (c *WebContext) Host() string {
+	return c.r.Host
 }
 
-// Path return ctx.r.URL.Path
-func (ctx *Context) Path() string {
-	return ctx.r.URL.Path
+// Path return c.r.URL.Path
+func (c *WebContext) Path() string {
+	return c.r.URL.Path
 }
 
-// Path return ctx.r.Body
-func (ctx *Context) Body() io.ReadCloser {
-	return ctx.r.Body
+// Path return c.r.Body
+func (c *WebContext) Body() io.ReadCloser {
+	return c.r.Body
 }
 
-// Method return ctx.r.Method
-func (ctx *Context) Method() string {
-	return ctx.r.Method
+// Method return c.r.Method
+func (c *WebContext) Method() string {
+	return c.r.Method
 }
 
 // RemoteAddr return remote ip address
-func (ctx *Context) RemoteAddr() string {
-	return ctx.r.RemoteAddr
+func (c *WebContext) RemoteAddr() string {
+	return c.r.RemoteAddr
 }
 
 // UserAgent return User-Agent header
-func (ctx *Context) UserAgent() string {
-	return ctx.Get("User-Agent")
+func (c *WebContext) UserAgent() string {
+	return c.Get("User-Agent")
 }
 
 // IsAjax if X-Requested-With header is XMLHttpRequest return true, else false
-func (ctx *Context) IsAjax() bool {
-	return ctx.Get("X-Requested-With") == "XMLHttpRequest"
+func (c *WebContext) IsAjax() bool {
+	return c.Get("X-Requested-With") == "XMLHttpRequest"
 }
 
 // TryParseBody decode val from Request.Body
-func (ctx *Context) TryParseBody(val interface{}) error {
+func (c *WebContext) TryParseBody(val interface{}) error {
 	switch {
-	case strings.HasPrefix(ctx.ContentType(), "application/json"):
-		return json.NewDecoder(ctx.r.Body).Decode(val)
-	case strings.HasPrefix(ctx.ContentType(), "application/x-gob"):
-		return gob.NewDecoder(ctx.r.Body).Decode(val)
-	case strings.HasPrefix(ctx.ContentType(), "application/x-www-form-urlencoded"):
-		return formReader(ctx, val)
-	case strings.HasPrefix(ctx.ContentType(), "multipart/form-data"):
-		return formDataReader(ctx, val)
-	case strings.HasPrefix(ctx.ContentType(), "application/octet-stream"):
-		return binaryReader(ctx, val)
-	case strings.HasPrefix(ctx.ContentType(), "application/xml"):
-		return xml.NewDecoder(ctx.r.Body).Decode(val)
+	case strings.HasPrefix(c.ContentType(), "application/json"):
+		return json.NewDecoder(c.r.Body).Decode(val)
+	case strings.HasPrefix(c.ContentType(), "application/x-gob"):
+		return gob.NewDecoder(c.r.Body).Decode(val)
+	case strings.HasPrefix(c.ContentType(), "application/x-www-form-urlencoded"):
+		return formReader(c, val)
+	case strings.HasPrefix(c.ContentType(), "multipart/form-data"):
+		return formDataReader(c, val)
+	case strings.HasPrefix(c.ContentType(), "application/octet-stream"):
+		return binaryReader(c, val)
+	case strings.HasPrefix(c.ContentType(), "application/xml"):
+		return xml.NewDecoder(c.r.Body).Decode(val)
 	default:
-		return errors.New("tryParseBody(unsupported contentType '" + ctx.ContentType() + "')")
+		return errors.New("tryParseBody(unsupported contentType '" + c.ContentType() + "')")
 	}
 }
 
 // TryParseParam decode val from Query
-func (ctx *Context) TryParseParam(name string, val interface{}) error {
-	return TryParse(ctx.Param(name), val)
+func (c *WebContext) TryParseParam(name string, val interface{}) error {
+	return TryParse(c.Param(name), val)
 }
 
 // TryParseQuery decode val from Query
-func (ctx *Context) TryParseQuery(name string, val interface{}) error {
-	return TryParse(ctx.Query(name), val)
+func (c *WebContext) TryParseQuery(name string, val interface{}) error {
+	return TryParse(c.Query(name), val)
 }
 
 // TryParseForm decode val from Form
-func (ctx *Context) TryParseForm(name string, val interface{}) error {
-	return TryParse(ctx.Form(name), val)
+func (c *WebContext) TryParseForm(name string, val interface{}) error {
+	return TryParse(c.Form(name), val)
 }
 
 // Write Write data base on accept header
-func (ctx *Context) Write(val interface{}) error {
+func (c *WebContext) Write(val interface{}) error {
 
-	switch ctx.Accept() {
+	switch c.Accept() {
 	case "application/octet-stream", "application/x-avro":
-		return ctx.WriteBinary(val)
+		return c.WriteBinary(val)
 	case "application/x-gob":
-		return ctx.WriteGOB(val)
+		return c.WriteGOB(val)
 	case "application/xml":
-		return ctx.WriteXML(val)
+		return c.WriteXML(val)
 	default:
-		return ctx.WriteJSON(val)
+		return c.WriteJSON(val)
 	}
 }
 
 // WriteJSON Write JSON
-func (ctx *Context) WriteJSON(val interface{}) error {
-	return json.NewEncoder(ctx.w).Encode(val)
+func (c *WebContext) WriteJSON(val interface{}) error {
+	return json.NewEncoder(c.w).Encode(val)
 }
 
 // WriteXML Write XML
-func (ctx *Context) WriteXML(val interface{}) error {
-	return xml.NewEncoder(ctx.w).Encode(val)
+func (c *WebContext) WriteXML(val interface{}) error {
+	return xml.NewEncoder(c.w).Encode(val)
 }
 
 // WriteGOB Write GOB
-func (ctx *Context) WriteGOB(val interface{}) error {
-	return gob.NewEncoder(ctx.w).Encode(val)
+func (c *WebContext) WriteGOB(val interface{}) error {
+	return gob.NewEncoder(c.w).Encode(val)
 }
 
 // WriteBinary Write Binary
-func (ctx *Context) WriteBinary(val interface{}) error {
-	return binaryWriter(ctx, val)
+func (c *WebContext) WriteBinary(val interface{}) error {
+	return binaryWriter(c, val)
 }
 
 // SetLocation set Location with status code
-func (ctx *Context) SetLocation(url string) {
-	ctx.Set("Location", url)
+func (c *WebContext) SetLocation(url string) {
+	c.Set("Location", url)
 }
 
-// Get get header, short hand for ctx.Request.Header.Get
-func (ctx *Context) Get(key string) string {
-	return ctx.r.Header.Get(key)
+// Get get header, short hand for c.Request.Header.Get
+func (c *WebContext) Get(key string) string {
+	return c.r.Header.Get(key)
 }
 
-// Set set header, short hand for ctx.ResponseWriter.Header().Set
-func (ctx *Context) Set(key string, value string) {
-	ctx.w.Header().Set(key, value)
+// Set set header, short hand for c.ResponseWriter.Header().Set
+func (c *WebContext) Set(key string, value string) {
+	c.w.Header().Set(key, value)
 }
 
-// Add add header, short hand for ctx.ResponseWriter.Header().Add
-func (ctx *Context) Add(key string, value string) {
-	ctx.w.Header().Add(key, value)
+// Add add header, short hand for c.ResponseWriter.Header().Add
+func (c *WebContext) Add(key string, value string) {
+	c.w.Header().Add(key, value)
 }
 
-// Del del header, short hand for ctx.ResponseWriter.Header().Del
-func (ctx *Context) Del(key string) {
-	ctx.w.Header().Del(key)
+// Del del header, short hand for c.ResponseWriter.Header().Del
+func (c *WebContext) Del(key string) {
+	c.w.Header().Del(key)
 }
 
 // Accept get Accept from header
-func (ctx *Context) Accept() string {
-	if ctx.accept == nil {
-		ac := ctx.Get("Accept")
-		ctx.accept = &ac
+func (c *WebContext) Accept() string {
+	if c.accept == nil {
+		ac := c.Get("Accept")
+		c.accept = &ac
 	}
-	return *ctx.accept
+	return *c.accept
 }
 
 // ContentType get Content-Type from header
-func (ctx *Context) ContentType() string {
-	if ctx.contentType == nil {
-		ctype := ctx.Get("Content-Type")
-		ctx.contentType = &ctype
+func (c *WebContext) ContentType() string {
+	if c.contentType == nil {
+		ctype := c.Get("Content-Type")
+		c.contentType = &ctype
 	}
-	return *ctx.contentType
+	return *c.contentType
 }
 
 // SetContentType Set Content-Type to header
-func (ctx *Context) SetContentType(val string) {
-	ctx.Set("Content-Type", contentType(val))
+func (c *WebContext) SetContentType(val string) {
+	c.Set("Content-Type", contentType(val))
 }
 
 // AcceptContentType set 'Accept' header to 'Content-Type' header
-func (ctx *Context) AcceptContentType() {
-	ac := ctx.Accept()
+func (c *WebContext) AcceptContentType() {
+	ac := c.Accept()
 	switch ac {
 	case "application/octet-stream", "application/x-avro", "application/x-gob", "application/xml":
-		ctx.SetContentType(ac)
+		c.SetContentType(ac)
 	default:
-		ctx.SetContentType("application/json")
+		c.SetContentType("application/json")
 	}
 }

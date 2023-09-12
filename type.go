@@ -1,7 +1,7 @@
 package web
 
 // Reader function
-type Reader func(ctx *Context, v Data) error
+type Reader func(ctx *WebContext, v Data) error
 
 // Writer function
-type Writer func(ctx *Context, v Data) error
+type Writer func(ctx *WebContext, v Data) error

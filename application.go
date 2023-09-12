@@ -20,7 +20,7 @@ var (
 type Data interface{}
 
 // Callback function
-type Callback func(ctx *Context) (Data, error)
+type Callback func(c *WebContext) (Data, error)
 
 // PanicCallback function
 type PanicCallback func(http.ResponseWriter, *http.Request, interface{})
@@ -180,9 +180,9 @@ func (app *Application) ServeFiles(path string, root http.FileSystem) {
 
 	fileServer := http.FileServer(root)
 
-	app.Get(path, func(ctx *Context) (Data, error) {
-		ctx.r.URL.Path = ctx.Param("filepath")
-		fileServer.ServeHTTP(ctx.w, ctx.r)
+	app.Get(path, func(c *WebContext) (Data, error) {
+		c.r.URL.Path = c.Param("filepath")
+		fileServer.ServeHTTP(c.w, c.r)
 		return nil, nil
 	})
 }
@@ -203,9 +203,9 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if callback, params, _ := root.getValue(path, app.getParams); callback != nil {
 
-			ctx := createContext(w, r, params)
+			c := createWebContext(w, r, params)
 
-			val, err := callback(ctx)
+			val, err := callback(c)
 
 			app.putParams(params)
 
@@ -221,9 +221,9 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 
 				w.WriteHeader(status)
-				ctx.Write(err.Error())
+				c.Write(err.Error())
 
-				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, ctx.UserID(), r.Method, path, status, err)
+				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, path, status, err)
 
 				return
 			}
@@ -238,7 +238,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 
 				w.WriteHeader(status)
-				ctx.Write(val)
+				c.Write(val)
 
 				return
 

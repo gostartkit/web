@@ -173,11 +173,11 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if root := app.trees[r.Method]; root != nil {
 
-		if callback, params, _ := root.getValue(path, app.getParams); callback != nil {
+		if cb, params, _ := root.getValue(path, app.getParams); cb != nil {
 
 			c := createWebContext(w, r, params)
 
-			val, err := callback(c)
+			val, err := cb(c)
 
 			app.putParams(params)
 

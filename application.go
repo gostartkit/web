@@ -49,14 +49,6 @@ func CreateApplication() *Application {
 	return _app
 }
 
-// app return web.Application
-func app() *Application {
-	if _app == nil {
-		return CreateApplication()
-	}
-	return _app
-}
-
 // SetFormReader set formReader
 func (app *Application) SetFormReader(formReader Reader) {
 	app.formReader = formReader
@@ -96,7 +88,7 @@ func (app *Application) SetExtension(ext string) {
 }
 
 // Use Add the given callback function to this application.middlewares.
-func (app *Application) Use(path string, callback Callback) {
+func (app *Application) Use(path string, cb Callback) {
 
 }
 

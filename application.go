@@ -64,8 +64,8 @@ func (app *Application) SetExtension(ext string) {
 }
 
 // Use Add the given cb function to this application.middlewares.
-func (app *Application) Use(cb Callback) Callback {
-	return cb
+func (app *Application) Use(cb Callback) {
+
 }
 
 // On add event

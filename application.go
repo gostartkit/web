@@ -22,21 +22,17 @@ type Data interface{}
 // Callback function
 type Callback func(c *WebContext) (Data, error)
 
-// MiddlewareFunc defines the middleware function type
-type MiddlewareFunc func(c *WebContext, next func())
-
 // PanicCallback function
 type PanicCallback func(http.ResponseWriter, *http.Request, interface{})
 
 // Application is type of a web.Application
 type Application struct {
-	trees       map[string]*node
-	middlewares []MiddlewareFunc
-	logger      *log.Logger
-	panic       PanicCallback
-	paramsPool  sync.Pool
-	maxParams   uint16
-	extension   string
+	trees      map[string]*node
+	logger     *log.Logger
+	panic      PanicCallback
+	paramsPool sync.Pool
+	maxParams  uint16
+	extension  string
 
 	NotFound http.Handler
 }
@@ -67,9 +63,9 @@ func (app *Application) SetExtension(ext string) {
 	app.extension = ext
 }
 
-// Use Add the given next function to this application.middlewares.
-func (app *Application) Use(next MiddlewareFunc) {
-	app.middlewares = append(app.middlewares, next)
+// Use Add the given cb function to this application.middlewares.
+func (app *Application) Use(cb Callback) Callback {
+	return cb
 }
 
 // On add event

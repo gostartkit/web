@@ -169,7 +169,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if root := app.trees[r.Method]; root != nil {
 
-		if cb, params, _ := root.getValue(path, app.getParams); cb != nil {
+		if cb, params, tsr := root.getValue(path, app.getParams); cb != nil {
 
 			c := createWebContext(w, r, params)
 
@@ -179,42 +179,57 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			if err != nil {
 
-				status := http.StatusBadRequest
+				code := http.StatusBadRequest
 
 				switch err {
 				case ErrUnauthorized:
-					status = http.StatusUnauthorized
+					code = http.StatusUnauthorized
 				case ErrForbidden:
-					status = http.StatusForbidden
+					code = http.StatusForbidden
 				}
 
-				w.WriteHeader(status)
+				w.WriteHeader(code)
 				c.Write(err.Error())
 
-				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, path, status, err)
+				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, path, code, err)
 
 				return
 			}
 
 			if val != nil {
 
-				status := http.StatusOK
+				code := http.StatusOK
 
 				switch r.Method {
 				case http.MethodPost:
-					status = http.StatusCreated
+					code = http.StatusCreated
 				}
 
-				w.WriteHeader(status)
+				w.WriteHeader(code)
 				c.Write(val)
 
-				return
-
+			} else {
+				w.WriteHeader(http.StatusNoContent)
 			}
 
-			w.WriteHeader(http.StatusNoContent)
-
 			return
+		} else if r.Method != http.MethodConnect && path != "/" {
+			// Moved Permanently, request with GET method
+			code := http.StatusMovedPermanently
+			if r.Method != http.MethodGet {
+				// Permanent Redirect, request with same method
+				code = http.StatusPermanentRedirect
+			}
+
+			if tsr {
+				if len(path) > 1 && path[len(path)-1] == '/' {
+					r.URL.Path = path[:len(path)-1]
+				} else {
+					r.URL.Path = path + "/"
+				}
+				http.Redirect(w, r, r.URL.String(), code)
+				return
+			}
 		}
 	}
 

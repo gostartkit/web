@@ -169,7 +169,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if root := app.trees[r.Method]; root != nil {
 
-		if cb, params, tsr := root.getValue(path, app.getParams); cb != nil {
+		if cb, params, _ := root.getValue(path, app.getParams); cb != nil {
 
 			c := createWebContext(w, r, params)
 
@@ -178,7 +178,6 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			app.putParams(params)
 
 			if err != nil {
-
 				code := http.StatusBadRequest
 
 				switch err {
@@ -197,7 +196,6 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if val != nil {
-
 				code := http.StatusOK
 
 				switch r.Method {
@@ -207,29 +205,10 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 				w.WriteHeader(code)
 				c.Write(val)
-
 			} else {
 				w.WriteHeader(http.StatusNoContent)
 			}
-
 			return
-		} else if r.Method != http.MethodConnect && path != "/" {
-			// Moved Permanently, request with GET method
-			code := http.StatusMovedPermanently
-			if r.Method != http.MethodGet {
-				// Permanent Redirect, request with same method
-				code = http.StatusPermanentRedirect
-			}
-
-			if tsr {
-				if len(path) > 1 && path[len(path)-1] == '/' {
-					r.URL.Path = path[:len(path)-1]
-				} else {
-					r.URL.Path = path + "/"
-				}
-				http.Redirect(w, r, r.URL.String(), code)
-				return
-			}
 		}
 	}
 

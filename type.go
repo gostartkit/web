@@ -6,7 +6,7 @@ import "net/http"
 type Any interface{}
 
 // Callback function
-type Callback func(c *WebContext) (Any, error)
+type Callback func(c *Ctx) (Any, error)
 
 // PanicCallback function
 type PanicCallback func(http.ResponseWriter, *http.Request, interface{})
@@ -18,7 +18,7 @@ type Middleware func(Callback) Callback
 type Chain []Middleware
 
 // Reader function
-type Reader func(c *WebContext, v Any) error
+type Reader func(c *Ctx, v Any) error
 
 // Writer function
-type Writer func(c *WebContext, v Any) error
+type Writer func(c *Ctx, v Any) error

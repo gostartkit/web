@@ -16,15 +16,6 @@ var (
 	_once sync.Once
 )
 
-// Data Data
-type Data interface{}
-
-// Callback function
-type Callback func(c *WebContext) (Data, error)
-
-// PanicCallback function
-type PanicCallback func(http.ResponseWriter, *http.Request, interface{})
-
 // Application is type of a web.Application
 type Application struct {
 	trees      map[string]*node
@@ -33,6 +24,7 @@ type Application struct {
 	paramsPool sync.Pool
 	maxParams  uint16
 	extension  string
+	chain      Chain
 
 	NotFound http.Handler
 }
@@ -63,14 +55,21 @@ func (app *Application) SetExtension(ext string) {
 	app.extension = ext
 }
 
-// Use Add the given cb function to this application.middlewares.
-func (app *Application) Use(cb Callback) {
-
+// Use Add the given middleware to this application.chain.
+func (app *Application) Use(middleware Middleware) {
+	app.chain = append(app.chain, middleware)
 }
 
 // On add event
 func (app *Application) On(name string, cb Callback) {
 
+}
+
+func (app *Application) Chain(cb Callback) Callback {
+	for i := len(app.chain) - 1; i >= 0; i-- {
+		cb = (app.chain)[i](cb)
+	}
+	return cb
 }
 
 // Get method
@@ -148,7 +147,7 @@ func (app *Application) ServeFiles(path string, root http.FileSystem) {
 
 	fileServer := http.FileServer(root)
 
-	app.Get(path, func(c *WebContext) (Data, error) {
+	app.Get(path, func(c *WebContext) (Any, error) {
 		c.r.URL.Path = c.Param("filepath")
 		fileServer.ServeHTTP(c.w, c.r)
 		return nil, nil

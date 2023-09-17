@@ -142,6 +142,24 @@ func (c *Ctx) TryParseForm(name string, val interface{}) error {
 	return TryParse(c.Form(name), val)
 }
 
+// ParamInt decode val from Param by name
+func (c *Ctx) ParamInt(name string) (int, error) {
+	n, err := strconv.ParseInt(c.Param(name), 10, 0)
+	if err != nil {
+		return 0, err
+	}
+	return int(n), nil
+}
+
+// ParamUint decode val from Param by name
+func (c *Ctx) ParamUint(name string) (uint, error) {
+	n, err := strconv.ParseUint(c.Param(name), 10, 0)
+	if err != nil {
+		return 0, err
+	}
+	return uint(n), nil
+}
+
 // ParamInt64 decode val from Param by name
 func (c *Ctx) ParamInt64(name string) (int64, error) {
 	n, err := strconv.ParseInt(c.Param(name), 10, 64)
@@ -160,6 +178,24 @@ func (c *Ctx) ParamUint64(name string) (uint64, error) {
 	return n, nil
 }
 
+// QueryInt decode val from Query by name
+func (c *Ctx) QueryInt(name string) (int, error) {
+	n, err := strconv.ParseInt(c.Query(name), 10, 0)
+	if err != nil {
+		return 0, err
+	}
+	return int(n), nil
+}
+
+// QueryUint decode val from Query by name
+func (c *Ctx) QueryUint(name string) (uint, error) {
+	n, err := strconv.ParseUint(c.Query(name), 10, 0)
+	if err != nil {
+		return 0, err
+	}
+	return uint(n), nil
+}
+
 // QueryInt64 decode val from Query by name
 func (c *Ctx) QueryInt64(name string) (int64, error) {
 	n, err := strconv.ParseInt(c.Query(name), 10, 64)
@@ -176,6 +212,24 @@ func (c *Ctx) QueryUint64(name string) (uint64, error) {
 		return 0, err
 	}
 	return n, nil
+}
+
+// FormIn decode val from Form by name
+func (c *Ctx) FormInt(name string) (int, error) {
+	n, err := strconv.ParseInt(c.Form(name), 10, 0)
+	if err != nil {
+		return 0, err
+	}
+	return int(n), nil
+}
+
+// FormUint decode val from Form by name
+func (c *Ctx) FormUint(name string) (uint, error) {
+	n, err := strconv.ParseUint(c.Form(name), 10, 0)
+	if err != nil {
+		return 0, err
+	}
+	return uint(n), nil
 }
 
 // FormInt64 decode val from Form by name

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -139,6 +140,60 @@ func (c *Ctx) TryParseQuery(name string, val interface{}) error {
 // TryParseForm decode val from Form
 func (c *Ctx) TryParseForm(name string, val interface{}) error {
 	return TryParse(c.Form(name), val)
+}
+
+// ParamInt64 decode val from Param by name
+func (c *Ctx) ParamInt64(name string) (int64, error) {
+	n, err := strconv.ParseInt(c.Param(name), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// ParamUint64 decode val from Param by name
+func (c *Ctx) ParamUint64(name string) (uint64, error) {
+	n, err := strconv.ParseUint(c.Param(name), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// QueryInt64 decode val from Query by name
+func (c *Ctx) QueryInt64(name string) (int64, error) {
+	n, err := strconv.ParseInt(c.Query(name), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// QueryUint64 decode val from Query by name
+func (c *Ctx) QueryUint64(name string) (uint64, error) {
+	n, err := strconv.ParseUint(c.Query(name), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// FormInt64 decode val from Form by name
+func (c *Ctx) FormInt64(name string) (int64, error) {
+	n, err := strconv.ParseInt(c.Form(name), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// FormUint64 decode val from Form by name
+func (c *Ctx) FormUint64(name string) (uint64, error) {
+	n, err := strconv.ParseUint(c.Form(name), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
 }
 
 // Write Write data base on accept header

@@ -8,7 +8,7 @@ import (
 )
 
 // TryParse try parse val to v
-func TryParse(val string, v interface{}) error {
+func TryParse(val string, v Any) error {
 
 	if len(val) == 0 {
 		return nil

@@ -9,7 +9,7 @@ type Any interface{}
 type Callback func(c *Ctx) (Any, error)
 
 // PanicCallback function
-type PanicCallback func(http.ResponseWriter, *http.Request, interface{})
+type PanicCallback func(http.ResponseWriter, *http.Request, Any)
 
 // Middleware
 type Middleware func(Callback) Callback

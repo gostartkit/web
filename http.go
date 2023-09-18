@@ -9,12 +9,12 @@ import (
 )
 
 // Get do http get
-func Get(client *http.Client, url string, accessToken string, v interface{}) error {
+func Get(client *http.Client, url string, accessToken string, v Any) error {
 	return httpDo(client, http.MethodGet, url, accessToken, nil, v)
 }
 
 // Post do http post
-func Post(client *http.Client, url string, accessToken string, data interface{}, v interface{}) error {
+func Post(client *http.Client, url string, accessToken string, data Any, v Any) error {
 
 	body := new(bytes.Buffer)
 
@@ -28,7 +28,7 @@ func Post(client *http.Client, url string, accessToken string, data interface{},
 }
 
 // Put do http put
-func Put(client *http.Client, url string, accessToken string, data interface{}, v interface{}) error {
+func Put(client *http.Client, url string, accessToken string, data Any, v Any) error {
 
 	body := new(bytes.Buffer)
 
@@ -42,7 +42,7 @@ func Put(client *http.Client, url string, accessToken string, data interface{}, 
 }
 
 // Patch do http patch
-func Patch(client *http.Client, url string, accessToken string, data interface{}, v interface{}) error {
+func Patch(client *http.Client, url string, accessToken string, data Any, v Any) error {
 
 	body := new(bytes.Buffer)
 
@@ -56,12 +56,12 @@ func Patch(client *http.Client, url string, accessToken string, data interface{}
 }
 
 // Delete do http delete
-func Delete(client *http.Client, url string, accessToken string, v interface{}) error {
+func Delete(client *http.Client, url string, accessToken string, v Any) error {
 	return httpDo(client, http.MethodDelete, url, accessToken, nil, v)
 }
 
 // httpDo do http request
-func httpDo(client *http.Client, method string, url string, accessToken string, body io.Reader, v interface{}) error {
+func httpDo(client *http.Client, method string, url string, accessToken string, body io.Reader, v Any) error {
 
 	req, err := http.NewRequest(method, url, body)
 

@@ -160,6 +160,60 @@ func (c *Ctx) ParamUint(name string) (uint, error) {
 	return uint(n), nil
 }
 
+// ParamInt8 decode val from Param by name
+func (c *Ctx) ParamInt8(name string) (int8, error) {
+	n, err := strconv.ParseInt(c.Param(name), 10, 8)
+	if err != nil {
+		return 0, err
+	}
+	return int8(n), nil
+}
+
+// ParamUint8 decode val from Param by name
+func (c *Ctx) ParamUint8(name string) (uint8, error) {
+	n, err := strconv.ParseUint(c.Param(name), 10, 8)
+	if err != nil {
+		return 0, err
+	}
+	return uint8(n), nil
+}
+
+// ParamInt16 decode val from Param by name
+func (c *Ctx) ParamInt16(name string) (int16, error) {
+	n, err := strconv.ParseInt(c.Param(name), 10, 16)
+	if err != nil {
+		return 0, err
+	}
+	return int16(n), nil
+}
+
+// ParamUint16 decode val from Param by name
+func (c *Ctx) ParamUint16(name string) (uint16, error) {
+	n, err := strconv.ParseUint(c.Param(name), 10, 16)
+	if err != nil {
+		return 0, err
+	}
+	return uint16(n), nil
+}
+
+// ParamInt32 decode val from Param by name
+func (c *Ctx) ParamInt32(name string) (int32, error) {
+	n, err := strconv.ParseInt(c.Param(name), 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return int32(n), nil
+}
+
+// ParamUint32 decode val from Param by name
+func (c *Ctx) ParamUint32(name string) (uint32, error) {
+	n, err := strconv.ParseUint(c.Param(name), 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint32(n), nil
+}
+
 // ParamInt64 decode val from Param by name
 func (c *Ctx) ParamInt64(name string) (int64, error) {
 	n, err := strconv.ParseInt(c.Param(name), 10, 64)
@@ -174,6 +228,33 @@ func (c *Ctx) ParamUint64(name string) (uint64, error) {
 	n, err := strconv.ParseUint(c.Param(name), 10, 64)
 	if err != nil {
 		return 0, err
+	}
+	return n, nil
+}
+
+// ParamFloat32 decode val from Param by name
+func (c *Ctx) ParamFloat32(name string) (float32, error) {
+	n, err := strconv.ParseFloat(c.Param(name), 32)
+	if err != nil {
+		return 0, err
+	}
+	return float32(n), nil
+}
+
+// ParamFloat64 decode val from Param by name
+func (c *Ctx) ParamFloat64(name string) (float64, error) {
+	n, err := strconv.ParseFloat(c.Param(name), 64)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// ParamBool decode val from Param by name
+func (c *Ctx) ParamBool(name string) (bool, error) {
+	n, err := strconv.ParseBool(c.Param(name))
+	if err != nil {
+		return false, err
 	}
 	return n, nil
 }
@@ -196,6 +277,60 @@ func (c *Ctx) QueryUint(name string) (uint, error) {
 	return uint(n), nil
 }
 
+// QueryInt8 decode val from Query by name
+func (c *Ctx) QueryInt8(name string) (int8, error) {
+	n, err := strconv.ParseInt(c.Query(name), 10, 8)
+	if err != nil {
+		return 0, err
+	}
+	return int8(n), nil
+}
+
+// QueryUint8 decode val from Query by name
+func (c *Ctx) QueryUint8(name string) (uint8, error) {
+	n, err := strconv.ParseUint(c.Query(name), 10, 8)
+	if err != nil {
+		return 0, err
+	}
+	return uint8(n), nil
+}
+
+// QueryInt16 decode val from Query by name
+func (c *Ctx) QueryInt16(name string) (int16, error) {
+	n, err := strconv.ParseInt(c.Query(name), 10, 16)
+	if err != nil {
+		return 0, err
+	}
+	return int16(n), nil
+}
+
+// QueryUint16 decode val from Query by name
+func (c *Ctx) QueryUint16(name string) (uint16, error) {
+	n, err := strconv.ParseUint(c.Query(name), 10, 16)
+	if err != nil {
+		return 0, err
+	}
+	return uint16(n), nil
+}
+
+// QueryInt32 decode val from Query by name
+func (c *Ctx) QueryInt32(name string) (int32, error) {
+	n, err := strconv.ParseInt(c.Query(name), 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return int32(n), nil
+}
+
+// QueryUint32 decode val from Query by name
+func (c *Ctx) QueryUint32(name string) (uint32, error) {
+	n, err := strconv.ParseUint(c.Query(name), 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint32(n), nil
+}
+
 // QueryInt64 decode val from Query by name
 func (c *Ctx) QueryInt64(name string) (int64, error) {
 	n, err := strconv.ParseInt(c.Query(name), 10, 64)
@@ -210,6 +345,33 @@ func (c *Ctx) QueryUint64(name string) (uint64, error) {
 	n, err := strconv.ParseUint(c.Query(name), 10, 64)
 	if err != nil {
 		return 0, err
+	}
+	return n, nil
+}
+
+// QueryFloat32 decode val from Query by name
+func (c *Ctx) QueryFloat32(name string) (float32, error) {
+	n, err := strconv.ParseFloat(c.Query(name), 32)
+	if err != nil {
+		return 0, err
+	}
+	return float32(n), nil
+}
+
+// QueryFloat64 decode val from Query by name
+func (c *Ctx) QueryFloat64(name string) (float64, error) {
+	n, err := strconv.ParseFloat(c.Query(name), 64)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// QueryBool decode val from Query by name
+func (c *Ctx) QueryBool(name string) (bool, error) {
+	n, err := strconv.ParseBool(c.Query(name))
+	if err != nil {
+		return false, err
 	}
 	return n, nil
 }
@@ -232,6 +394,60 @@ func (c *Ctx) FormUint(name string) (uint, error) {
 	return uint(n), nil
 }
 
+// FormInt8 decode val from Form by name
+func (c *Ctx) FormInt8(name string) (int8, error) {
+	n, err := strconv.ParseInt(c.Form(name), 10, 8)
+	if err != nil {
+		return 0, err
+	}
+	return int8(n), nil
+}
+
+// FormUint8 decode val from Form by name
+func (c *Ctx) FormUint8(name string) (uint8, error) {
+	n, err := strconv.ParseUint(c.Form(name), 10, 8)
+	if err != nil {
+		return 0, err
+	}
+	return uint8(n), nil
+}
+
+// FormInt16 decode val from Form by name
+func (c *Ctx) FormInt16(name string) (int16, error) {
+	n, err := strconv.ParseInt(c.Form(name), 10, 16)
+	if err != nil {
+		return 0, err
+	}
+	return int16(n), nil
+}
+
+// FormUint16 decode val from Form by name
+func (c *Ctx) FormUint16(name string) (uint16, error) {
+	n, err := strconv.ParseUint(c.Form(name), 10, 16)
+	if err != nil {
+		return 0, err
+	}
+	return uint16(n), nil
+}
+
+// FormInt32 decode val from Form by name
+func (c *Ctx) FormInt32(name string) (int32, error) {
+	n, err := strconv.ParseInt(c.Form(name), 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return int32(n), nil
+}
+
+// FormUint32 decode val from Form by name
+func (c *Ctx) FormUint32(name string) (uint32, error) {
+	n, err := strconv.ParseUint(c.Form(name), 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint32(n), nil
+}
+
 // FormInt64 decode val from Form by name
 func (c *Ctx) FormInt64(name string) (int64, error) {
 	n, err := strconv.ParseInt(c.Form(name), 10, 64)
@@ -246,6 +462,33 @@ func (c *Ctx) FormUint64(name string) (uint64, error) {
 	n, err := strconv.ParseUint(c.Form(name), 10, 64)
 	if err != nil {
 		return 0, err
+	}
+	return n, nil
+}
+
+// FormFloat32 decode val from Form by name
+func (c *Ctx) FormFloat32(name string) (float32, error) {
+	n, err := strconv.ParseFloat(c.Form(name), 32)
+	if err != nil {
+		return 0, err
+	}
+	return float32(n), nil
+}
+
+// FormFloat64 decode val from Form by name
+func (c *Ctx) FormFloat64(name string) (float64, error) {
+	n, err := strconv.ParseFloat(c.Form(name), 64)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// FormBool decode val from Form by name
+func (c *Ctx) FormBool(name string) (bool, error) {
+	n, err := strconv.ParseBool(c.Form(name))
+	if err != nil {
+		return false, err
 	}
 	return n, nil
 }

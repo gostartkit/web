@@ -508,7 +508,7 @@ func (c *Ctx) Write(val Any) error {
 	case "application/xml":
 		return c.WriteXML(val)
 	default:
-		return c.WriteJSON(val)
+		return ErrContentTypeNotSupported
 	}
 }
 
@@ -535,11 +535,6 @@ func (c *Ctx) WriteBinary(val Any) error {
 // WriteAvro Write Avro
 func (c *Ctx) WriteAvro(val Any) error {
 	return ErrMethodNotImplemented
-}
-
-// SetLocation set Location with status code
-func (c *Ctx) SetLocation(url string) {
-	c.Set("Location", url)
 }
 
 // Get get header, short hand for c.Request.Header.Get
@@ -583,13 +578,4 @@ func (c *Ctx) ContentType() string {
 // SetContentType Set Content-Type to header
 func (c *Ctx) SetContentType(val string) {
 	c.Set("Content-Type", contentType(val))
-}
-
-// AcceptContentType set 'Accept' header to 'Content-Type' header
-func (c *Ctx) AcceptContentType() {
-	ac := c.Accept()
-	switch ac {
-	case "application/json", "application/octet-stream", "application/x-avro", "application/x-gob", "application/xml":
-		c.SetContentType(ac)
-	}
 }

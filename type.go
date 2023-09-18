@@ -2,7 +2,7 @@ package web
 
 import "net/http"
 
-// Any Any
+// Any is an alias for interface{}
 type Any interface{}
 
 // Callback function

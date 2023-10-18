@@ -217,6 +217,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Handle OPTIONS requests
 		if allow := app.allowed(path, http.MethodOptions); allow != "" {
 			w.Header().Set("Allow", allow)
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 	}

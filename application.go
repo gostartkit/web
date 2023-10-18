@@ -18,13 +18,14 @@ var (
 
 // Application is type of a web.Application
 type Application struct {
-	trees      map[string]*node
-	logger     *log.Logger
-	panic      PanicCallback
-	paramsPool sync.Pool
-	maxParams  uint16
-	extension  string
-	chain      Chain
+	trees         map[string]*node
+	logger        *log.Logger
+	panic         PanicCallback
+	paramsPool    sync.Pool
+	maxParams     uint16
+	extension     string
+	chain         Chain
+	globalAllowed string
 
 	NotFound http.Handler
 }
@@ -130,6 +131,7 @@ func (app *Application) addRoute(method, path string, cb Callback) {
 	if root == nil {
 		root = new(node)
 		app.trees[method] = root
+		app.globalAllowed = app.allowed("*", "")
 	}
 
 	root.addRoute(path, cb)
@@ -211,11 +213,79 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if r.Method == http.MethodOptions {
+		// Handle OPTIONS requests
+		if allow := app.allowed(path, http.MethodOptions); allow != "" {
+			w.Header().Set("Allow", allow)
+			return
+		}
+	} else { // Handle 405
+		if allow := app.allowed(path, r.Method); allow != "" {
+			w.Header().Set("Allow", allow)
+			http.Error(w,
+				http.StatusText(http.StatusMethodNotAllowed),
+				http.StatusMethodNotAllowed,
+			)
+			return
+		}
+	}
+
 	if app.NotFound != nil {
 		app.NotFound.ServeHTTP(w, r)
 	} else {
 		http.NotFound(w, r)
 	}
+}
+
+func (app *Application) allowed(path, reqMethod string) (allow string) {
+	allowed := make([]string, 0, 9)
+
+	if path == "*" { // server-wide
+		// empty method is used for internal calls to refresh the cache
+		if reqMethod == "" {
+			for method := range app.trees {
+				if method == http.MethodOptions {
+					continue
+				}
+				// Add request method to list of allowed methods
+				allowed = append(allowed, method)
+			}
+		} else {
+			return app.globalAllowed
+		}
+	} else { // specific path
+		for method := range app.trees {
+			// Skip the requested method - we already tried this one
+			if method == reqMethod || method == http.MethodOptions {
+				continue
+			}
+
+			handle, _, _ := app.trees[method].getValue(path, nil)
+			if handle != nil {
+				// Add request method to list of allowed methods
+				allowed = append(allowed, method)
+			}
+		}
+	}
+
+	if len(allowed) > 0 {
+		// Add request method to list of allowed methods
+		allowed = append(allowed, http.MethodOptions)
+
+		// Sort allowed methods.
+		// sort.Strings(allowed) unfortunately causes unnecessary allocations
+		// due to allowed being moved to the heap and interface conversion
+		for i, l := 1, len(allowed); i < l; i++ {
+			for j := i; j > 0 && allowed[j] < allowed[j-1]; j-- {
+				allowed[j], allowed[j-1] = allowed[j-1], allowed[j]
+			}
+		}
+
+		// return as comma separated list
+		return strings.Join(allowed, ", ")
+	}
+
+	return allow
 }
 
 // ListenAndServe Serve with options on addr

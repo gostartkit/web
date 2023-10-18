@@ -216,7 +216,9 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodOptions {
 		// Handle OPTIONS requests
 		if allow := app.allowed(path, http.MethodOptions); allow != "" {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Header().Set("Access-Control-Allow-Methods", allow)
+			w.Header().Set("Access-Control-Allow-Headers", "*")
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}

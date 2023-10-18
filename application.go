@@ -219,15 +219,6 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Allow", allow)
 			return
 		}
-	} else { // Handle 405
-		if allow := app.allowed(path, r.Method); allow != "" {
-			w.Header().Set("Allow", allow)
-			http.Error(w,
-				http.StatusText(http.StatusMethodNotAllowed),
-				http.StatusMethodNotAllowed,
-			)
-			return
-		}
 	}
 
 	if app.NotFound != nil {

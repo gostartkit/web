@@ -8,6 +8,9 @@ type Any interface{}
 // Callback function
 type Callback func(c *Ctx) (Any, error)
 
+// CorsCallback function
+type CorsCallback func(w http.ResponseWriter, allow string)
+
 // PanicCallback function
 type PanicCallback func(http.ResponseWriter, *http.Request, Any)
 

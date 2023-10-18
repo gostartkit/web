@@ -20,6 +20,7 @@ var (
 type Application struct {
 	trees         map[string]*node
 	logger        *log.Logger
+	cors          CorsCallback
 	panic         PanicCallback
 	paramsPool    sync.Pool
 	maxParams     uint16
@@ -43,7 +44,12 @@ func (app *Application) SetLogger(logger *log.Logger) {
 	app.logger = logger
 }
 
-// SetPanic set set Panic
+// SetCORS set CORS
+func (app *Application) SetCORS(cors CorsCallback) {
+	app.cors = cors
+}
+
+// SetPanic set Panic
 func (app *Application) SetPanic(panic PanicCallback) {
 	app.panic = panic
 }
@@ -213,13 +219,10 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if r.Method == http.MethodOptions {
+	if r.Method == http.MethodOptions && app.cors != nil {
 		// Handle OPTIONS requests
 		if allow := app.allowed(path, http.MethodOptions); allow != "" {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Methods", allow)
-			w.Header().Set("Access-Control-Allow-Headers", "*")
-			w.WriteHeader(http.StatusNoContent)
+			app.cors(w, allow)
 			return
 		}
 	}

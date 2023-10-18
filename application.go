@@ -257,8 +257,8 @@ func (app *Application) allowed(path, reqMethod string) (allow string) {
 				continue
 			}
 
-			handle, _, _ := app.trees[method].getValue(path, nil)
-			if handle != nil {
+			cb, _, _ := app.trees[method].getValue(path, nil)
+			if cb != nil {
 				// Add request method to list of allowed methods
 				allowed = append(allowed, method)
 			}
@@ -266,19 +266,15 @@ func (app *Application) allowed(path, reqMethod string) (allow string) {
 	}
 
 	if len(allowed) > 0 {
-		// Add request method to list of allowed methods
+
 		allowed = append(allowed, http.MethodOptions)
 
-		// Sort allowed methods.
-		// sort.Strings(allowed) unfortunately causes unnecessary allocations
-		// due to allowed being moved to the heap and interface conversion
 		for i, l := 1, len(allowed); i < l; i++ {
 			for j := i; j > 0 && allowed[j] < allowed[j-1]; j-- {
 				allowed[j], allowed[j-1] = allowed[j-1], allowed[j]
 			}
 		}
 
-		// return as comma separated list
 		return strings.Join(allowed, ", ")
 	}
 

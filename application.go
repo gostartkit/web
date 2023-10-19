@@ -26,7 +26,7 @@ type Application struct {
 	maxParams     uint16
 	extension     string
 	chain         Chain
-	globalAllowed string
+	globalAllowed []string
 
 	NotFound http.Handler
 }
@@ -221,8 +221,8 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodOptions && app.cors != nil {
 		// Handle OPTIONS requests
-		if allow := app.allowed(path, http.MethodOptions); allow != "" {
-			app.cors(w, allow)
+		if allow := app.allowed(path, http.MethodOptions); len(allow) > 0 {
+			app.cors(w, allow...)
 		}
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -235,7 +235,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (app *Application) allowed(path, reqMethod string) (allow string) {
+func (app *Application) allowed(path, reqMethod string) []string {
 	allowed := make([]string, 0, 9)
 
 	if path == "*" { // server-wide
@@ -275,11 +275,9 @@ func (app *Application) allowed(path, reqMethod string) (allow string) {
 				allowed[j], allowed[j-1] = allowed[j-1], allowed[j]
 			}
 		}
-
-		return strings.Join(allowed, ", ")
 	}
 
-	return allow
+	return allowed
 }
 
 // ListenAndServe Serve with options on addr

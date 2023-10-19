@@ -223,8 +223,9 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Handle OPTIONS requests
 		if allow := app.allowed(path, http.MethodOptions); allow != "" {
 			app.cors(w, allow)
-			return
 		}
+		w.WriteHeader(http.StatusNoContent)
+		return
 	}
 
 	if app.NotFound != nil {

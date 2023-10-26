@@ -493,6 +493,45 @@ func (c *Ctx) FormBool(name string) (bool, error) {
 	return n, nil
 }
 
+// QueryFilter c.Query(QueryFilter)
+func (c *Ctx) QueryFilter() string {
+	return c.Query(QueryFilter)
+}
+
+// QueryOrderBy c.Query(QueryOrderBy)
+func (c *Ctx) QueryOrderBy() string {
+	return c.Query(QueryOrderBy)
+}
+
+// QueryPage c.QueryInt(QueryPage)
+func (c *Ctx) QueryPage(defaultPage int) int {
+
+	page, err := c.QueryInt(QueryPage)
+
+	if err != nil {
+		page = defaultPage
+	}
+
+	return page
+}
+
+// QueryPageSize c.QueryInt(QueryPageSize)
+func (c *Ctx) QueryPageSize(defaultPageSize int) int {
+
+	pageSize, err := c.QueryInt(QueryPageSize)
+
+	if err != nil {
+		pageSize = defaultPageSize
+	}
+
+	return pageSize
+}
+
+// HeaderAttrs strings.Split(c.Get(HeaderAttrs), ",")
+func (c *Ctx) HeaderAttrs() []string {
+	return strings.Split(c.Get(HeaderAttrs), ",")
+}
+
 // Write Write data base on accept header
 func (c *Ctx) Write(val Any) error {
 

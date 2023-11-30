@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	poolCtx = sync.Pool{
+	_poolCtx = sync.Pool{
 		New: func() interface{} {
 			c := &Ctx{}
 			return c
@@ -23,7 +23,7 @@ var (
 // createCtx return a web.Ctx
 func createCtx(w http.ResponseWriter, r *http.Request, params *Params) *Ctx {
 
-	c := poolCtx.Get().(*Ctx)
+	c := _poolCtx.Get().(*Ctx)
 	c.w = w
 	c.r = r
 	c.param = params
@@ -39,7 +39,7 @@ func createCtx(w http.ResponseWriter, r *http.Request, params *Params) *Ctx {
 
 func releaseCtx(c *Ctx) {
 	if c != nil {
-		poolCtx.Put(c)
+		_poolCtx.Put(c)
 	}
 }
 

@@ -214,6 +214,10 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 				w.WriteHeader(code)
 				c.Write(val)
+
+				if rel, ok := val.(IRelease); ok {
+					rel.Release()
+				}
 			} else {
 				w.WriteHeader(http.StatusNoContent)
 			}

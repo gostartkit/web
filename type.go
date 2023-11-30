@@ -5,6 +5,11 @@ import "net/http"
 // Any is an alias for interface{}
 type Any interface{}
 
+// IRelease
+type IRelease interface {
+	Release()
+}
+
 // Callback function
 type Callback func(c *Ctx) (Any, error)
 

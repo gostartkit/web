@@ -9,19 +9,38 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
+)
+
+var (
+	poolCtx = sync.Pool{
+		New: func() interface{} {
+			c := &Ctx{}
+			return c
+		}}
 )
 
 // createCtx return a web.Ctx
 func createCtx(w http.ResponseWriter, r *http.Request, params *Params) *Ctx {
 
-	c := &Ctx{
-		w:      w,
-		r:      r,
-		param:  params,
-		parsed: false,
-	}
+	c := poolCtx.Get().(*Ctx)
+	c.w = w
+	c.r = r
+	c.param = params
+	c.query = nil
+	c.parsed = false
+	c.userID = 0
+	c.userRight = 0
+	c.accept = nil
+	c.contentType = nil
 
 	return c
+}
+
+func releaseCtx(c *Ctx) {
+	if c != nil {
+		poolCtx.Put(c)
+	}
 }
 
 // Ctx is type of an web.Ctx

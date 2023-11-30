@@ -199,6 +199,8 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, path, code, err)
 
+				releaseCtx(c)
+
 				return
 			}
 
@@ -215,6 +217,9 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			} else {
 				w.WriteHeader(http.StatusNoContent)
 			}
+
+			releaseCtx(c)
+
 			return
 		}
 	}

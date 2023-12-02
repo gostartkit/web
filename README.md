@@ -5,8 +5,9 @@
 package route
 
 import (
-	"github.com/gostartkit/auth/controller"
-	"github.com/gostartkit/auth/middleware"
+	"gostartkit.com/go/auth/config"
+	"gostartkit.com/go/auth/controller"
+	"gostartkit.com/go/auth/middleware"
 	"pkg.gostartkit.com/web"
 )
 
@@ -14,36 +15,36 @@ func userRoute(app *web.Application, prefix string) {
 
 	user := controller.CreateUserController()
 
-	app.Get(prefix+"/user/", middleware.Chain(user.Index, "user.all"))
-	app.Get(prefix+"/user/:id", middleware.Chain(user.Detail, "user.all"))
-	app.Post(prefix+"/apply/user/id/", middleware.Chain(user.CreateID, "user.edit"))
-	app.Post(prefix+"/user/", middleware.Chain(user.Create, "user.edit"))
-	app.Put(prefix+"/user/:id", middleware.Chain(user.Update, "user.edit"))
-	app.Patch(prefix+"/user/:id", middleware.Chain(user.UpdatePartial, "user.edit"))
-	app.Patch(prefix+"/user/:id/status/", middleware.Chain(user.UpdateStatus, "user.edit"))
-	app.Delete(prefix+"/user/:id", middleware.Chain(user.Destroy, "user.edit"))
-	app.Get(prefix+"/user/:id/application/", middleware.Chain(user.Applications, "user.all"))
-	app.Post(prefix+"/user/:id/application/", middleware.Chain(user.LinkApplications, "user.edit"))
-	app.Delete(prefix+"/user/:id/application/", middleware.Chain(user.UnLinkApplications, "user.edit"))
-	app.Get(prefix+"/user/:id/application/:applicationID", middleware.Chain(user.Application, "user.all"))
-	app.Put(prefix+"/user/:id/application/:applicationID", middleware.Chain(user.UpdateApplication, "user.edit"))
-	app.Get(prefix+"/user/:id/role/", middleware.Chain(user.Roles, "user.all"))
-	app.Post(prefix+"/user/:id/role/", middleware.Chain(user.LinkRoles, "user.edit"))
-	app.Delete(prefix+"/user/:id/role/", middleware.Chain(user.UnLinkRoles, "user.edit"))
+	app.Get(prefix+"/user/", middleware.Chain(user.Index, config.Read|config.ReadUser))
+	app.Get(prefix+"/user/:id", middleware.Chain(user.Detail, config.Read|config.ReadUser))
+	app.Post(prefix+"/apply/user/id/", middleware.Chain(user.CreateID, config.Write|config.WriteUser))
+	app.Post(prefix+"/user/", middleware.Chain(user.Create, config.Write|config.WriteUser))
+	app.Put(prefix+"/user/:id", middleware.Chain(user.Update, config.Write|config.WriteUser))
+	app.Patch(prefix+"/user/:id", middleware.Chain(user.Patch, config.Write|config.WriteUser))
+	app.Patch(prefix+"/user/:id/status/", middleware.Chain(user.UpdateStatus, config.Write|config.WriteUser))
+	app.Delete(prefix+"/user/:id", middleware.Chain(user.Destroy, config.Write|config.WriteUser))
+	app.Get(prefix+"/user/:id/application/", middleware.Chain(user.Applications, config.Read|config.ReadUser))
+	app.Post(prefix+"/user/:id/application/", middleware.Chain(user.LinkApplications, config.Write|config.WriteUser))
+	app.Delete(prefix+"/user/:id/application/", middleware.Chain(user.UnLinkApplications, config.Write|config.WriteUser))
+	app.Get(prefix+"/user/:id/application/:applicationID", middleware.Chain(user.Application, config.Read|config.ReadUser))
+	app.Put(prefix+"/user/:id/application/:applicationID", middleware.Chain(user.UpdateApplication, config.Write|config.WriteUser))
+	app.Get(prefix+"/user/:id/role/", middleware.Chain(user.Roles, config.Read|config.ReadUser))
+	app.Post(prefix+"/user/:id/role/", middleware.Chain(user.LinkRoles, config.Write|config.WriteUser))
+	app.Delete(prefix+"/user/:id/role/", middleware.Chain(user.UnLinkRoles, config.Write|config.WriteUser))
 }
+
 ```
 
-### 
+### Controller
 ```go
 package controller
 
 import (
-	"strings"
 	"sync"
 
-	"github.com/gostartkit/auth/model"
-	"github.com/gostartkit/auth/proxy"
-	"github.com/gostartkit/auth/validator"
+	"gostartkit.com/go/auth/model"
+	"gostartkit.com/go/auth/proxy"
+	"gostartkit.com/go/auth/validator"
 	"pkg.gostartkit.com/web"
 )
 
@@ -69,15 +70,10 @@ type UserController struct {
 // Index get users
 func (o *UserController) Index(c *web.Ctx) (web.Any, error) {
 
-	var (
-		page     int
-		pageSize int
-	)
-
-	filter := c.Query(web.QueryFilter)
-	orderBy := c.Query(web.QueryOrderBy)
-	c.TryParseQuery(web.QueryPage, &page)
-	c.TryParseQuery(web.QueryPageSize, &pageSize)
+	filter := c.QueryFilter()
+	orderBy := c.QueryOrderBy()
+	page := c.QueryPage(_defaultPage)
+	pageSize := c.QueryPageSize(_defaultPageSize)
 
 	return proxy.GetUsers(filter, orderBy, page, pageSize)
 }
@@ -85,14 +81,14 @@ func (o *UserController) Index(c *web.Ctx) (web.Any, error) {
 // Detail get user
 func (o *UserController) Detail(c *web.Ctx) (web.Any, error) {
 
-	var id uint64
+	id, err := c.ParamUint64("id")
 
-	if err := c.TryParseParam("id", &id); err != nil {
+	if err != nil {
 		return nil, err
 	}
 
-	if id == 0 {
-		return nil, validator.CreateInvalidError("id")
+	if err := validator.Uint64("id", id); err != nil {
+		return nil, err
 	}
 
 	return proxy.GetUser(id)
@@ -106,7 +102,7 @@ func (o *UserController) CreateID(c *web.Ctx) (web.Any, error) {
 // Create create user
 func (o *UserController) Create(c *web.Ctx) (web.Any, error) {
 
-	user := model.NewUser()
+	user := model.CreateUser()
 
 	if err := c.TryParseBody(user); err != nil {
 		return nil, err
@@ -126,63 +122,69 @@ func (o *UserController) Create(c *web.Ctx) (web.Any, error) {
 // Update update user
 func (o *UserController) Update(c *web.Ctx) (web.Any, error) {
 
-	user := model.NewUser()
+	var err error
 
-	if err := c.TryParseBody(user); err != nil {
+	user := model.CreateUser()
+
+	if err = c.TryParseBody(user); err != nil {
 		return nil, err
 	}
 
-	if err := c.TryParseParam("id", &user.ID); err != nil {
+	if user.ID, err = c.ParamUint64("id"); err != nil {
 		return nil, err
 	}
 
-	if err := validator.UpdateUser(user); err != nil {
+	if err = validator.UpdateUser(user); err != nil {
 		return nil, err
 	}
 
 	return proxy.UpdateUser(user)
 }
 
-// UpdatePartial update user
-func (o *UserController) UpdatePartial(c *web.Ctx) (web.Any, error) {
+// Patch update user
+func (o *UserController) Patch(c *web.Ctx) (web.Any, error) {
 
-	attrs := strings.Split(c.Get(web.HeaderAttrs), ",")
+	attrs := c.HeaderAttrs()
 
-	if len(attrs) == 0 {
-		return nil, validator.CreateRequiredError(web.HeaderAttrs)
-	}
-
-	user := model.NewUser()
-
-	if err := c.TryParseBody(user); err != nil {
+	if err := validator.Int(web.HeaderAttrs, len(attrs)); err != nil {
 		return nil, err
 	}
 
-	if err := c.TryParseParam("id", &user.ID); err != nil {
+	var err error
+
+	user := model.CreateUser()
+
+	if err = c.TryParseBody(user); err != nil {
 		return nil, err
 	}
 
-	if err := validator.UpdateUserPartial(user, attrs...); err != nil {
+	if user.ID, err = c.ParamUint64("id"); err != nil {
 		return nil, err
 	}
 
-	return proxy.UpdateUserPartial(user, attrs...)
+	if err = validator.PatchUser(user, attrs...); err != nil {
+		return nil, err
+	}
+
+	return proxy.PatchUser(user, attrs...)
 }
 
 // UpdateStatus update user.Status
 func (o *UserController) UpdateStatus(c *web.Ctx) (web.Any, error) {
 
-	user := model.NewUser()
+	var err error
 
-	if err := c.TryParseBody(user); err != nil {
+	user := model.CreateUser()
+
+	if err = c.TryParseBody(user); err != nil {
 		return nil, err
 	}
 
-	if err := c.TryParseParam("id", &user.ID); err != nil {
+	if user.ID, err = c.ParamUint64("id"); err != nil {
 		return nil, err
 	}
 
-	if err := validator.UpdateUserStatus(user); err != nil {
+	if err = validator.UpdateUserStatus(user); err != nil {
 		return nil, err
 	}
 
@@ -192,14 +194,14 @@ func (o *UserController) UpdateStatus(c *web.Ctx) (web.Any, error) {
 // Destroy delete user
 func (o *UserController) Destroy(c *web.Ctx) (web.Any, error) {
 
-	var id uint64
+	id, err := c.ParamUint64("id")
 
-	if err := c.TryParseParam("id", &id); err != nil {
+	if err != nil {
 		return nil, err
 	}
 
-	if id == 0 {
-		return nil, validator.CreateInvalidError("id")
+	if err := validator.Uint64("id", id); err != nil {
+		return nil, err
 	}
 
 	return proxy.DestroyUserSoft(id)
@@ -208,20 +210,16 @@ func (o *UserController) Destroy(c *web.Ctx) (web.Any, error) {
 // Applications return *model.ApplicationCollection, error
 func (o *UserController) Applications(c *web.Ctx) (web.Any, error) {
 
-	var (
-		id       uint64
-		page     int
-		pageSize int
-	)
+	id, err := c.ParamUint64("id")
 
-	if err := c.TryParseParam("id", &id); err != nil {
+	if err != nil {
 		return nil, err
 	}
 
-	filter := c.Query(web.QueryFilter)
-	orderBy := c.Query(web.QueryOrderBy)
-	c.TryParseQuery(web.QueryPage, &page)
-	c.TryParseQuery(web.QueryPageSize, &pageSize)
+	filter := c.QueryFilter()
+	orderBy := c.QueryOrderBy()
+	page := c.QueryPage(_defaultPage)
+	pageSize := c.QueryPageSize(_defaultPageSize)
 
 	return proxy.GetApplicationsByUserID(id, filter, orderBy, page, pageSize)
 }
@@ -230,11 +228,12 @@ func (o *UserController) Applications(c *web.Ctx) (web.Any, error) {
 func (o *UserController) LinkApplications(c *web.Ctx) (web.Any, error) {
 
 	var (
-		id            uint64
 		applicationID []uint64
 	)
 
-	if err := c.TryParseParam("id", &id); err != nil {
+	id, err := c.ParamUint64("id")
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -249,11 +248,12 @@ func (o *UserController) LinkApplications(c *web.Ctx) (web.Any, error) {
 func (o *UserController) UnLinkApplications(c *web.Ctx) (web.Any, error) {
 
 	var (
-		id            uint64
 		applicationID []uint64
 	)
 
-	if err := c.TryParseParam("id", &id); err != nil {
+	id, err := c.ParamUint64("id")
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -267,16 +267,15 @@ func (o *UserController) UnLinkApplications(c *web.Ctx) (web.Any, error) {
 // Application return *model.ApplicationUser, error
 func (o *UserController) Application(c *web.Ctx) (web.Any, error) {
 
-	var (
-		id            uint64
-		applicationID uint64
-	)
+	id, err := c.ParamUint64("id")
 
-	if err := c.TryParseParam("id", &id); err != nil {
+	if err != nil {
 		return nil, err
 	}
 
-	if err := c.TryParseParam("applicationID", &applicationID); err != nil {
+	applicationID, err := c.ParamUint64("applicationID")
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -286,17 +285,23 @@ func (o *UserController) Application(c *web.Ctx) (web.Any, error) {
 // UpdateApplication return rowsAffected int64, error
 func (o *UserController) UpdateApplication(c *web.Ctx) (web.Any, error) {
 
-	applicationUser := model.NewApplicationUser()
+	applicationUser := model.CreateApplicationUser()
 
 	if err := c.TryParseBody(applicationUser); err != nil {
 		return nil, err
 	}
 
-	if err := c.TryParseParam("applicationID", &applicationUser.ApplicationID); err != nil {
+	var err error
+
+	applicationUser.ApplicationID, err = c.ParamUint64("applicationID")
+
+	if err != nil {
 		return nil, err
 	}
 
-	if err := c.TryParseParam("id", &applicationUser.UserID); err != nil {
+	applicationUser.UserID, err = c.ParamUint64("id")
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -310,20 +315,16 @@ func (o *UserController) UpdateApplication(c *web.Ctx) (web.Any, error) {
 // Roles return *model.RoleCollection, error
 func (o *UserController) Roles(c *web.Ctx) (web.Any, error) {
 
-	var (
-		id       uint64
-		page     int
-		pageSize int
-	)
+	id, err := c.ParamUint64("id")
 
-	if err := c.TryParseParam("id", &id); err != nil {
+	if err != nil {
 		return nil, err
 	}
 
-	filter := c.Query(web.QueryFilter)
-	orderBy := c.Query(web.QueryOrderBy)
-	c.TryParseQuery(web.QueryPage, &page)
-	c.TryParseQuery(web.QueryPageSize, &pageSize)
+	filter := c.QueryFilter()
+	orderBy := c.QueryOrderBy()
+	page := c.QueryPage(_defaultPage)
+	pageSize := c.QueryPageSize(_defaultPageSize)
 
 	return proxy.GetRolesByUserID(id, filter, orderBy, page, pageSize)
 }
@@ -332,11 +333,12 @@ func (o *UserController) Roles(c *web.Ctx) (web.Any, error) {
 func (o *UserController) LinkRoles(c *web.Ctx) (web.Any, error) {
 
 	var (
-		id     uint64
 		roleID []uint64
 	)
 
-	if err := c.TryParseParam("id", &id); err != nil {
+	id, err := c.ParamUint64("id")
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -351,11 +353,12 @@ func (o *UserController) LinkRoles(c *web.Ctx) (web.Any, error) {
 func (o *UserController) UnLinkRoles(c *web.Ctx) (web.Any, error) {
 
 	var (
-		id     uint64
 		roleID []uint64
 	)
 
-	if err := c.TryParseParam("id", &id); err != nil {
+	id, err := c.ParamUint64("id")
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -366,6 +369,7 @@ func (o *UserController) UnLinkRoles(c *web.Ctx) (web.Any, error) {
 	return proxy.UnLinkUserRoles(id, roleID...)
 }
 ```
+
 ### Thanks
 Thanks for all open source projects, I learned a lot from them.
 

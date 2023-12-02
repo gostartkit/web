@@ -217,6 +217,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 				if rel, ok := val.(IRelease); ok {
 					rel.Release()
+					val = nil
 				}
 			} else {
 				w.WriteHeader(http.StatusNoContent)

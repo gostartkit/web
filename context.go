@@ -125,6 +125,11 @@ func (c *Ctx) UserAgent() string {
 	return c.Get("User-Agent")
 }
 
+// Origin return Origin header
+func (c *Ctx) Origin() string {
+	return c.Get("Origin")
+}
+
 // IsAjax if X-Requested-With header is XMLHttpRequest return true, else false
 func (c *Ctx) IsAjax() bool {
 	return c.Get("X-Requested-With") == "XMLHttpRequest"

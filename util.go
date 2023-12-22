@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 // TryParse try parse val to v
@@ -101,4 +102,16 @@ func tryParse(val string, v *reflect.Value) error {
 	default:
 		return fmt.Errorf("tryParse(unsupported type '%s')", v.Type().String())
 	}
+}
+
+// bearerToken return token
+func bearerToken(auth string) string {
+	const prefix = "Bearer "
+	l := len(prefix)
+
+	if len(auth) < l || !strings.EqualFold(auth[:l], prefix) {
+		return ""
+	}
+
+	return auth[l:]
 }

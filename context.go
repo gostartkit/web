@@ -120,14 +120,19 @@ func (c *Ctx) RemoteAddr() string {
 	return c.r.RemoteAddr
 }
 
-// UserAgent return User-Agent header
-func (c *Ctx) UserAgent() string {
-	return c.Get("User-Agent")
+// BearerToken return bearer token
+func (c *Ctx) BearerToken() string {
+	return bearerToken(c.Get("Authorization"))
 }
 
 // Origin return Origin header
 func (c *Ctx) Origin() string {
 	return c.Get("Origin")
+}
+
+// UserAgent return User-Agent header
+func (c *Ctx) UserAgent() string {
+	return c.Get("User-Agent")
 }
 
 // IsAjax if X-Requested-With header is XMLHttpRequest return true, else false
@@ -600,22 +605,22 @@ func (c *Ctx) WriteAvro(val Any) error {
 	return ErrMethodNotImplemented
 }
 
-// Get get header, short hand for c.Request.Header.Get
+// Get get header, short hand of r.Header.Get
 func (c *Ctx) Get(key string) string {
 	return c.r.Header.Get(key)
 }
 
-// Set set header, short hand for c.ResponseWriter.Header().Set
+// Set set header, short hand of w.Header().Set
 func (c *Ctx) Set(key string, value string) {
 	c.w.Header().Set(key, value)
 }
 
-// Add add header, short hand for c.ResponseWriter.Header().Add
+// Add add header, short hand of w.Header().Add
 func (c *Ctx) Add(key string, value string) {
 	c.w.Header().Add(key, value)
 }
 
-// Del del header, short hand for c.ResponseWriter.Header().Del
+// Del del header, short hand of w.Header().Del
 func (c *Ctx) Del(key string) {
 	c.w.Header().Del(key)
 }

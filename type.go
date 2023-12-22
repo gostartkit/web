@@ -14,7 +14,7 @@ type IRelease interface {
 type Callback func(c *Ctx) (Any, error)
 
 // CorsCallback function
-type CorsCallback func(set func(key string, value string), origin *string, allow []string)
+type CorsCallback func(set func(key string, value string), origin string, allow []string)
 
 // PanicCallback function
 type PanicCallback func(http.ResponseWriter, *http.Request, Any)

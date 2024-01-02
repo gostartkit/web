@@ -9,7 +9,7 @@ import (
 )
 
 // TryParse try parse val to v
-func TryParse(val string, v Any) error {
+func TryParse(val string, v any) error {
 
 	if len(val) == 0 {
 		return nil

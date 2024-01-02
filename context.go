@@ -141,7 +141,7 @@ func (c *Ctx) IsAjax() bool {
 }
 
 // TryParseBody decode val from Request.Body
-func (c *Ctx) TryParseBody(val Any) error {
+func (c *Ctx) TryParseBody(val any) error {
 	switch {
 	case strings.HasPrefix(c.ContentType(), "application/json"):
 		return json.NewDecoder(c.r.Body).Decode(val)
@@ -157,17 +157,17 @@ func (c *Ctx) TryParseBody(val Any) error {
 }
 
 // TryParseParam decode val from Query
-func (c *Ctx) TryParseParam(name string, val Any) error {
+func (c *Ctx) TryParseParam(name string, val any) error {
 	return TryParse(c.Param(name), val)
 }
 
 // TryParseQuery decode val from Query
-func (c *Ctx) TryParseQuery(name string, val Any) error {
+func (c *Ctx) TryParseQuery(name string, val any) error {
 	return TryParse(c.Query(name), val)
 }
 
 // TryParseForm decode val from Form
-func (c *Ctx) TryParseForm(name string, val Any) error {
+func (c *Ctx) TryParseForm(name string, val any) error {
 	return TryParse(c.Form(name), val)
 }
 
@@ -562,7 +562,7 @@ func (c *Ctx) HeaderAttrs() []string {
 }
 
 // Write Write data base on accept header
-func (c *Ctx) Write(val Any) error {
+func (c *Ctx) Write(val any) error {
 
 	switch c.Accept() {
 	case "application/json":
@@ -581,27 +581,27 @@ func (c *Ctx) Write(val Any) error {
 }
 
 // WriteJSON Write JSON
-func (c *Ctx) WriteJSON(val Any) error {
+func (c *Ctx) WriteJSON(val any) error {
 	return json.NewEncoder(c.w).Encode(val)
 }
 
 // WriteXML Write XML
-func (c *Ctx) WriteXML(val Any) error {
+func (c *Ctx) WriteXML(val any) error {
 	return xml.NewEncoder(c.w).Encode(val)
 }
 
 // WriteGOB Write GOB
-func (c *Ctx) WriteGOB(val Any) error {
+func (c *Ctx) WriteGOB(val any) error {
 	return gob.NewEncoder(c.w).Encode(val)
 }
 
 // WriteBinary Write Binary
-func (c *Ctx) WriteBinary(val Any) error {
+func (c *Ctx) WriteBinary(val any) error {
 	return ErrMethodNotImplemented
 }
 
 // WriteAvro Write Avro
-func (c *Ctx) WriteAvro(val Any) error {
+func (c *Ctx) WriteAvro(val any) error {
 	return ErrMethodNotImplemented
 }
 

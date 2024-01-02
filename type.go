@@ -2,22 +2,19 @@ package web
 
 import "net/http"
 
-// Any is an alias for interface{}
-type Any interface{}
-
 // IRelease
 type IRelease interface {
 	Release()
 }
 
 // Callback function
-type Callback func(c *Ctx) (Any, error)
+type Callback func(c *Ctx) (any, error)
 
 // CorsCallback function
 type CorsCallback func(set func(key string, value string), origin string, allow []string)
 
 // PanicCallback function
-type PanicCallback func(http.ResponseWriter, *http.Request, Any)
+type PanicCallback func(http.ResponseWriter, *http.Request, any)
 
 // Middleware
 type Middleware func(Callback) Callback
@@ -26,10 +23,10 @@ type Middleware func(Callback) Callback
 type Chain []Middleware
 
 // Reader function
-type Reader func(c *Ctx, v Any) error
+type Reader func(c *Ctx, v any) error
 
 // Writer function
-type Writer func(c *Ctx, v Any) error
+type Writer func(c *Ctx, v any) error
 
 // Param struct
 type Param struct {

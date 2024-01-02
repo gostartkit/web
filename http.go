@@ -18,12 +18,12 @@ func SetHttpClient(client *http.Client) {
 }
 
 // Get http get
-func Get(url string, accessToken string, v Any) error {
+func Get(url string, accessToken string, v any) error {
 	return httpRequest(http.MethodGet, url, accessToken, nil, v)
 }
 
 // Post http post
-func Post(url string, accessToken string, data Any, v Any) error {
+func Post(url string, accessToken string, data any, v any) error {
 
 	body := new(bytes.Buffer)
 
@@ -37,7 +37,7 @@ func Post(url string, accessToken string, data Any, v Any) error {
 }
 
 // Put http put
-func Put(url string, accessToken string, data Any, v Any) error {
+func Put(url string, accessToken string, data any, v any) error {
 
 	body := new(bytes.Buffer)
 
@@ -51,7 +51,7 @@ func Put(url string, accessToken string, data Any, v Any) error {
 }
 
 // Patch http patch
-func Patch(url string, accessToken string, data Any, v Any) error {
+func Patch(url string, accessToken string, data any, v any) error {
 
 	body := new(bytes.Buffer)
 
@@ -65,12 +65,12 @@ func Patch(url string, accessToken string, data Any, v Any) error {
 }
 
 // Delete http delete
-func Delete(url string, accessToken string, v Any) error {
+func Delete(url string, accessToken string, v any) error {
 	return httpRequest(http.MethodDelete, url, accessToken, nil, v)
 }
 
 // httpRequest http request
-func httpRequest(method string, url string, accessToken string, body io.Reader, v Any) error {
+func httpRequest(method string, url string, accessToken string, body io.Reader, v any) error {
 
 	req, err := http.NewRequest(method, url, body)
 

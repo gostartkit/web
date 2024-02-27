@@ -9,12 +9,19 @@ import (
 )
 
 var (
-	_httpClient *http.Client
+	_httpClient          *http.Client
+	_httpRequestCallback func(*http.Request)
 )
 
 // SetHttpClient set http client
 func SetHttpClient(client *http.Client) {
 	_httpClient = client
+}
+
+// SetHttpRequestCallback set http Request Callback
+// Call before http send
+func SetHttpRequestCallback(cb func(*http.Request)) {
+	_httpRequestCallback = cb
 }
 
 // Get http get
@@ -83,6 +90,10 @@ func httpRequest(method string, url string, accessToken string, body io.Reader, 
 
 	if accessToken != "" {
 		req.Header.Set("Authorization", "Bearer "+accessToken)
+	}
+
+	if _httpRequestCallback != nil {
+		_httpRequestCallback(req)
 	}
 
 	if _httpClient == nil {

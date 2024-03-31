@@ -5,32 +5,32 @@
 package route
 
 import (
-	"gostartkit.com/go/auth/config"
-	"gostartkit.com/go/auth/controller"
-	"gostartkit.com/go/auth/middleware"
+	"app.gostartkit.com/go/auth/config"
+	"app.gostartkit.com/go/auth/controller"
+	"app.gostartkit.com/go/auth/middleware"
 	"pkg.gostartkit.com/web"
 )
 
 func userRoute(app *web.Application, prefix string) {
 
-	user := controller.CreateUserController()
+	c := controller.CreateUserController()
 
-	app.Get(prefix+"/user/", middleware.Chain(user.Index, config.Read|config.ReadUser))
-	app.Get(prefix+"/user/:id", middleware.Chain(user.Detail, config.Read|config.ReadUser))
-	app.Post(prefix+"/apply/user/id/", middleware.Chain(user.CreateID, config.Write|config.WriteUser))
-	app.Post(prefix+"/user/", middleware.Chain(user.Create, config.Write|config.WriteUser))
-	app.Put(prefix+"/user/:id", middleware.Chain(user.Update, config.Write|config.WriteUser))
-	app.Patch(prefix+"/user/:id", middleware.Chain(user.Patch, config.Write|config.WriteUser))
-	app.Patch(prefix+"/user/:id/status/", middleware.Chain(user.UpdateStatus, config.Write|config.WriteUser))
-	app.Delete(prefix+"/user/:id", middleware.Chain(user.Destroy, config.Write|config.WriteUser))
-	app.Get(prefix+"/user/:id/application/", middleware.Chain(user.Applications, config.Read|config.ReadUser))
-	app.Post(prefix+"/user/:id/application/", middleware.Chain(user.LinkApplications, config.Write|config.WriteUser))
-	app.Delete(prefix+"/user/:id/application/", middleware.Chain(user.UnLinkApplications, config.Write|config.WriteUser))
-	app.Get(prefix+"/user/:id/application/:applicationID", middleware.Chain(user.Application, config.Read|config.ReadUser))
-	app.Put(prefix+"/user/:id/application/:applicationID", middleware.Chain(user.UpdateApplication, config.Write|config.WriteUser))
-	app.Get(prefix+"/user/:id/role/", middleware.Chain(user.Roles, config.Read|config.ReadUser))
-	app.Post(prefix+"/user/:id/role/", middleware.Chain(user.LinkRoles, config.Write|config.WriteUser))
-	app.Delete(prefix+"/user/:id/role/", middleware.Chain(user.UnLinkRoles, config.Write|config.WriteUser))
+	app.Get(prefix+"/user/", middleware.Chain(c.Index, config.Read|config.ReadUser))
+	app.Get(prefix+"/user/:id", middleware.Chain(c.Detail, config.Read|config.ReadUser))
+	app.Post(prefix+"/apply/user/id/", middleware.Chain(c.CreateID, config.Write|config.WriteUser))
+	app.Post(prefix+"/user/", middleware.Chain(c.Create, config.Write|config.WriteUser))
+	app.Put(prefix+"/user/:id", middleware.Chain(c.Update, config.Write|config.WriteUser))
+	app.Patch(prefix+"/user/:id", middleware.Chain(c.Patch, config.Write|config.WriteUser))
+	app.Patch(prefix+"/user/:id/status/", middleware.Chain(c.UpdateStatus, config.Write|config.WriteUser))
+	app.Delete(prefix+"/user/:id", middleware.Chain(c.Destroy, config.Write|config.WriteUser))
+	app.Get(prefix+"/user/:id/application/", middleware.Chain(c.Applications, config.Read|config.ReadUser))
+	app.Post(prefix+"/user/:id/application/", middleware.Chain(c.LinkApplications, config.Write|config.WriteUser))
+	app.Delete(prefix+"/user/:id/application/", middleware.Chain(c.UnLinkApplications, config.Write|config.WriteUser))
+	app.Get(prefix+"/user/:id/application/:applicationID", middleware.Chain(c.Application, config.Read|config.ReadUser))
+	app.Put(prefix+"/user/:id/application/:applicationID", middleware.Chain(c.UpdateApplication, config.Write|config.WriteUser))
+	app.Get(prefix+"/user/:id/role/", middleware.Chain(c.Roles, config.Read|config.ReadUser))
+	app.Post(prefix+"/user/:id/role/", middleware.Chain(c.LinkRoles, config.Write|config.WriteUser))
+	app.Delete(prefix+"/user/:id/role/", middleware.Chain(c.UnLinkRoles, config.Write|config.WriteUser))
 }
 
 ```
@@ -42,9 +42,9 @@ package controller
 import (
 	"sync"
 
-	"gostartkit.com/go/auth/model"
-	"gostartkit.com/go/auth/proxy"
-	"gostartkit.com/go/auth/validator"
+	"app.gostartkit.com/go/auth/model"
+	"app.gostartkit.com/go/auth/proxy"
+	"app.gostartkit.com/go/auth/validator"
 	"pkg.gostartkit.com/web"
 )
 
@@ -68,7 +68,7 @@ type UserController struct {
 }
 
 // Index get users
-func (o *UserController) Index(c *web.Ctx) (web.Any, error) {
+func (r *UserController) Index(c *web.Ctx) (any, error) {
 
 	filter := c.QueryFilter()
 	orderBy := c.QueryOrderBy()
@@ -79,7 +79,7 @@ func (o *UserController) Index(c *web.Ctx) (web.Any, error) {
 }
 
 // Detail get user
-func (o *UserController) Detail(c *web.Ctx) (web.Any, error) {
+func (r *UserController) Detail(c *web.Ctx) (any, error) {
 
 	id, err := c.ParamUint64("id")
 
@@ -95,12 +95,12 @@ func (o *UserController) Detail(c *web.Ctx) (web.Any, error) {
 }
 
 // CreateID create user.ID
-func (o *UserController) CreateID(c *web.Ctx) (web.Any, error) {
+func (r *UserController) CreateID(c *web.Ctx) (any, error) {
 	return proxy.CreateUserID()
 }
 
 // Create create user
-func (o *UserController) Create(c *web.Ctx) (web.Any, error) {
+func (r *UserController) Create(c *web.Ctx) (any, error) {
 
 	user := model.CreateUser()
 
@@ -120,7 +120,7 @@ func (o *UserController) Create(c *web.Ctx) (web.Any, error) {
 }
 
 // Update update user
-func (o *UserController) Update(c *web.Ctx) (web.Any, error) {
+func (r *UserController) Update(c *web.Ctx) (any, error) {
 
 	var err error
 
@@ -142,7 +142,7 @@ func (o *UserController) Update(c *web.Ctx) (web.Any, error) {
 }
 
 // Patch update user
-func (o *UserController) Patch(c *web.Ctx) (web.Any, error) {
+func (r *UserController) Patch(c *web.Ctx) (any, error) {
 
 	attrs := c.HeaderAttrs()
 
@@ -170,7 +170,7 @@ func (o *UserController) Patch(c *web.Ctx) (web.Any, error) {
 }
 
 // UpdateStatus update user.Status
-func (o *UserController) UpdateStatus(c *web.Ctx) (web.Any, error) {
+func (r *UserController) UpdateStatus(c *web.Ctx) (any, error) {
 
 	var err error
 
@@ -192,7 +192,7 @@ func (o *UserController) UpdateStatus(c *web.Ctx) (web.Any, error) {
 }
 
 // Destroy delete user
-func (o *UserController) Destroy(c *web.Ctx) (web.Any, error) {
+func (r *UserController) Destroy(c *web.Ctx) (any, error) {
 
 	id, err := c.ParamUint64("id")
 
@@ -208,7 +208,7 @@ func (o *UserController) Destroy(c *web.Ctx) (web.Any, error) {
 }
 
 // Applications return *model.ApplicationCollection, error
-func (o *UserController) Applications(c *web.Ctx) (web.Any, error) {
+func (r *UserController) Applications(c *web.Ctx) (any, error) {
 
 	id, err := c.ParamUint64("id")
 
@@ -225,7 +225,7 @@ func (o *UserController) Applications(c *web.Ctx) (web.Any, error) {
 }
 
 // LinkApplications return rowsAffected int64, error
-func (o *UserController) LinkApplications(c *web.Ctx) (web.Any, error) {
+func (r *UserController) LinkApplications(c *web.Ctx) (any, error) {
 
 	var (
 		applicationID []uint64
@@ -245,7 +245,7 @@ func (o *UserController) LinkApplications(c *web.Ctx) (web.Any, error) {
 }
 
 // UnLinkApplications return rowsAffected int64, error
-func (o *UserController) UnLinkApplications(c *web.Ctx) (web.Any, error) {
+func (r *UserController) UnLinkApplications(c *web.Ctx) (any, error) {
 
 	var (
 		applicationID []uint64
@@ -265,7 +265,7 @@ func (o *UserController) UnLinkApplications(c *web.Ctx) (web.Any, error) {
 }
 
 // Application return *model.ApplicationUser, error
-func (o *UserController) Application(c *web.Ctx) (web.Any, error) {
+func (r *UserController) Application(c *web.Ctx) (any, error) {
 
 	id, err := c.ParamUint64("id")
 
@@ -283,7 +283,7 @@ func (o *UserController) Application(c *web.Ctx) (web.Any, error) {
 }
 
 // UpdateApplication return rowsAffected int64, error
-func (o *UserController) UpdateApplication(c *web.Ctx) (web.Any, error) {
+func (r *UserController) UpdateApplication(c *web.Ctx) (any, error) {
 
 	applicationUser := model.CreateApplicationUser()
 
@@ -313,7 +313,7 @@ func (o *UserController) UpdateApplication(c *web.Ctx) (web.Any, error) {
 }
 
 // Roles return *model.RoleCollection, error
-func (o *UserController) Roles(c *web.Ctx) (web.Any, error) {
+func (r *UserController) Roles(c *web.Ctx) (any, error) {
 
 	id, err := c.ParamUint64("id")
 
@@ -330,7 +330,7 @@ func (o *UserController) Roles(c *web.Ctx) (web.Any, error) {
 }
 
 // LinkRoles return rowsAffected int64, error
-func (o *UserController) LinkRoles(c *web.Ctx) (web.Any, error) {
+func (r *UserController) LinkRoles(c *web.Ctx) (any, error) {
 
 	var (
 		roleID []uint64
@@ -350,7 +350,7 @@ func (o *UserController) LinkRoles(c *web.Ctx) (web.Any, error) {
 }
 
 // UnLinkRoles return rowsAffected int64, error
-func (o *UserController) UnLinkRoles(c *web.Ctx) (web.Any, error) {
+func (r *UserController) UnLinkRoles(c *web.Ctx) (any, error) {
 
 	var (
 		roleID []uint64
@@ -368,6 +368,7 @@ func (o *UserController) UnLinkRoles(c *web.Ctx) (web.Any, error) {
 
 	return proxy.UnLinkUserRoles(id, roleID...)
 }
+
 ```
 
 ### Thanks

@@ -125,6 +125,6 @@ func httpRequest(method string, url string, accessToken string, body io.Reader, 
 	case http.StatusForbidden:
 		return ErrForbidden
 	default:
-		return ErrUnExpectedError
+		return ErrUnExpected
 	}
 }

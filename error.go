@@ -7,8 +7,8 @@ var (
 	ErrUnauthorized = errors.New("unauthorized")
 	// ErrForbidden 403
 	ErrForbidden = errors.New("forbidden")
-	// ErrUnExpectedError unexpected error
-	ErrUnExpectedError = errors.New("unexpected error")
+	// ErrUnExpected unexpected error
+	ErrUnExpected = errors.New("unexpected")
 
 	// ErrContentTypeNotSupported content-type not supported
 	ErrContentTypeNotSupported = errors.New("content-type not supported")

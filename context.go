@@ -564,7 +564,7 @@ func (c *Ctx) HeaderAttrs() []string {
 // Write Write data base on accept header
 func (c *Ctx) Write(val any) error {
 
-	switch c.Accept() {
+	switch c.ContentType() {
 	case "application/json":
 		return c.WriteJSON(val)
 	case "application/x-gob":

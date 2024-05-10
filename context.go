@@ -148,11 +148,11 @@ func (c *Ctx) TryParseBody(val any) error {
 	case strings.HasPrefix(c.ContentType(), "application/x-gob"):
 		return gob.NewDecoder(c.r.Body).Decode(val)
 	case strings.HasPrefix(c.ContentType(), "application/octet-stream"):
-		return ErrContentTypeNotSupported
+		return ErrContentTypeInvalid
 	case strings.HasPrefix(c.ContentType(), "application/xml"):
 		return xml.NewDecoder(c.r.Body).Decode(val)
 	default:
-		return ErrContentTypeNotSupported
+		return ErrContentTypeInvalid
 	}
 }
 
@@ -576,7 +576,7 @@ func (c *Ctx) Write(val any) error {
 	case "application/xml":
 		return c.WriteXML(val)
 	default:
-		return ErrContentTypeNotSupported
+		return ErrContentTypeInvalid
 	}
 }
 

@@ -10,8 +10,8 @@ var (
 	// ErrUnExpected unexpected error
 	ErrUnExpected = errors.New("unexpected")
 
-	// ErrContentTypeNotSupported content-type not supported
-	ErrContentTypeNotSupported = errors.New("content-type not supported")
+	// ErrContentTypeInvalid content-type not supported
+	ErrContentTypeInvalid = errors.New("content-type not supported")
 	// ErrMethodNotImplemented method not implemented
 	ErrMethodNotImplemented = errors.New("method not implemented")
 )

@@ -558,7 +558,14 @@ func (c *Ctx) QueryPageSize(defaultPageSize int) int {
 
 // HeaderAttrs strings.Split(c.Get(HeaderAttrs), ",")
 func (c *Ctx) HeaderAttrs() []string {
-	return strings.Split(c.Get(HeaderAttrs), ",")
+
+	attrs := c.Get(HeaderAttrs)
+
+	if attrs != "" {
+		return strings.Split(attrs, ",")
+	}
+
+	return []string{}
 }
 
 // Write Write data base on accept header

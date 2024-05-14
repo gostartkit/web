@@ -6,5 +6,5 @@ const (
 	QueryOrderBy  = "_orderBy"
 	QueryPage     = "_page"
 	QueryPageSize = "_pageSize"
-	HeaderAttrs   = "attrs"
+	HeaderAttrs   = "Attrs"
 )

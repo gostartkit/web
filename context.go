@@ -565,7 +565,7 @@ func (c *Ctx) HeaderAttrs() []string {
 		return strings.Split(attrs, ",")
 	}
 
-	return []string{}
+	return nil
 }
 
 // Write Write data base on accept header

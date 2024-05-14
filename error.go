@@ -14,6 +14,4 @@ var (
 	ErrContentTypeInvalid = errors.New("content-type not supported")
 	// ErrMethodNotImplemented method not implemented
 	ErrMethodNotImplemented = errors.New("method not implemented")
-	// ErrAttrsHeaderRequired attrs header required
-	ErrAttrsHeaderRequired = errors.New("attrs header required")
 )

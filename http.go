@@ -69,12 +69,19 @@ func httpDo(method string, url string, accessToken string, body io.Reader, v any
 		return err
 	}
 
-	if accessToken != "" {
-		req.Header.Set("Authorization", "Bearer "+accessToken)
+	l := len(cbs)
+
+	if l == 0 {
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+	} else {
+		for _, cb := range cbs {
+			cb(req)
+		}
 	}
 
-	for _, cb := range cbs {
-		cb(req)
+	if accessToken != "" {
+		req.Header.Set("Authorization", "Bearer "+accessToken)
 	}
 
 	resp, err := http.DefaultClient.Do(req)

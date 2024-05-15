@@ -7,14 +7,17 @@ type IRelease interface {
 	Release()
 }
 
-// Callback function
+// Callback
 type Callback func(c *Ctx) (any, error)
 
-// CorsCallback function
+// CorsCallback
 type CorsCallback func(set func(key string, value string), origin string, allow []string)
 
-// PanicCallback function
+// PanicCallback
 type PanicCallback func(http.ResponseWriter, *http.Request, any)
+
+// HttpDoCallback
+type HttpDoCallback func(*http.Request)
 
 // Middleware
 type Middleware func(Callback) Callback
@@ -22,10 +25,10 @@ type Middleware func(Callback) Callback
 // Chain middleware chain
 type Chain []Middleware
 
-// Reader function
+// Reader
 type Reader func(c *Ctx, v any) error
 
-// Writer function
+// Writer
 type Writer func(c *Ctx, v any) error
 
 // Param struct

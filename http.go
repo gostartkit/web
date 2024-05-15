@@ -8,23 +8,13 @@ import (
 	"net/http"
 )
 
-var (
-	_httpDoCallback func(*http.Request)
-)
-
-// SetHttpRequestCallback set http Request Callback
-// Call before http send
-func SetHttpRequestCallback(cb func(*http.Request)) {
-	_httpDoCallback = cb
-}
-
 // Get http get
-func Get(url string, accessToken string, v any) error {
-	return httpDo(http.MethodGet, url, accessToken, nil, v)
+func Get(url string, accessToken string, v any, cbs ...HttpDoCallback) error {
+	return httpDo(http.MethodGet, url, accessToken, nil, v, cbs...)
 }
 
 // Post http post
-func Post(url string, accessToken string, data any, v any) error {
+func Post(url string, accessToken string, data any, v any, cbs ...HttpDoCallback) error {
 
 	body := new(bytes.Buffer)
 
@@ -34,11 +24,11 @@ func Post(url string, accessToken string, data any, v any) error {
 		return err
 	}
 
-	return httpDo(http.MethodPost, url, accessToken, body, v)
+	return httpDo(http.MethodPost, url, accessToken, body, v, cbs...)
 }
 
 // Put http put
-func Put(url string, accessToken string, data any, v any) error {
+func Put(url string, accessToken string, data any, v any, cbs ...HttpDoCallback) error {
 
 	body := new(bytes.Buffer)
 
@@ -48,11 +38,11 @@ func Put(url string, accessToken string, data any, v any) error {
 		return err
 	}
 
-	return httpDo(http.MethodPut, url, accessToken, body, v)
+	return httpDo(http.MethodPut, url, accessToken, body, v, cbs...)
 }
 
 // Patch http patch
-func Patch(url string, accessToken string, data any, v any) error {
+func Patch(url string, accessToken string, data any, v any, cbs ...HttpDoCallback) error {
 
 	body := new(bytes.Buffer)
 
@@ -62,16 +52,16 @@ func Patch(url string, accessToken string, data any, v any) error {
 		return err
 	}
 
-	return httpDo(http.MethodPatch, url, accessToken, body, v)
+	return httpDo(http.MethodPatch, url, accessToken, body, v, cbs...)
 }
 
 // Delete http delete
-func Delete(url string, accessToken string, v any) error {
-	return httpDo(http.MethodDelete, url, accessToken, nil, v)
+func Delete(url string, accessToken string, v any, cbs ...HttpDoCallback) error {
+	return httpDo(http.MethodDelete, url, accessToken, nil, v, cbs...)
 }
 
 // httpDo do http request
-func httpDo(method string, url string, accessToken string, body io.Reader, v any) error {
+func httpDo(method string, url string, accessToken string, body io.Reader, v any, cbs ...HttpDoCallback) error {
 
 	req, err := http.NewRequest(method, url, body)
 
@@ -83,8 +73,8 @@ func httpDo(method string, url string, accessToken string, body io.Reader, v any
 		req.Header.Set("Authorization", "Bearer "+accessToken)
 	}
 
-	if _httpDoCallback != nil {
-		_httpDoCallback(req)
+	for _, cb := range cbs {
+		cb(req)
 	}
 
 	resp, err := http.DefaultClient.Do(req)

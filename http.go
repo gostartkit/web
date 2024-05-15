@@ -97,7 +97,7 @@ func httpRequest(method string, url string, accessToken string, body io.Reader, 
 	}
 
 	if _httpClient == nil {
-		_httpClient = &http.Client{}
+		_httpClient = http.DefaultClient
 	}
 
 	resp, err := _httpClient.Do(req)

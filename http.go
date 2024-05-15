@@ -9,24 +9,18 @@ import (
 )
 
 var (
-	_httpClient          *http.Client
-	_httpRequestCallback func(*http.Request)
+	_httpDoCallback func(*http.Request)
 )
-
-// SetHttpClient set http client
-func SetHttpClient(client *http.Client) {
-	_httpClient = client
-}
 
 // SetHttpRequestCallback set http Request Callback
 // Call before http send
 func SetHttpRequestCallback(cb func(*http.Request)) {
-	_httpRequestCallback = cb
+	_httpDoCallback = cb
 }
 
 // Get http get
 func Get(url string, accessToken string, v any) error {
-	return httpRequest(http.MethodGet, url, accessToken, nil, v)
+	return httpDo(http.MethodGet, url, accessToken, nil, v)
 }
 
 // Post http post
@@ -40,7 +34,7 @@ func Post(url string, accessToken string, data any, v any) error {
 		return err
 	}
 
-	return httpRequest(http.MethodPost, url, accessToken, body, v)
+	return httpDo(http.MethodPost, url, accessToken, body, v)
 }
 
 // Put http put
@@ -54,7 +48,7 @@ func Put(url string, accessToken string, data any, v any) error {
 		return err
 	}
 
-	return httpRequest(http.MethodPut, url, accessToken, body, v)
+	return httpDo(http.MethodPut, url, accessToken, body, v)
 }
 
 // Patch http patch
@@ -68,16 +62,16 @@ func Patch(url string, accessToken string, data any, v any) error {
 		return err
 	}
 
-	return httpRequest(http.MethodPatch, url, accessToken, body, v)
+	return httpDo(http.MethodPatch, url, accessToken, body, v)
 }
 
 // Delete http delete
 func Delete(url string, accessToken string, v any) error {
-	return httpRequest(http.MethodDelete, url, accessToken, nil, v)
+	return httpDo(http.MethodDelete, url, accessToken, nil, v)
 }
 
-// httpRequest http request
-func httpRequest(method string, url string, accessToken string, body io.Reader, v any) error {
+// httpDo do http request
+func httpDo(method string, url string, accessToken string, body io.Reader, v any) error {
 
 	req, err := http.NewRequest(method, url, body)
 
@@ -85,22 +79,15 @@ func httpRequest(method string, url string, accessToken string, body io.Reader, 
 		return err
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
 	if accessToken != "" {
 		req.Header.Set("Authorization", "Bearer "+accessToken)
 	}
 
-	if _httpRequestCallback != nil {
-		_httpRequestCallback(req)
+	if _httpDoCallback != nil {
+		_httpDoCallback(req)
 	}
 
-	if _httpClient == nil {
-		_httpClient = http.DefaultClient
-	}
-
-	resp, err := _httpClient.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 
 	if err != nil {
 		return err

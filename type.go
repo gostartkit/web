@@ -16,9 +16,6 @@ type CorsCallback func(set func(key string, value string), origin string, allow 
 // PanicCallback
 type PanicCallback func(http.ResponseWriter, *http.Request, any)
 
-// HttpDoCallback
-type HttpDoCallback func(*http.Request)
-
 // Middleware
 type Middleware func(Callback) Callback
 

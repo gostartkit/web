@@ -9,12 +9,12 @@ import (
 )
 
 // Get http get
-func Get(url string, accessToken string, v any, cbs ...HttpDoCallback) error {
-	return httpDo(http.MethodGet, url, accessToken, nil, v, cbs...)
+func Get(url string, accessToken string, v any) error {
+	return Do(http.MethodGet, url, accessToken, nil, v, nil, nil)
 }
 
 // Post http post
-func Post(url string, accessToken string, data any, v any, cbs ...HttpDoCallback) error {
+func Post(url string, accessToken string, data any, v any) error {
 
 	body := new(bytes.Buffer)
 
@@ -24,11 +24,11 @@ func Post(url string, accessToken string, data any, v any, cbs ...HttpDoCallback
 		return err
 	}
 
-	return httpDo(http.MethodPost, url, accessToken, body, v, cbs...)
+	return Do(http.MethodPost, url, accessToken, body, v, nil, nil)
 }
 
 // Put http put
-func Put(url string, accessToken string, data any, v any, cbs ...HttpDoCallback) error {
+func Put(url string, accessToken string, data any, v any) error {
 
 	body := new(bytes.Buffer)
 
@@ -38,11 +38,11 @@ func Put(url string, accessToken string, data any, v any, cbs ...HttpDoCallback)
 		return err
 	}
 
-	return httpDo(http.MethodPut, url, accessToken, body, v, cbs...)
+	return Do(http.MethodPut, url, accessToken, body, v, nil, nil)
 }
 
 // Patch http patch
-func Patch(url string, accessToken string, data any, v any, cbs ...HttpDoCallback) error {
+func Patch(url string, accessToken string, data any, v any) error {
 
 	body := new(bytes.Buffer)
 
@@ -52,16 +52,16 @@ func Patch(url string, accessToken string, data any, v any, cbs ...HttpDoCallbac
 		return err
 	}
 
-	return httpDo(http.MethodPatch, url, accessToken, body, v, cbs...)
+	return Do(http.MethodPatch, url, accessToken, body, v, nil, nil)
 }
 
 // Delete http delete
-func Delete(url string, accessToken string, v any, cbs ...HttpDoCallback) error {
-	return httpDo(http.MethodDelete, url, accessToken, nil, v, cbs...)
+func Delete(url string, accessToken string, v any) error {
+	return Do(http.MethodDelete, url, accessToken, nil, v, nil, nil)
 }
 
-// httpDo do http request
-func httpDo(method string, url string, accessToken string, body io.Reader, v any, cbs ...HttpDoCallback) error {
+// Do do http request
+func Do(method string, url string, accessToken string, body io.Reader, v any, cb func(r *http.Request), badRequest func(body io.ReadCloser) error) error {
 
 	req, err := http.NewRequest(method, url, body)
 
@@ -69,15 +69,11 @@ func httpDo(method string, url string, accessToken string, body io.Reader, v any
 		return err
 	}
 
-	l := len(cbs)
-
-	if l == 0 {
+	if cb == nil {
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
 	} else {
-		for _, cb := range cbs {
-			cb(req)
-		}
+		cb(req)
 	}
 
 	if accessToken != "" {
@@ -99,6 +95,10 @@ func httpDo(method string, url string, accessToken string, body io.Reader, v any
 		}
 		return nil
 	case http.StatusBadRequest:
+		if badRequest != nil {
+			return badRequest(resp.Body)
+		}
+
 		errMessage := ""
 		if err := json.NewDecoder(resp.Body).Decode(&errMessage); err != nil {
 			return err

@@ -61,7 +61,7 @@ func Delete(url string, accessToken string, v any) error {
 }
 
 // Do do http request
-func Do(method string, url string, accessToken string, body io.Reader, v any, cb func(r *http.Request), badRequest func(body io.ReadCloser) error) error {
+func Do(method string, url string, accessToken string, body io.Reader, v any, cb func(r *http.Request), failure func(statusCode int, body io.ReadCloser) error) error {
 
 	req, err := http.NewRequest(method, url, body)
 
@@ -95,15 +95,15 @@ func Do(method string, url string, accessToken string, body io.Reader, v any, cb
 		}
 		return nil
 	case http.StatusBadRequest:
-		if badRequest != nil {
-			return badRequest(resp.Body)
+		if failure != nil {
+			return failure(resp.StatusCode, resp.Body)
+		} else {
+			errMessage := ""
+			if err := json.NewDecoder(resp.Body).Decode(&errMessage); err != nil {
+				return err
+			}
+			return errors.New(errMessage)
 		}
-
-		errMessage := ""
-		if err := json.NewDecoder(resp.Body).Decode(&errMessage); err != nil {
-			return err
-		}
-		return errors.New(errMessage)
 	case http.StatusUnauthorized:
 		return ErrUnauthorized
 	case http.StatusForbidden:

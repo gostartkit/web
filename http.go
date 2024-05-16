@@ -61,7 +61,7 @@ func Delete(url string, accessToken string, v any) error {
 }
 
 // Do do http request
-func Do(method string, url string, accessToken string, body io.Reader, v any, before func(r *http.Request), done func(statusCode int, body io.ReadCloser) error) error {
+func Do(method string, url string, accessToken string, body io.Reader, v any, before func(r *http.Request), failure func(statusCode int, body io.ReadCloser) error) error {
 
 	req, err := http.NewRequest(method, url, body)
 
@@ -88,10 +88,6 @@ func Do(method string, url string, accessToken string, body io.Reader, v any, be
 
 	defer resp.Body.Close()
 
-	if done != nil {
-		return done(resp.StatusCode, resp.Body)
-	}
-
 	switch resp.StatusCode {
 	case http.StatusOK, http.StatusCreated, http.StatusAccepted:
 		if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
@@ -101,6 +97,9 @@ func Do(method string, url string, accessToken string, body io.Reader, v any, be
 	case http.StatusNoContent:
 		return nil
 	case http.StatusBadRequest:
+		if failure != nil {
+			return failure(resp.StatusCode, resp.Body)
+		}
 		errMessage := ""
 		if err := json.NewDecoder(resp.Body).Decode(&errMessage); err != nil {
 			return err

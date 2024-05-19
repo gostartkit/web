@@ -192,6 +192,8 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					code = http.StatusUnauthorized
 				case ErrForbidden:
 					code = http.StatusForbidden
+				case ErrNotFound:
+					code = http.StatusNotFound
 				}
 
 				w.WriteHeader(code)

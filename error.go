@@ -1,6 +1,8 @@
 package web
 
-import "errors"
+import (
+	"errors"
+)
 
 var (
 	// ErrUnauthorized 401
@@ -9,6 +11,8 @@ var (
 	ErrForbidden = errors.New("forbidden")
 	// ErrUnExpected unexpected error
 	ErrUnExpected = errors.New("unexpected")
+	// ErrNotFound
+	ErrNotFound = errors.New("not found")
 
 	// ErrContentTypeInvalid content-type not supported
 	ErrContentTypeInvalid = errors.New("content-type not supported")

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -28,7 +29,6 @@ func createCtx(w http.ResponseWriter, r *http.Request, params *Params) *Ctx {
 	c.r = r
 	c.param = params
 	c.query = nil
-	c.parsed = false
 	c.userID = 0
 	c.userRight = 0
 	c.accept = nil
@@ -49,7 +49,6 @@ type Ctx struct {
 	r           *http.Request
 	param       *Params
 	query       *url.Values
-	parsed      bool
 	userID      uint64
 	userRight   int64
 	accept      *string
@@ -88,11 +87,13 @@ func (c *Ctx) Query(name string) string {
 
 // Form get value from Form
 func (c *Ctx) Form(name string) string {
-	if !c.parsed {
-		c.r.ParseForm()
-		c.parsed = true
-	}
 	return c.r.FormValue(name)
+}
+
+// FormFile returns the first file for the provided form key.
+// FormFile calls [Request.ParseMultipartForm] and [Request.ParseForm] if necessary.
+func (c *Ctx) FormFile(key string) (multipart.File, *multipart.FileHeader, error) {
+	return c.r.FormFile(key)
 }
 
 // Host return c.r.Host
@@ -148,11 +149,11 @@ func (c *Ctx) TryParseBody(val any) error {
 	case strings.HasPrefix(c.ContentType(), "application/x-gob"):
 		return gob.NewDecoder(c.r.Body).Decode(val)
 	case strings.HasPrefix(c.ContentType(), "application/octet-stream"):
-		return ErrContentTypeInvalid
+		return ErrContentType
 	case strings.HasPrefix(c.ContentType(), "application/xml"):
 		return xml.NewDecoder(c.r.Body).Decode(val)
 	default:
-		return ErrContentTypeInvalid
+		return ErrContentType
 	}
 }
 
@@ -568,50 +569,6 @@ func (c *Ctx) HeaderAttrs() []string {
 	return nil
 }
 
-// write write data base on accept header
-func (c *Ctx) write(val any) error {
-
-	switch c.ContentType() {
-	case "application/json":
-		return c.writeJSON(val)
-	case "application/x-gob":
-		return c.writeGOB(val)
-	case "application/octet-stream":
-		return c.writeBinary(val)
-	case "application/x-avro":
-		return c.writeAvro(val)
-	case "application/xml":
-		return c.writeXML(val)
-	default:
-		return ErrContentTypeInvalid
-	}
-}
-
-// writeJSON Write JSON
-func (c *Ctx) writeJSON(val any) error {
-	return json.NewEncoder(c.w).Encode(val)
-}
-
-// writeXML Write XML
-func (c *Ctx) writeXML(val any) error {
-	return xml.NewEncoder(c.w).Encode(val)
-}
-
-// writeGOB Write GOB
-func (c *Ctx) writeGOB(val any) error {
-	return gob.NewEncoder(c.w).Encode(val)
-}
-
-// writeBinary Write Binary
-func (c *Ctx) writeBinary(val any) error {
-	return ErrMethodNotImplemented
-}
-
-// writeAvro Write Avro
-func (c *Ctx) writeAvro(val any) error {
-	return ErrMethodNotImplemented
-}
-
 // Get get header, short hand of r.Header.Get
 func (c *Ctx) Get(key string) string {
 	return c.r.Header.Get(key)
@@ -653,4 +610,48 @@ func (c *Ctx) ContentType() string {
 // SetContentType Set Content-Type to header
 func (c *Ctx) SetContentType(val string) {
 	c.Set("Content-Type", contentType(val))
+}
+
+// write write data base on accept header
+func (c *Ctx) write(val any) error {
+
+	switch c.ContentType() {
+	case "application/json":
+		return c.writeJSON(val)
+	case "application/x-gob":
+		return c.writeGOB(val)
+	case "application/octet-stream":
+		return c.writeBinary(val)
+	case "application/x-avro":
+		return c.writeAvro(val)
+	case "application/xml":
+		return c.writeXML(val)
+	default:
+		return ErrContentType
+	}
+}
+
+// writeJSON Write JSON
+func (c *Ctx) writeJSON(val any) error {
+	return json.NewEncoder(c.w).Encode(val)
+}
+
+// writeXML Write XML
+func (c *Ctx) writeXML(val any) error {
+	return xml.NewEncoder(c.w).Encode(val)
+}
+
+// writeGOB Write GOB
+func (c *Ctx) writeGOB(val any) error {
+	return gob.NewEncoder(c.w).Encode(val)
+}
+
+// writeBinary Write Binary
+func (c *Ctx) writeBinary(val any) error {
+	return ErrMethodNotImplemented
+}
+
+// writeAvro Write Avro
+func (c *Ctx) writeAvro(val any) error {
+	return ErrMethodNotImplemented
 }

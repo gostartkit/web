@@ -568,47 +568,47 @@ func (c *Ctx) HeaderAttrs() []string {
 	return nil
 }
 
-// Write Write data base on accept header
-func (c *Ctx) Write(val any) error {
+// write write data base on accept header
+func (c *Ctx) write(val any) error {
 
 	switch c.ContentType() {
 	case "application/json":
-		return c.WriteJSON(val)
+		return c.writeJSON(val)
 	case "application/x-gob":
-		return c.WriteGOB(val)
+		return c.writeGOB(val)
 	case "application/octet-stream":
-		return c.WriteBinary(val)
+		return c.writeBinary(val)
 	case "application/x-avro":
-		return c.WriteAvro(val)
+		return c.writeAvro(val)
 	case "application/xml":
-		return c.WriteXML(val)
+		return c.writeXML(val)
 	default:
 		return ErrContentTypeInvalid
 	}
 }
 
-// WriteJSON Write JSON
-func (c *Ctx) WriteJSON(val any) error {
+// writeJSON Write JSON
+func (c *Ctx) writeJSON(val any) error {
 	return json.NewEncoder(c.w).Encode(val)
 }
 
-// WriteXML Write XML
-func (c *Ctx) WriteXML(val any) error {
+// writeXML Write XML
+func (c *Ctx) writeXML(val any) error {
 	return xml.NewEncoder(c.w).Encode(val)
 }
 
-// WriteGOB Write GOB
-func (c *Ctx) WriteGOB(val any) error {
+// writeGOB Write GOB
+func (c *Ctx) writeGOB(val any) error {
 	return gob.NewEncoder(c.w).Encode(val)
 }
 
-// WriteBinary Write Binary
-func (c *Ctx) WriteBinary(val any) error {
+// writeBinary Write Binary
+func (c *Ctx) writeBinary(val any) error {
 	return ErrMethodNotImplemented
 }
 
-// WriteAvro Write Avro
-func (c *Ctx) WriteAvro(val any) error {
+// writeAvro Write Avro
+func (c *Ctx) writeAvro(val any) error {
 	return ErrMethodNotImplemented
 }
 

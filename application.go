@@ -185,6 +185,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			app.putParams(params)
 
 			if err != nil {
+
 				code := http.StatusBadRequest
 
 				switch err {
@@ -207,6 +208,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if val != nil {
+
 				code := http.StatusOK
 
 				switch r.Method {

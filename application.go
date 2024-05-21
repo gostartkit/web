@@ -176,11 +176,11 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if root := app.trees[r.Method]; root != nil {
 
-		if cb, params, _ := root.getValue(path, app.getParams); cb != nil {
+		if next, params, _ := root.getValue(path, app.getParams); next != nil {
 
 			c := createCtx(w, r, params)
 
-			val, err := cb(c)
+			val, err := next(c)
 
 			app.putParams(params)
 

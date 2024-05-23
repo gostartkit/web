@@ -613,6 +613,7 @@ func (c *Ctx) write(val any) error {
 	case "application/xml":
 		return c.writeXML(val)
 	default:
+		c.w.Header().Set("Content-Type", "application/json")
 		return c.writeJSON(val)
 	}
 }

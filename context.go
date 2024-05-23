@@ -574,11 +574,6 @@ func (c *Ctx) HeaderAttrs() []string {
 	return nil
 }
 
-// Get get header, short hand of r.Header.Get
-func (c *Ctx) Get(key string) string {
-	return c.r.Header.Get(key)
-}
-
 // Accept get Accept from header
 func (c *Ctx) Accept() string {
 	if c.accept == nil {
@@ -608,6 +603,11 @@ func (c *Ctx) SetContentType(val string) {
 // SetVersion set `version` header
 func (c *Ctx) SetVersion(version string) {
 	c.set("version", version)
+}
+
+// Get Get header, short hand of r.Header.Get
+func (c *Ctx) Get(key string) string {
+	return c.r.Header.Get(key)
 }
 
 // set set header, short hand of w.Header().set

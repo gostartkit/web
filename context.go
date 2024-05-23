@@ -627,7 +627,7 @@ func (c *Ctx) write(val any) error {
 	case "application/xml":
 		return c.writeXML(val)
 	default:
-		return ErrContentType
+		return c.writeJSON(val)
 	}
 }
 

@@ -599,8 +599,15 @@ func (c *Ctx) ContentType() string {
 
 // SetContentType Set Content-Type to header
 func (c *Ctx) SetContentType(val string) {
-	ctype := contentType(val)
-	c.contentType = &ctype
+	if c.contentType == nil {
+		c.contentType = &val
+	}
+	c.set("Content-Type", val)
+}
+
+// SetVersion set `version` header
+func (c *Ctx) SetVersion(version string) {
+	c.set("version", version)
 }
 
 // set set header, short hand of w.Header().set

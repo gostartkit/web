@@ -131,6 +131,11 @@ func (c *Ctx) Origin() string {
 	return c.Get("Origin")
 }
 
+// SetOrigin set `Access-Control-Allow-Origin` header
+func (c *Ctx) SetOrigin(origin string) {
+	c.set("Access-Control-Allow-Origin", origin)
+}
+
 // UserAgent return User-Agent header
 func (c *Ctx) UserAgent() string {
 	return c.Get("User-Agent")
@@ -574,21 +579,6 @@ func (c *Ctx) Get(key string) string {
 	return c.r.Header.Get(key)
 }
 
-// Set set header, short hand of w.Header().Set
-func (c *Ctx) Set(key string, value string) {
-	c.w.Header().Set(key, value)
-}
-
-// Add add header, short hand of w.Header().Add
-func (c *Ctx) Add(key string, value string) {
-	c.w.Header().Add(key, value)
-}
-
-// Del del header, short hand of w.Header().Del
-func (c *Ctx) Del(key string) {
-	c.w.Header().Del(key)
-}
-
 // Accept get Accept from header
 func (c *Ctx) Accept() string {
 	if c.accept == nil {
@@ -613,6 +603,11 @@ func (c *Ctx) SetContentType(val string) {
 	c.contentType = &ctype
 }
 
+// set set header, short hand of w.Header().set
+func (c *Ctx) set(key string, value string) {
+	c.w.Header().Set(key, value)
+}
+
 // write write data base on accept header
 func (c *Ctx) write(val any) error {
 
@@ -628,7 +623,7 @@ func (c *Ctx) write(val any) error {
 	case "application/xml":
 		return c.writeXML(val)
 	default:
-		c.w.Header().Set("Content-Type", "application/json")
+		c.set("Content-Type", "application/json")
 		return c.writeJSON(val)
 	}
 }

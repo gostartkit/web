@@ -574,6 +574,21 @@ func (c *Ctx) Get(key string) string {
 	return c.r.Header.Get(key)
 }
 
+// Set set header, short hand of w.Header().Set
+func (c *Ctx) Set(key string, value string) {
+	c.w.Header().Set(key, value)
+}
+
+// Add add header, short hand of w.Header().Add
+func (c *Ctx) Add(key string, value string) {
+	c.w.Header().Add(key, value)
+}
+
+// Del del header, short hand of w.Header().Del
+func (c *Ctx) Del(key string) {
+	c.w.Header().Del(key)
+}
+
 // Accept get Accept from header
 func (c *Ctx) Accept() string {
 	if c.accept == nil {

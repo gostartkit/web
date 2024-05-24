@@ -195,6 +195,14 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					code = http.StatusForbidden
 				case ErrNotFound:
 					code = http.StatusNotFound
+				case ErrMovedPermanently:
+					code = http.StatusMovedPermanently
+				case ErrFound:
+					code = http.StatusFound
+				case ErrTemporaryRedirect:
+					code = http.StatusTemporaryRedirect
+				case ErrPermanentRedirect:
+					code = http.StatusPermanentRedirect
 				}
 
 				w.WriteHeader(code)

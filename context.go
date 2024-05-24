@@ -630,7 +630,6 @@ func (c *Ctx) write(val any) error {
 	case "application/xml":
 		return c.writeXML(val)
 	default:
-		c.set("Content-Type", "application/json")
 		return c.writeJSON(val)
 	}
 }

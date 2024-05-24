@@ -6,7 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
+	"path"
 	"strings"
 	"sync"
 )
@@ -167,16 +167,16 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	defer app.recv(w, r)
 
-	path := r.URL.Path
+	rel := r.URL.Path
 
-	if filepath.Ext(path) != app.extension {
+	if path.Ext(rel) != app.extension {
 		http.NotFound(w, r)
 		return
 	}
 
 	if root := app.trees[r.Method]; root != nil {
 
-		if next, params, _ := root.getValue(path, app.getParams); next != nil {
+		if next, params, _ := root.getValue(rel, app.getParams); next != nil {
 
 			c := createCtx(w, r, params)
 
@@ -208,7 +208,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(code)
 				c.write(err.Error())
 
-				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, path, code, err)
+				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code, err)
 
 				releaseCtx(c)
 
@@ -243,7 +243,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodOptions && app.cors != nil {
 		// Handle OPTIONS requests
-		if allow := app.allowed(path, http.MethodOptions); len(allow) > 0 {
+		if allow := app.allowed(rel, http.MethodOptions); len(allow) > 0 {
 			app.cors(w.Header().Set, r.Header.Get("Origin"), allow)
 		}
 		w.WriteHeader(http.StatusNoContent)

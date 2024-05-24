@@ -25,4 +25,6 @@ var (
 	ErrContentType = errors.New("content-type not supported")
 	// ErrMethodNotImplemented method not implemented
 	ErrMethodNotImplemented = errors.New("method not implemented")
+	// ErrCors cross origin request blocked
+	ErrCors = errors.New("cross origin request blocked")
 )

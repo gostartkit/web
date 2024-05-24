@@ -189,7 +189,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				code := http.StatusBadRequest
 
 				switch err {
-				case ErrUnauthorized:
+				case ErrUnauthorized, ErrCors:
 					code = http.StatusUnauthorized
 				case ErrForbidden:
 					code = http.StatusForbidden

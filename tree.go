@@ -77,7 +77,7 @@ type node struct {
 	nType     nodeType
 	priority  uint32
 	children  []*node
-	callback  Callback
+	next      Next
 }
 
 // Increments priority of the given child and reorders if necessary
@@ -105,7 +105,7 @@ func (n *node) incrementChildPrio(pos int) int {
 
 // addRoute adds a node with the given callback to the path.
 // Not concurrency-safe!
-func (n *node) addRoute(path string, callback Callback) {
+func (n *node) addRoute(path string, callback Next) {
 	fullPath := path
 	n.priority++
 
@@ -131,7 +131,7 @@ walk:
 				nType:     static,
 				indices:   n.indices,
 				children:  n.children,
-				callback:  n.callback,
+				next:      n.next,
 				priority:  n.priority - 1,
 			}
 
@@ -139,7 +139,7 @@ walk:
 			// []byte for proper unicode char conversion, see #65
 			n.indices = string([]byte{n.path[i]})
 			n.path = path[:i]
-			n.callback = nil
+			n.next = nil
 			n.wildChild = false
 		}
 
@@ -205,15 +205,15 @@ walk:
 		}
 
 		// Otherwise add callback to current node
-		if n.callback != nil {
+		if n.next != nil {
 			panic("a callback is already registered for path '" + fullPath + "'")
 		}
-		n.callback = callback
+		n.next = callback
 		return
 	}
 }
 
-func (n *node) insertChild(path, fullPath string, callback Callback) {
+func (n *node) insertChild(path, fullPath string, callback Next) {
 	for {
 		// Find prefix until first wildcard
 		wildcard, i, valid := findWildcard(path)
@@ -269,7 +269,7 @@ func (n *node) insertChild(path, fullPath string, callback Callback) {
 			}
 
 			// Otherwise we're done. Insert the callback in the new leaf
-			n.callback = callback
+			n.next = callback
 			return
 		}
 
@@ -304,7 +304,7 @@ func (n *node) insertChild(path, fullPath string, callback Callback) {
 		child = &node{
 			path:     path[i:],
 			nType:    catchAll,
-			callback: callback,
+			next:     callback,
 			priority: 1,
 		}
 		n.children = []*node{child}
@@ -314,7 +314,7 @@ func (n *node) insertChild(path, fullPath string, callback Callback) {
 
 	// If no wildcard was found, simply insert the path and callback
 	n.path = path
-	n.callback = callback
+	n.next = callback
 }
 
 // Returns the callback registered with the given path (key). The values of
@@ -322,7 +322,7 @@ func (n *node) insertChild(path, fullPath string, callback Callback) {
 // If no callback can be found, a TSR (trailing slash redirect) recommendation is
 // made if a callback exists with an extra (without the) trailing slash for the
 // given path.
-func (n *node) getValue(path string, params func() *Params) (callback Callback, ps *Params, tsr bool) {
+func (n *node) getValue(path string, params func() *Params) (callback Next, ps *Params, tsr bool) {
 walk: // Outer loop for walking the tree
 	for {
 		prefix := n.path
@@ -345,7 +345,7 @@ walk: // Outer loop for walking the tree
 					// Nothing found.
 					// We can recommend to redirect to the same URL without a
 					// trailing slash if a leaf exists for that path.
-					tsr = (path == "/" && n.callback != nil)
+					tsr = (path == "/" && n.next != nil)
 					return
 				}
 
@@ -386,13 +386,13 @@ walk: // Outer loop for walking the tree
 						return
 					}
 
-					if callback = n.callback; callback != nil {
+					if callback = n.next; callback != nil {
 						return
 					} else if len(n.children) == 1 {
 						// No callback found. Check if a callback for this path + a
 						// trailing slash exists for TSR recommendation
 						n = n.children[0]
-						tsr = (n.path == "/" && n.callback != nil) || (n.path == "" && n.indices == "/")
+						tsr = (n.path == "/" && n.next != nil) || (n.path == "" && n.indices == "/")
 					}
 
 					return
@@ -412,7 +412,7 @@ walk: // Outer loop for walking the tree
 						}
 					}
 
-					callback = n.callback
+					callback = n.next
 					return
 
 				default:
@@ -422,7 +422,7 @@ walk: // Outer loop for walking the tree
 		} else if path == prefix {
 			// We should have reached the node containing the callback.
 			// Check if this node has a callback registered.
-			if callback = n.callback; callback != nil {
+			if callback = n.next; callback != nil {
 				return
 			}
 
@@ -444,8 +444,8 @@ walk: // Outer loop for walking the tree
 			for i, c := range []byte(n.indices) {
 				if c == '/' {
 					n = n.children[i]
-					tsr = (len(n.path) == 1 && n.callback != nil) ||
-						(n.nType == catchAll && n.children[0].callback != nil)
+					tsr = (len(n.path) == 1 && n.next != nil) ||
+						(n.nType == catchAll && n.children[0].next != nil)
 					return
 				}
 			}
@@ -456,7 +456,7 @@ walk: // Outer loop for walking the tree
 		// extra trailing slash if a leaf exists for that path
 		tsr = (path == "/") ||
 			(len(prefix) == len(path)+1 && prefix[len(path)] == '/' &&
-				path == prefix[:len(prefix)-1] && n.callback != nil)
+				path == prefix[:len(prefix)-1] && n.next != nil)
 		return
 	}
 }

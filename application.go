@@ -20,8 +20,8 @@ var (
 type Application struct {
 	trees         map[string]*node
 	logger        *log.Logger
-	cors          CorsCallback
-	panic         PanicCallback
+	cors          Cors
+	panic         Panic
 	paramsPool    sync.Pool
 	maxParams     uint16
 	extension     string
@@ -45,12 +45,12 @@ func (app *Application) SetLogger(logger *log.Logger) {
 }
 
 // SetCORS set CORS
-func (app *Application) SetCORS(cors CorsCallback) {
+func (app *Application) SetCORS(cors Cors) {
 	app.cors = cors
 }
 
 // SetPanic set Panic
-func (app *Application) SetPanic(panic PanicCallback) {
+func (app *Application) SetPanic(panic Panic) {
 	app.panic = panic
 }
 
@@ -68,11 +68,11 @@ func (app *Application) Use(middleware Middleware) {
 }
 
 // On add event
-func (app *Application) On(name string, cb Callback) {
+func (app *Application) On(name string, cb Next) {
 
 }
 
-func (app *Application) Chain(cb Callback) Callback {
+func (app *Application) Chain(cb Next) Next {
 	for i := len(app.chain) - 1; i >= 0; i-- {
 		cb = (app.chain)[i](cb)
 	}
@@ -80,41 +80,41 @@ func (app *Application) Chain(cb Callback) Callback {
 }
 
 // Get method
-func (app *Application) Get(path string, cb Callback) {
+func (app *Application) Get(path string, cb Next) {
 	app.addRoute(http.MethodGet, path, cb)
 }
 
 // Head method
-func (app *Application) Head(path string, cb Callback) {
+func (app *Application) Head(path string, cb Next) {
 	app.addRoute(http.MethodHead, path, cb)
 }
 
 // Post method
-func (app *Application) Post(path string, cb Callback) {
+func (app *Application) Post(path string, cb Next) {
 	app.addRoute(http.MethodPost, path, cb)
 }
 
 // Put method
-func (app *Application) Put(path string, cb Callback) {
+func (app *Application) Put(path string, cb Next) {
 	app.addRoute(http.MethodPut, path, cb)
 }
 
 // Patch method
-func (app *Application) Patch(path string, cb Callback) {
+func (app *Application) Patch(path string, cb Next) {
 	app.addRoute(http.MethodPatch, path, cb)
 }
 
 // Delete method
-func (app *Application) Delete(path string, cb Callback) {
+func (app *Application) Delete(path string, cb Next) {
 	app.addRoute(http.MethodDelete, path, cb)
 }
 
 // Options method
-func (app *Application) Options(path string, cb Callback) {
+func (app *Application) Options(path string, cb Next) {
 	app.addRoute(http.MethodOptions, path, cb)
 }
 
-func (app *Application) addRoute(method, path string, cb Callback) {
+func (app *Application) addRoute(method, path string, cb Next) {
 
 	if method == "" {
 		panic("method must not be empty")

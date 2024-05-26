@@ -205,8 +205,15 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					code = http.StatusPermanentRedirect
 				}
 
-				w.WriteHeader(code)
-				c.write(err.Error())
+				switch code {
+				case http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound:
+					w.WriteHeader(code)
+					c.write(err.Error())
+				case http.StatusMovedPermanently, http.StatusFound, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
+					if rel, ok := val.(string); ok {
+						http.Redirect(w, r, rel, code)
+					}
+				}
 
 				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code, err)
 

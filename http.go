@@ -96,7 +96,7 @@ func Do(method string, url string, accessToken string, body io.Reader, v any, be
 		return nil
 	case http.StatusNoContent:
 		return nil
-	case http.StatusBadRequest, http.StatusNotFound:
+	case http.StatusBadRequest:
 		if failure != nil {
 			return failure(resp.StatusCode, resp.Body)
 		}
@@ -109,6 +109,8 @@ func Do(method string, url string, accessToken string, body io.Reader, v any, be
 		return ErrUnauthorized
 	case http.StatusForbidden:
 		return ErrForbidden
+	case http.StatusNotFound:
+		return ErrNotFound
 	default:
 		return ErrUnExpected
 	}

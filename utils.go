@@ -3,10 +3,32 @@ package web
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strconv"
 	"strings"
 )
+
+// Redirect
+func Redirect(url string, code int) (string, error) {
+
+	var err error
+
+	switch code {
+	case http.StatusMovedPermanently:
+		err = ErrMovedPermanently
+	case http.StatusFound:
+		err = ErrFound
+	case http.StatusTemporaryRedirect:
+		err = ErrTemporaryRedirect
+	case http.StatusPermanentRedirect:
+		err = ErrPermanentRedirect
+	default:
+		err = ErrFound
+	}
+
+	return url, err
+}
 
 // TryParse try parse val to v
 func TryParse(val string, v any) error {

@@ -251,7 +251,9 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodOptions && app.cors != nil {
 		// Handle OPTIONS requests
 		if allow := app.allowed(rel, http.MethodOptions); len(allow) > 0 {
-			app.cors(w.Header().Set, r.Header.Get("Origin"), allow)
+			if origin := r.Header.Get("Origin"); origin != "" {
+				app.cors(w.Header().Set, origin, allow)
+			}
 		}
 		w.WriteHeader(http.StatusNoContent)
 		return

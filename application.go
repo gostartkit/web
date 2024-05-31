@@ -68,20 +68,20 @@ func (app *Application) Use(middleware Middleware) {
 }
 
 // On add event
-func (app *Application) On(name string, cb Next) {
+func (app *Application) On(name string, next Next) {
 
 }
 
-func (app *Application) Chain(cb Next) Next {
+func (app *Application) Chain(next Next) Next {
 	for i := len(app.chain) - 1; i >= 0; i-- {
-		cb = (app.chain)[i](cb)
+		next = (app.chain)[i](next)
 	}
-	return cb
+	return next
 }
 
 // Get method
-func (app *Application) Get(path string, cb Next) {
-	app.addRoute(http.MethodGet, path, cb)
+func (app *Application) Get(path string, next Next) {
+	app.addRoute(http.MethodGet, path, next)
 }
 
 // Head method
@@ -90,31 +90,31 @@ func (app *Application) Head(path string, cb Next) {
 }
 
 // Post method
-func (app *Application) Post(path string, cb Next) {
-	app.addRoute(http.MethodPost, path, cb)
+func (app *Application) Post(path string, next Next) {
+	app.addRoute(http.MethodPost, path, next)
 }
 
 // Put method
-func (app *Application) Put(path string, cb Next) {
-	app.addRoute(http.MethodPut, path, cb)
+func (app *Application) Put(path string, next Next) {
+	app.addRoute(http.MethodPut, path, next)
 }
 
 // Patch method
-func (app *Application) Patch(path string, cb Next) {
-	app.addRoute(http.MethodPatch, path, cb)
+func (app *Application) Patch(path string, next Next) {
+	app.addRoute(http.MethodPatch, path, next)
 }
 
 // Delete method
-func (app *Application) Delete(path string, cb Next) {
-	app.addRoute(http.MethodDelete, path, cb)
+func (app *Application) Delete(path string, next Next) {
+	app.addRoute(http.MethodDelete, path, next)
 }
 
 // Options method
-func (app *Application) Options(path string, cb Next) {
-	app.addRoute(http.MethodOptions, path, cb)
+func (app *Application) Options(path string, next Next) {
+	app.addRoute(http.MethodOptions, path, next)
 }
 
-func (app *Application) addRoute(method, path string, cb Next) {
+func (app *Application) addRoute(method, path string, next Next) {
 
 	if method == "" {
 		panic("method must not be empty")
@@ -124,7 +124,7 @@ func (app *Application) addRoute(method, path string, cb Next) {
 		panic("path must begin with '/' in path '" + path + "'")
 	}
 
-	if cb == nil {
+	if next == nil {
 		panic("callback must not be nil")
 	}
 
@@ -140,7 +140,7 @@ func (app *Application) addRoute(method, path string, cb Next) {
 		app.globalAllowed = app.allowed("*", "")
 	}
 
-	root.addRoute(path, cb)
+	root.addRoute(path, next)
 
 	if pc := countParams(path); pc > app.maxParams {
 		app.maxParams = pc
@@ -354,7 +354,7 @@ func (app *Application) serve(listener net.Listener, fns ...func(*http.Server)) 
 	}
 
 	if app.paramsPool.New == nil && app.maxParams > 0 {
-		app.paramsPool.New = func() interface{} {
+		app.paramsPool.New = func() any {
 			ps := make(Params, 0, app.maxParams)
 			return &ps
 		}
@@ -377,7 +377,7 @@ func (app *Application) Inspect() string {
 }
 
 // logf write log
-func (app *Application) logf(format string, v ...interface{}) {
+func (app *Application) logf(format string, v ...any) {
 	if app.logger == nil {
 		app.logger = log.New(os.Stdout, "", log.Ldate|log.Ltime)
 	}

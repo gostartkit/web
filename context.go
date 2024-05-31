@@ -15,7 +15,7 @@ import (
 
 var (
 	_ctxPool = sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			c := &Ctx{}
 			return c
 		}}

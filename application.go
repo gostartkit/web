@@ -6,8 +6,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path"
-	"strings"
 	"sync"
 )
 
@@ -24,7 +22,6 @@ type Application struct {
 	panic         Panic
 	paramsPool    sync.Pool
 	maxParams     uint16
-	extension     string
 	chain         Chain
 	globalAllowed []string
 
@@ -52,14 +49,6 @@ func (app *Application) SetCORS(cors Cors) {
 // SetPanic set Panic
 func (app *Application) SetPanic(panic Panic) {
 	app.panic = panic
-}
-
-// SetExtension set Extension
-func (app *Application) SetExtension(ext string) {
-	if !strings.HasPrefix(ext, ".") {
-		ext = "." + ext
-	}
-	app.extension = ext
 }
 
 // Use Add the given middleware to this application.chain.
@@ -168,11 +157,6 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer app.recv(w, r)
 
 	rel := r.URL.Path
-
-	if path.Ext(rel) != app.extension {
-		http.NotFound(w, r)
-		return
-	}
 
 	if root := app.trees[r.Method]; root != nil {
 

@@ -5,26 +5,28 @@ import (
 )
 
 var (
-	// ErrMovedPermanently 301
+	// ErrMovedPermanently 301 moved permanently
 	ErrMovedPermanently = errors.New("moved permanently")
-	// ErrFound 302
+	// ErrFound 302 found
 	ErrFound = errors.New("found")
-	// ErrTemporaryRedirect 307
+	// ErrTemporaryRedirect 307 temporary redirect
 	ErrTemporaryRedirect = errors.New("temporary redirect")
-	// ErrPermanentRedirect 308
+	// ErrPermanentRedirect 308 permanent redirect
 	ErrPermanentRedirect = errors.New("permanent redirect")
-	// ErrUnauthorized 401
+	// ErrUnauthorized 401 unauthorized
 	ErrUnauthorized = errors.New("unauthorized")
-	// ErrForbidden 403
+	// ErrForbidden 403 forbidden
 	ErrForbidden = errors.New("forbidden")
-	// ErrNotFound 404
+	// ErrNotFound 404 not found
 	ErrNotFound = errors.New("not found")
-	// ErrUnExpected unexpected error
-	ErrUnExpected = errors.New("unexpected")
+	// ErrMethodNotAllowed 405 method not allowed
+	ErrMethodNotAllowed = errors.New("method not allowed")
+	// ErrNotImplemented 501 not implemented
+	ErrNotImplemented = errors.New("not implemented")
 	// ErrContentType content-type not supported
 	ErrContentType = errors.New("content-type not supported")
-	// ErrMethodNotImplemented method not implemented
-	ErrMethodNotImplemented = errors.New("method not implemented")
 	// ErrCors cross origin request blocked
 	ErrCors = errors.New("cross origin request blocked")
+	// ErrUnExpected unexpected error
+	ErrUnExpected = errors.New("unexpected")
 )

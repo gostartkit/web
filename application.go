@@ -22,7 +22,6 @@ type Application struct {
 	panic         Panic
 	paramsPool    sync.Pool
 	maxParams     uint16
-	chain         Chain
 	globalAllowed []string
 
 	NotFound http.Handler
@@ -49,23 +48,6 @@ func (app *Application) SetCORS(cors Cors) {
 // SetPanic set Panic
 func (app *Application) SetPanic(panic Panic) {
 	app.panic = panic
-}
-
-// Use Add the given middleware to this application.chain.
-func (app *Application) Use(middleware Middleware) {
-	app.chain = append(app.chain, middleware)
-}
-
-// On add event
-func (app *Application) On(name string, next Next) {
-
-}
-
-func (app *Application) Chain(next Next) Next {
-	for i := len(app.chain) - 1; i >= 0; i-- {
-		next = (app.chain)[i](next)
-	}
-	return next
 }
 
 // Get method
@@ -187,16 +169,18 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					code = http.StatusTemporaryRedirect
 				case ErrPermanentRedirect:
 					code = http.StatusPermanentRedirect
+				case ErrNotImplemented:
+					code = http.StatusNotImplemented
 				}
 
 				switch code {
-				case http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound:
-					w.WriteHeader(code)
-					c.write(err.Error())
 				case http.StatusMovedPermanently, http.StatusFound, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
 					if rel, ok := val.(string); ok {
 						http.Redirect(w, r, rel, code)
 					}
+				default:
+					w.WriteHeader(code)
+					c.write(err.Error())
 				}
 
 				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code, err)

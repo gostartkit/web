@@ -651,10 +651,10 @@ func (c *Ctx) writeGOB(val any) error {
 
 // writeBinary Write Binary
 func (c *Ctx) writeBinary(val any) error {
-	return ErrContentType
+	return ErrNotImplemented
 }
 
 // writeAvro Write Avro
 func (c *Ctx) writeAvro(val any) error {
-	return ErrContentType
+	return ErrNotImplemented
 }

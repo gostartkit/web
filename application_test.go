@@ -85,11 +85,12 @@ func TestErrorHandling(t *testing.T) {
 func TestRedirectHandling(t *testing.T) {
 
 	rel := "/redirect/"
+	url := "http://gostartkit.com"
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, rel, nil)
 
-	handler := func(c *Ctx) (any, error) { return "http://gostartkit.com", ErrMovedPermanently }
+	handler := func(c *Ctx) (any, error) { return url, ErrMovedPermanently }
 	app.Get(rel, handler)
 
 	app.ServeHTTP(rec, req)
@@ -97,7 +98,7 @@ func TestRedirectHandling(t *testing.T) {
 	if rec.Code != http.StatusMovedPermanently {
 		t.Errorf("Expected status code 301, but got %d", rec.Code)
 	}
-	if rec.Header().Get("Location") != "http://gostartkit.com" {
-		t.Errorf("Expected Location header 'http://gostartkit.com', but got %s", rec.Header().Get("Location"))
+	if rec.Header().Get("Location") != url {
+		t.Errorf("Expected Location header '%s', but got %s", url, rec.Header().Get("Location"))
 	}
 }

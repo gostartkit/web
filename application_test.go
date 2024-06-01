@@ -21,7 +21,7 @@ func TestAddRoutes(t *testing.T) {
 		}
 
 		if c.r.URL.Path != rel {
-			t.Errorf("Expected path /route/, but got %s", c.r.URL.Path)
+			t.Errorf("Expected path %s, but got %s", rel, c.r.URL.Path)
 		}
 
 		return nil, nil

@@ -3,7 +3,6 @@ package web
 import (
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 )
 
@@ -11,45 +10,26 @@ var (
 	app = CreateApplication()
 )
 
-func TestAddRoutes(t *testing.T) {
+func TestHttpGet(t *testing.T) {
 
 	rel := "/route/"
 
-	getHandler := func(c *Ctx) (any, error) {
-		if c.Method() == http.MethodGet {
-			t.Errorf("Expected GET route to be added")
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, rel, nil)
+
+	handler := func(c *Ctx) (any, error) {
+
+		if c.Method() != http.MethodGet {
+			t.Errorf("Expected GET route to be added, but got %s", c.Method())
 		}
 
 		if c.r.URL.Path != rel {
 			t.Errorf("Expected path %s, but got %s", rel, c.r.URL.Path)
 		}
 
-		return nil, nil
+		return "", nil
 	}
 
-	postHandler := func(c *Ctx) (any, error) {
-		if c.Method() == http.MethodGet {
-			t.Errorf("Expected POST route to be added")
-		}
-
-		if c.r.URL.Path != rel {
-			t.Errorf("Expected path /route/, but got %s", c.r.URL.Path)
-		}
-		return nil, nil
-	}
-
-	app.Get(rel, getHandler)
-	app.Post(rel, postHandler)
-}
-
-func TestServeHTTP(t *testing.T) {
-
-	rel := "/test/"
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, rel, nil)
-
-	handler := func(c *Ctx) (any, error) { return "test", nil }
 	app.Get(rel, handler)
 
 	app.ServeHTTP(rec, req)
@@ -57,11 +37,34 @@ func TestServeHTTP(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Errorf("Expected status code 200, but got %d", rec.Code)
 	}
+}
 
-	data := strings.TrimRight(rec.Body.String(), "\n")
+func TestHttpPost(t *testing.T) {
 
-	if data != "\"test\"" {
-		t.Errorf("Expected body \"test\", but got %s", data)
+	rel := "/route/"
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, rel, nil)
+
+	handler := func(c *Ctx) (any, error) {
+
+		if c.Method() != http.MethodPost {
+			t.Errorf("Expected POST route to be added, but got %s", c.Method())
+		}
+
+		if c.r.URL.Path != rel {
+			t.Errorf("Expected path /route/, but got %s", c.r.URL.Path)
+		}
+
+		return 1, nil
+	}
+
+	app.Post(rel, handler)
+
+	app.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Errorf("Expected status code 201, but got %d", rec.Code)
 	}
 }
 

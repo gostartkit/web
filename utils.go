@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// Redirect
+// Redirect helper function for return url and redirect error
 func Redirect(url string, code int) (string, error) {
 
 	var err error

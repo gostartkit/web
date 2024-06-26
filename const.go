@@ -1,10 +1,10 @@
 package web
 
 const (
-	QueryType     = "_type"
-	QueryFilter   = "_filter"
-	QueryOrderBy  = "_orderBy"
-	QueryPage     = "_page"
-	QueryPageSize = "_pageSize"
+	QueryType     = "type"
+	QueryFilter   = "filter"
+	QueryOrderBy  = "orderBy"
+	QueryPage     = "page"
+	QueryPageSize = "pageSize"
 	HeaderAttrs   = "Attrs"
 )

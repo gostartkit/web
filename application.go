@@ -173,18 +173,23 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					code = http.StatusNotImplemented
 				}
 
-				switch code {
-				case http.StatusMovedPermanently, http.StatusFound, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
-					if rel, ok := val.(string); ok {
-						http.Redirect(w, r, rel, code)
+				if val != nil && err == ErrCallBack {
+
+					if cb, ok := val.(Callback); ok {
+						if err := cb(w, r); err != nil {
+							w.WriteHeader(http.StatusBadRequest)
+							c.write(err.Error())
+							app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code, err)
+						}
+						releaseCtx(c)
+						return
 					}
-				default:
-					w.WriteHeader(code)
-					c.write(err.Error())
 				}
 
-				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code, err)
+				w.WriteHeader(code)
+				c.write(err.Error())
 
+				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code, err)
 				releaseCtx(c)
 
 				return

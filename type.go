@@ -13,6 +13,9 @@ type Next func(c *Ctx) (any, error)
 // Cors
 type Cors func(set func(key string, value string), origin string, allow []string)
 
+// Callback
+type Callback func(w http.ResponseWriter, r *http.Request) error
+
 // Panic
 type Panic func(http.ResponseWriter, *http.Request, any)
 

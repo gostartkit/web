@@ -27,6 +27,8 @@ var (
 	ErrContentType = errors.New("content-type not supported")
 	// ErrCors cross origin request blocked
 	ErrCors = errors.New("cross origin request blocked")
+	// ErrCallBack callback
+	ErrCallBack = errors.New("callback")
 	// ErrUnExpected unexpected error
 	ErrUnExpected = errors.New("unexpected")
 )

@@ -4,30 +4,45 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
 )
 
 // Redirect helper function for return url and redirect error
-func Redirect(url string, code int) (string, error) {
+func Redirect(url string, code int) (Callback, error) {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		http.Redirect(w, r, url, code)
+		return nil
+	}, ErrCallBack
+}
 
-	var err error
+func ServeFile(filePath string) (Callback, error) {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		f, err := os.Open(filePath)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
 
-	switch code {
-	case http.StatusMovedPermanently:
-		err = ErrMovedPermanently
-	case http.StatusFound:
-		err = ErrFound
-	case http.StatusTemporaryRedirect:
-		err = ErrTemporaryRedirect
-	case http.StatusPermanentRedirect:
-		err = ErrPermanentRedirect
-	default:
-		err = ErrFound
-	}
+		fi, err := f.Stat()
+		if err != nil {
+			return err
+		}
 
-	return url, err
+		ext := filepath.Ext(filePath)
+
+		switch ext {
+		case ".json":
+			w.Header().Set("Content-Type", "application/json")
+		}
+		w.Header().Set("Content-Length", strconv.FormatInt(fi.Size(), 10))
+
+		http.ServeContent(w, r, fi.Name(), fi.ModTime(), f)
+		return nil
+	}, ErrCallBack
 }
 
 // TryParse try parse val to v

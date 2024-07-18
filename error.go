@@ -31,4 +31,9 @@ var (
 	ErrCallBack = errors.New("callback")
 	// ErrUnExpected unexpected error
 	ErrUnExpected = errors.New("unexpected")
+
+	// ErrNotVerified object not verified
+	ErrNotVerified = errors.New("object not verified")
+	// ErrInvalid object invalid
+	ErrInvalid = errors.New("object invalid")
 )

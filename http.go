@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -106,7 +107,7 @@ func Do(method string, url string, accessToken string, body io.Reader, v any, be
 		if err := json.NewDecoder(resp.Body).Decode(&errMessage); err != nil {
 			return err
 		}
-		return errors.New(errMessage)
+		return fmt.Errorf("%w: %s", ErrBadRequest, errMessage)
 	case http.StatusUnauthorized:
 		return ErrUnauthorized
 	case http.StatusForbidden:
@@ -126,6 +127,10 @@ func TryGet(url string, accessToken string, v any, retry int, before ...func(r *
 	for i := retry; i > 0; i-- {
 
 		if err = Get(url, accessToken, v, before...); err == nil {
+			break
+		}
+
+		if err == ErrUnauthorized || err == ErrForbidden || errors.Is(err, ErrBadRequest) {
 			break
 		}
 
@@ -150,6 +155,10 @@ func TryPost(url string, accessToken string, data any, v any, retry int, before 
 			break
 		}
 
+		if err == ErrUnauthorized || err == ErrForbidden || errors.Is(err, ErrBadRequest) {
+			break
+		}
+
 		time.Sleep(time.Second)
 	}
 
@@ -168,6 +177,10 @@ func TryPut(url string, accessToken string, data any, v any, retry int, before .
 	for i := retry; i > 0; i-- {
 
 		if err = Put(url, accessToken, data, v, before...); err == nil {
+			break
+		}
+
+		if err == ErrUnauthorized || err == ErrForbidden || errors.Is(err, ErrBadRequest) {
 			break
 		}
 
@@ -192,6 +205,10 @@ func TryPatch(url string, accessToken string, data any, v any, retry int, before
 			break
 		}
 
+		if err == ErrUnauthorized || err == ErrForbidden || errors.Is(err, ErrBadRequest) {
+			break
+		}
+
 		time.Sleep(time.Second)
 	}
 
@@ -213,6 +230,10 @@ func TryDelete(url string, accessToken string, v any, retry int, before ...func(
 			break
 		}
 
+		if err == ErrUnauthorized || err == ErrForbidden || errors.Is(err, ErrBadRequest) {
+			break
+		}
+
 		time.Sleep(time.Second)
 	}
 
@@ -231,6 +252,10 @@ func TryDo(method string, url string, accessToken string, body io.Reader, v any,
 	for i := retry; i > 0; i-- {
 
 		if err = Do(method, url, accessToken, body, v, before...); err == nil {
+			break
+		}
+
+		if err == ErrUnauthorized || err == ErrForbidden || errors.Is(err, ErrBadRequest) {
 			break
 		}
 

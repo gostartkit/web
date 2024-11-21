@@ -75,7 +75,9 @@ func Do(method string, url string, accessToken string, body io.Reader, v any, be
 		req.Header.Set("Accept", "application/json")
 	} else {
 		for _, fn := range before {
-			fn(req)
+			if fn != nil {
+				fn(req)
+			}
 		}
 	}
 

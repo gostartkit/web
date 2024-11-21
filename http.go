@@ -105,9 +105,44 @@ func Do(method string, url string, accessToken string, body io.Reader, v any, be
 	case http.StatusBadRequest:
 		errMessage := ""
 		if err := json.NewDecoder(resp.Body).Decode(&errMessage); err != nil {
-			return err
+			return fmt.Errorf("%w: %s", ErrBadRequest, err)
 		}
 		return fmt.Errorf("%w: %s", ErrBadRequest, errMessage)
+	case http.StatusUnauthorized:
+		return ErrUnauthorized
+	case http.StatusForbidden:
+		return ErrForbidden
+	case http.StatusNotFound:
+		return ErrNotFound
+	default:
+		return ErrUnExpected
+	}
+}
+
+// DoReq do http request
+func DoReq(req *http.Request, v any, e any) error {
+
+	resp, err := http.DefaultClient.Do(req)
+
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusCreated, http.StatusAccepted:
+		if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
+			return err
+		}
+		return nil
+	case http.StatusNoContent:
+		return nil
+	case http.StatusBadRequest:
+		if err := json.NewDecoder(resp.Body).Decode(e); err != nil {
+			return fmt.Errorf("%w: %s", ErrBadRequest, err)
+		}
+		return nil
 	case http.StatusUnauthorized:
 		return ErrUnauthorized
 	case http.StatusForbidden:

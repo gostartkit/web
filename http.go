@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"time"
 )
 
 // Get http get
@@ -114,4 +115,130 @@ func Do(method string, url string, accessToken string, body io.Reader, v any, be
 	default:
 		return ErrUnExpected
 	}
+}
+
+// TryGet
+func TryGet(url string, accessToken string, v any, retry int) error {
+
+	var err error
+
+	for i := retry; i > 0; i-- {
+
+		if err = Get(url, accessToken, v); err == nil {
+			break
+		}
+
+		time.Sleep(time.Second)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// TryPost
+func TryPost(url string, accessToken string, data any, v any, retry int) error {
+
+	var err error
+
+	for i := retry; i > 0; i-- {
+
+		if err = Post(url, accessToken, data, v); err == nil {
+			break
+		}
+
+		time.Sleep(time.Second)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// TryPut
+func TryPut(url string, accessToken string, data any, v any, retry int) error {
+
+	var err error
+
+	for i := retry; i > 0; i-- {
+
+		if err = Put(url, accessToken, data, v); err == nil {
+			break
+		}
+
+		time.Sleep(time.Second)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// TryPatch
+func TryPatch(url string, accessToken string, data any, v any, retry int) error {
+
+	var err error
+
+	for i := retry; i > 0; i-- {
+
+		if err = Patch(url, accessToken, data, v); err == nil {
+			break
+		}
+
+		time.Sleep(time.Second)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// TryDelete
+func TryDelete(url string, accessToken string, v any, retry int) error {
+
+	var err error
+
+	for i := retry; i > 0; i-- {
+
+		if err = Delete(url, accessToken, v); err == nil {
+			break
+		}
+
+		time.Sleep(time.Second)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// TryDo
+func TryDo(method string, url string, accessToken string, body io.Reader, v any, before func(r *http.Request), failure func(statusCode int, body io.ReadCloser) error, retry int) error {
+
+	var err error
+
+	for i := retry; i > 0; i-- {
+
+		if err = Do(method, url, accessToken, body, v, before, failure); err == nil {
+			break
+		}
+
+		time.Sleep(time.Second)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

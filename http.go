@@ -10,12 +10,12 @@ import (
 )
 
 // Get http get
-func Get(url string, accessToken string, v any) error {
-	return Do(http.MethodGet, url, accessToken, nil, v, nil, nil)
+func Get(url string, accessToken string, v any, before ...func(r *http.Request)) error {
+	return Do(http.MethodGet, url, accessToken, nil, v, before...)
 }
 
 // Post http post
-func Post(url string, accessToken string, data any, v any) error {
+func Post(url string, accessToken string, data any, v any, before ...func(r *http.Request)) error {
 
 	body := new(bytes.Buffer)
 
@@ -25,11 +25,11 @@ func Post(url string, accessToken string, data any, v any) error {
 		return err
 	}
 
-	return Do(http.MethodPost, url, accessToken, body, v, nil, nil)
+	return Do(http.MethodPost, url, accessToken, body, v, before...)
 }
 
 // Put http put
-func Put(url string, accessToken string, data any, v any) error {
+func Put(url string, accessToken string, data any, v any, before ...func(r *http.Request)) error {
 
 	body := new(bytes.Buffer)
 
@@ -39,11 +39,11 @@ func Put(url string, accessToken string, data any, v any) error {
 		return err
 	}
 
-	return Do(http.MethodPut, url, accessToken, body, v, nil, nil)
+	return Do(http.MethodPut, url, accessToken, body, v, before...)
 }
 
 // Patch http patch
-func Patch(url string, accessToken string, data any, v any) error {
+func Patch(url string, accessToken string, data any, v any, before ...func(r *http.Request)) error {
 
 	body := new(bytes.Buffer)
 
@@ -53,16 +53,16 @@ func Patch(url string, accessToken string, data any, v any) error {
 		return err
 	}
 
-	return Do(http.MethodPatch, url, accessToken, body, v, nil, nil)
+	return Do(http.MethodPatch, url, accessToken, body, v, before...)
 }
 
 // Delete http delete
-func Delete(url string, accessToken string, v any) error {
-	return Do(http.MethodDelete, url, accessToken, nil, v, nil, nil)
+func Delete(url string, accessToken string, v any, before ...func(r *http.Request)) error {
+	return Do(http.MethodDelete, url, accessToken, nil, v, before...)
 }
 
 // Do do http request
-func Do(method string, url string, accessToken string, body io.Reader, v any, before func(r *http.Request), failure func(statusCode int, body io.ReadCloser) error) error {
+func Do(method string, url string, accessToken string, body io.Reader, v any, before ...func(r *http.Request)) error {
 
 	req, err := http.NewRequest(method, url, body)
 
@@ -74,7 +74,9 @@ func Do(method string, url string, accessToken string, body io.Reader, v any, be
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
 	} else {
-		before(req)
+		for _, fn := range before {
+			fn(req)
+		}
 	}
 
 	if accessToken != "" {
@@ -98,9 +100,6 @@ func Do(method string, url string, accessToken string, body io.Reader, v any, be
 	case http.StatusNoContent:
 		return nil
 	case http.StatusBadRequest:
-		if failure != nil {
-			return failure(resp.StatusCode, resp.Body)
-		}
 		errMessage := ""
 		if err := json.NewDecoder(resp.Body).Decode(&errMessage); err != nil {
 			return err
@@ -118,13 +117,13 @@ func Do(method string, url string, accessToken string, body io.Reader, v any, be
 }
 
 // TryGet
-func TryGet(url string, accessToken string, v any, retry int) error {
+func TryGet(url string, accessToken string, v any, retry int, before ...func(r *http.Request)) error {
 
 	var err error
 
 	for i := retry; i > 0; i-- {
 
-		if err = Get(url, accessToken, v); err == nil {
+		if err = Get(url, accessToken, v, before...); err == nil {
 			break
 		}
 
@@ -139,13 +138,13 @@ func TryGet(url string, accessToken string, v any, retry int) error {
 }
 
 // TryPost
-func TryPost(url string, accessToken string, data any, v any, retry int) error {
+func TryPost(url string, accessToken string, data any, v any, retry int, before ...func(r *http.Request)) error {
 
 	var err error
 
 	for i := retry; i > 0; i-- {
 
-		if err = Post(url, accessToken, data, v); err == nil {
+		if err = Post(url, accessToken, data, v, before...); err == nil {
 			break
 		}
 
@@ -160,13 +159,13 @@ func TryPost(url string, accessToken string, data any, v any, retry int) error {
 }
 
 // TryPut
-func TryPut(url string, accessToken string, data any, v any, retry int) error {
+func TryPut(url string, accessToken string, data any, v any, retry int, before ...func(r *http.Request)) error {
 
 	var err error
 
 	for i := retry; i > 0; i-- {
 
-		if err = Put(url, accessToken, data, v); err == nil {
+		if err = Put(url, accessToken, data, v, before...); err == nil {
 			break
 		}
 
@@ -181,13 +180,13 @@ func TryPut(url string, accessToken string, data any, v any, retry int) error {
 }
 
 // TryPatch
-func TryPatch(url string, accessToken string, data any, v any, retry int) error {
+func TryPatch(url string, accessToken string, data any, v any, retry int, before ...func(r *http.Request)) error {
 
 	var err error
 
 	for i := retry; i > 0; i-- {
 
-		if err = Patch(url, accessToken, data, v); err == nil {
+		if err = Patch(url, accessToken, data, v, before...); err == nil {
 			break
 		}
 
@@ -202,13 +201,13 @@ func TryPatch(url string, accessToken string, data any, v any, retry int) error 
 }
 
 // TryDelete
-func TryDelete(url string, accessToken string, v any, retry int) error {
+func TryDelete(url string, accessToken string, v any, retry int, before ...func(r *http.Request)) error {
 
 	var err error
 
 	for i := retry; i > 0; i-- {
 
-		if err = Delete(url, accessToken, v); err == nil {
+		if err = Delete(url, accessToken, v, before...); err == nil {
 			break
 		}
 
@@ -223,13 +222,13 @@ func TryDelete(url string, accessToken string, v any, retry int) error {
 }
 
 // TryDo
-func TryDo(method string, url string, accessToken string, body io.Reader, v any, before func(r *http.Request), failure func(statusCode int, body io.ReadCloser) error, retry int) error {
+func TryDo(method string, url string, accessToken string, body io.Reader, v any, retry int, before ...func(r *http.Request)) error {
 
 	var err error
 
 	for i := retry; i > 0; i-- {
 
-		if err = Do(method, url, accessToken, body, v, before, failure); err == nil {
+		if err = Do(method, url, accessToken, body, v, before...); err == nil {
 			break
 		}
 

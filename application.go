@@ -5,7 +5,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"sync"
 )
 
@@ -209,7 +208,6 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 				if rel, ok := val.(IRelease); ok {
 					rel.Release()
-					val = nil
 				}
 			} else {
 				w.WriteHeader(http.StatusNoContent)
@@ -351,11 +349,9 @@ func (app *Application) Inspect() string {
 
 // logf write log
 func (app *Application) logf(format string, v ...any) {
-	if app.logger == nil {
-		app.logger = log.New(os.Stdout, "", log.Ldate|log.Ltime)
+	if app.logger != nil {
+		app.logger.Printf(format, v...)
 	}
-
-	app.logger.Printf(format, v...)
 }
 
 func (app *Application) getParams() *Params {

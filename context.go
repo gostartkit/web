@@ -605,6 +605,16 @@ func (c *Ctx) SetVersion(version string) {
 	c.set("version", version)
 }
 
+// SetCookie adds a Set-Cookie header to the provided [ResponseWriter]'s headers. The provided cookie must have a valid Name. Invalid cookies may be silently dropped.
+func (c *Ctx) SetCookie(cookie *http.Cookie) {
+	http.SetCookie(c.w, cookie)
+}
+
+// Cookie returns the named cookie provided in the request or [ErrNoCookie] if not found. If multiple cookies match the given name, only one cookie will be returned.
+func (c *Ctx) Cookie(name string) (*http.Cookie, error) {
+	return c.r.Cookie(name)
+}
+
 // Get Get header, short hand of r.Header.Get
 func (c *Ctx) Get(key string) string {
 	return c.r.Header.Get(key)

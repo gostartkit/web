@@ -136,6 +136,11 @@ func (c *Ctx) SetOrigin(origin string) {
 	c.set("Access-Control-Allow-Origin", origin)
 }
 
+// AllowCredentials set `Access-Control-Allow-Credentials` header with true
+func (c *Ctx) AllowCredentials() {
+	c.set("Access-Control-Allow-Credentials", "true")
+}
+
 // UserAgent return User-Agent header
 func (c *Ctx) UserAgent() string {
 	return c.Get("User-Agent")

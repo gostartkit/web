@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"sort"
 	"sync"
 )
 
@@ -238,6 +239,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *Application) allowed(path, reqMethod string) []string {
+
 	allowed := make([]string, 0, 9)
 
 	if path == "*" { // server-wide
@@ -272,11 +274,7 @@ func (app *Application) allowed(path, reqMethod string) []string {
 
 		allowed = append(allowed, http.MethodOptions)
 
-		for i, l := 1, len(allowed); i < l; i++ {
-			for j := i; j > 0 && allowed[j] < allowed[j-1]; j-- {
-				allowed[j], allowed[j-1] = allowed[j-1], allowed[j]
-			}
-		}
+		sort.Strings(allowed)
 	}
 
 	return allowed

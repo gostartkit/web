@@ -21,7 +21,7 @@ var (
 		}}
 )
 
-// createCtx return a web.Ctx
+// createCtx returns a new instance of web.Ctx, initialized with the given HTTP response writer, request, and parameters.
 func createCtx(w http.ResponseWriter, r *http.Request, params *Params) *Ctx {
 
 	c := _ctxPool.Get().(*Ctx)
@@ -37,13 +37,14 @@ func createCtx(w http.ResponseWriter, r *http.Request, params *Params) *Ctx {
 	return c
 }
 
+// releaseCtx puts the context object back into the pool for reuse.
 func releaseCtx(c *Ctx) {
 	if c != nil {
 		_ctxPool.Put(c)
 	}
 }
 
-// Ctx is type of an web.Ctx
+// Ctx represents the context for a web request, holding relevant request data and response methods.
 type Ctx struct {
 	w           http.ResponseWriter
 	r           *http.Request
@@ -55,28 +56,28 @@ type Ctx struct {
 	contentType *string
 }
 
-// Init init context
+// Init initializes the context with user ID and user rights.
 func (c *Ctx) Init(userID uint64, userRight int64) {
 	c.userID = userID
 	c.userRight = userRight
 }
 
-// UserID get userID
+// UserID returns the user ID from the context.
 func (c *Ctx) UserID() uint64 {
 	return c.userID
 }
 
-// UserRight get UserRight
+// UserRight returns the user rights from the context.
 func (c *Ctx) UserRight() int64 {
 	return c.userRight
 }
 
-// Param get value from Params
+// Param retrieves a parameter value by name from the Params.
 func (c *Ctx) Param(name string) string {
 	return c.param.Val(name)
 }
 
-// Query get value from QueryString
+// Query retrieves a query string parameter by name from the request URL.
 func (c *Ctx) Query(name string) string {
 	if c.query == nil {
 		query := c.r.URL.Query()
@@ -85,73 +86,73 @@ func (c *Ctx) Query(name string) string {
 	return c.query.Get(name)
 }
 
-// Form get value from Form
+// Form retrieves a form value by name from the request.
 func (c *Ctx) Form(name string) string {
 	return c.r.FormValue(name)
 }
 
-// FormFile returns the first file for the provided form key.
-// FormFile calls [Request.ParseMultipartForm] and [Request.ParseForm] if necessary.
+// FormFile retrieves the first file uploaded for the specified form key.
+// It calls Request.ParseMultipartForm and Request.ParseForm if needed.
 func (c *Ctx) FormFile(key string) (multipart.File, *multipart.FileHeader, error) {
 	return c.r.FormFile(key)
 }
 
-// Host return c.r.Host
+// Host returns the host from the request header.
 func (c *Ctx) Host() string {
 	return c.r.Host
 }
 
-// Path return c.r.URL.Path
+// Path returns the path from the request URL.
 func (c *Ctx) Path() string {
 	return c.r.URL.Path
 }
 
-// Path return c.r.Body
+// Body returns the request body.
 func (c *Ctx) Body() io.ReadCloser {
 	return c.r.Body
 }
 
-// Method return c.r.Method
+// Method returns the HTTP method (GET, POST, etc.) used for the request.
 func (c *Ctx) Method() string {
 	return c.r.Method
 }
 
-// RemoteAddr return remote ip address
+// RemoteAddr returns the remote IP address of the client making the request.
 func (c *Ctx) RemoteAddr() string {
 	return c.r.RemoteAddr
 }
 
-// BearerToken return bearer token
+// BearerToken retrieves the Bearer token from the Authorization header.
 func (c *Ctx) BearerToken() string {
 	return bearerToken(c.Get("Authorization"))
 }
 
-// Origin return Origin header
+// Origin returns the Origin header from the request.
 func (c *Ctx) Origin() string {
 	return c.Get("Origin")
 }
 
-// SetOrigin set `Access-Control-Allow-Origin` header
+// SetOrigin sets the "Access-Control-Allow-Origin" header in the response.
 func (c *Ctx) SetOrigin(origin string) {
 	c.set("Access-Control-Allow-Origin", origin)
 }
 
-// AllowCredentials set `Access-Control-Allow-Credentials` header with true
+// AllowCredentials sets the "Access-Control-Allow-Credentials" header to true in the response.
 func (c *Ctx) AllowCredentials() {
 	c.set("Access-Control-Allow-Credentials", "true")
 }
 
-// UserAgent return User-Agent header
+// UserAgent returns the User-Agent header from the request.
 func (c *Ctx) UserAgent() string {
 	return c.Get("User-Agent")
 }
 
-// IsAjax if X-Requested-With header is XMLHttpRequest return true, else false
+// IsAjax checks if the request is an AJAX request based on the "X-Requested-With" header.
 func (c *Ctx) IsAjax() bool {
 	return c.Get("X-Requested-With") == "XMLHttpRequest"
 }
 
-// TryParseBody decode val from Request.Body
+// TryParseBody attempts to parse the request body based on its Content-Type and decode it into the provided value.
 func (c *Ctx) TryParseBody(val any) error {
 	switch {
 	case strings.HasPrefix(c.ContentType(), "application/json"):
@@ -167,22 +168,22 @@ func (c *Ctx) TryParseBody(val any) error {
 	}
 }
 
-// TryParseParam decode val from Query
+// TryParseParam attempts to parse a parameter value from the URL parameters.
 func (c *Ctx) TryParseParam(name string, val any) error {
 	return TryParse(c.Param(name), val)
 }
 
-// TryParseQuery decode val from Query
+// TryParseQuery attempts to parse a query string parameter value.
 func (c *Ctx) TryParseQuery(name string, val any) error {
 	return TryParse(c.Query(name), val)
 }
 
-// TryParseForm decode val from Form
+// TryParseForm attempts to parse a form value by name.
 func (c *Ctx) TryParseForm(name string, val any) error {
 	return TryParse(c.Form(name), val)
 }
 
-// ParamInt decode val from Param by name
+// ParamInt attempts to parse an integer from the URL parameter by name.
 func (c *Ctx) ParamInt(name string) (int, error) {
 	n, err := strconv.ParseInt(c.Param(name), 10, 0)
 	if err != nil {
@@ -191,7 +192,7 @@ func (c *Ctx) ParamInt(name string) (int, error) {
 	return int(n), nil
 }
 
-// ParamUint decode val from Param by name
+// ParamUint attempts to parse an unsigned integer from the URL parameter by name.
 func (c *Ctx) ParamUint(name string) (uint, error) {
 	n, err := strconv.ParseUint(c.Param(name), 10, 0)
 	if err != nil {
@@ -200,7 +201,7 @@ func (c *Ctx) ParamUint(name string) (uint, error) {
 	return uint(n), nil
 }
 
-// ParamInt8 decode val from Param by name
+// ParamInt8 attempts to parse an int8 from the URL parameter by name.
 func (c *Ctx) ParamInt8(name string) (int8, error) {
 	n, err := strconv.ParseInt(c.Param(name), 10, 8)
 	if err != nil {
@@ -209,7 +210,7 @@ func (c *Ctx) ParamInt8(name string) (int8, error) {
 	return int8(n), nil
 }
 
-// ParamUint8 decode val from Param by name
+// ParamUint8 attempts to parse a uint8 from the URL parameter by name.
 func (c *Ctx) ParamUint8(name string) (uint8, error) {
 	n, err := strconv.ParseUint(c.Param(name), 10, 8)
 	if err != nil {
@@ -218,7 +219,7 @@ func (c *Ctx) ParamUint8(name string) (uint8, error) {
 	return uint8(n), nil
 }
 
-// ParamInt16 decode val from Param by name
+// ParamInt16 attempts to parse an int16 from the URL parameter by name.
 func (c *Ctx) ParamInt16(name string) (int16, error) {
 	n, err := strconv.ParseInt(c.Param(name), 10, 16)
 	if err != nil {
@@ -227,7 +228,7 @@ func (c *Ctx) ParamInt16(name string) (int16, error) {
 	return int16(n), nil
 }
 
-// ParamUint16 decode val from Param by name
+// ParamUint16 attempts to parse a uint16 from the URL parameter by name.
 func (c *Ctx) ParamUint16(name string) (uint16, error) {
 	n, err := strconv.ParseUint(c.Param(name), 10, 16)
 	if err != nil {
@@ -236,7 +237,7 @@ func (c *Ctx) ParamUint16(name string) (uint16, error) {
 	return uint16(n), nil
 }
 
-// ParamInt32 decode val from Param by name
+// ParamInt32 attempts to parse an int32 from the URL parameter by name.
 func (c *Ctx) ParamInt32(name string) (int32, error) {
 	n, err := strconv.ParseInt(c.Param(name), 10, 32)
 	if err != nil {
@@ -245,7 +246,7 @@ func (c *Ctx) ParamInt32(name string) (int32, error) {
 	return int32(n), nil
 }
 
-// ParamUint32 decode val from Param by name
+// ParamUint32 attempts to parse a uint32 from the URL parameter by name.
 func (c *Ctx) ParamUint32(name string) (uint32, error) {
 	n, err := strconv.ParseUint(c.Param(name), 10, 32)
 	if err != nil {
@@ -254,7 +255,7 @@ func (c *Ctx) ParamUint32(name string) (uint32, error) {
 	return uint32(n), nil
 }
 
-// ParamInt64 decode val from Param by name
+// ParamInt64 attempts to parse an int64 from the URL parameter by name.
 func (c *Ctx) ParamInt64(name string) (int64, error) {
 	n, err := strconv.ParseInt(c.Param(name), 10, 64)
 	if err != nil {
@@ -263,7 +264,7 @@ func (c *Ctx) ParamInt64(name string) (int64, error) {
 	return n, nil
 }
 
-// ParamUint64 decode val from Param by name
+// ParamUint64 attempts to parse a uint64 from the URL parameter by name.
 func (c *Ctx) ParamUint64(name string) (uint64, error) {
 	n, err := strconv.ParseUint(c.Param(name), 10, 64)
 	if err != nil {
@@ -272,7 +273,7 @@ func (c *Ctx) ParamUint64(name string) (uint64, error) {
 	return n, nil
 }
 
-// ParamFloat32 decode val from Param by name
+// ParamFloat32 attempts to parse a float32 from the URL parameter by name.
 func (c *Ctx) ParamFloat32(name string) (float32, error) {
 	n, err := strconv.ParseFloat(c.Param(name), 32)
 	if err != nil {
@@ -281,7 +282,7 @@ func (c *Ctx) ParamFloat32(name string) (float32, error) {
 	return float32(n), nil
 }
 
-// ParamFloat64 decode val from Param by name
+// ParamFloat64 attempts to parse a float64 from the URL parameter by name.
 func (c *Ctx) ParamFloat64(name string) (float64, error) {
 	n, err := strconv.ParseFloat(c.Param(name), 64)
 	if err != nil {
@@ -290,7 +291,7 @@ func (c *Ctx) ParamFloat64(name string) (float64, error) {
 	return n, nil
 }
 
-// ParamBool decode val from Param by name
+// ParamBool attempts to parse a bool from the URL parameter by name.
 func (c *Ctx) ParamBool(name string) (bool, error) {
 	n, err := strconv.ParseBool(c.Param(name))
 	if err != nil {
@@ -299,7 +300,7 @@ func (c *Ctx) ParamBool(name string) (bool, error) {
 	return n, nil
 }
 
-// QueryInt decode val from Query by name
+// QueryInt attempts to parse a int from the request URL by name.
 func (c *Ctx) QueryInt(name string) (int, error) {
 	n, err := strconv.ParseInt(c.Query(name), 10, 0)
 	if err != nil {
@@ -308,7 +309,7 @@ func (c *Ctx) QueryInt(name string) (int, error) {
 	return int(n), nil
 }
 
-// QueryUint decode val from Query by name
+// QueryUint attempts to parse a uint from the request URL by name.
 func (c *Ctx) QueryUint(name string) (uint, error) {
 	n, err := strconv.ParseUint(c.Query(name), 10, 0)
 	if err != nil {
@@ -317,7 +318,7 @@ func (c *Ctx) QueryUint(name string) (uint, error) {
 	return uint(n), nil
 }
 
-// QueryInt8 decode val from Query by name
+// QueryInt8 attempts to parse a int8 from the request URL by name.
 func (c *Ctx) QueryInt8(name string) (int8, error) {
 	n, err := strconv.ParseInt(c.Query(name), 10, 8)
 	if err != nil {
@@ -326,7 +327,7 @@ func (c *Ctx) QueryInt8(name string) (int8, error) {
 	return int8(n), nil
 }
 
-// QueryUint8 decode val from Query by name
+// QueryUint8 attempts to parse a uint8 from the request URL by name.
 func (c *Ctx) QueryUint8(name string) (uint8, error) {
 	n, err := strconv.ParseUint(c.Query(name), 10, 8)
 	if err != nil {
@@ -335,7 +336,7 @@ func (c *Ctx) QueryUint8(name string) (uint8, error) {
 	return uint8(n), nil
 }
 
-// QueryInt16 decode val from Query by name
+// QueryInt16 attempts to parse a int16 from the request URL by name.
 func (c *Ctx) QueryInt16(name string) (int16, error) {
 	n, err := strconv.ParseInt(c.Query(name), 10, 16)
 	if err != nil {
@@ -344,7 +345,7 @@ func (c *Ctx) QueryInt16(name string) (int16, error) {
 	return int16(n), nil
 }
 
-// QueryUint16 decode val from Query by name
+// QueryUint16 attempts to parse a uint16 from the request URL by name.
 func (c *Ctx) QueryUint16(name string) (uint16, error) {
 	n, err := strconv.ParseUint(c.Query(name), 10, 16)
 	if err != nil {
@@ -353,7 +354,7 @@ func (c *Ctx) QueryUint16(name string) (uint16, error) {
 	return uint16(n), nil
 }
 
-// QueryInt32 decode val from Query by name
+// QueryInt32 attempts to parse a int32 from the request URL by name.
 func (c *Ctx) QueryInt32(name string) (int32, error) {
 	n, err := strconv.ParseInt(c.Query(name), 10, 32)
 	if err != nil {
@@ -362,7 +363,7 @@ func (c *Ctx) QueryInt32(name string) (int32, error) {
 	return int32(n), nil
 }
 
-// QueryUint32 decode val from Query by name
+// QueryUint32 attempts to parse a uint32 from the request URL by name.
 func (c *Ctx) QueryUint32(name string) (uint32, error) {
 	n, err := strconv.ParseUint(c.Query(name), 10, 32)
 	if err != nil {
@@ -371,7 +372,7 @@ func (c *Ctx) QueryUint32(name string) (uint32, error) {
 	return uint32(n), nil
 }
 
-// QueryInt64 decode val from Query by name
+// QueryInt64 attempts to parse a int64 from the request URL by name.
 func (c *Ctx) QueryInt64(name string) (int64, error) {
 	n, err := strconv.ParseInt(c.Query(name), 10, 64)
 	if err != nil {
@@ -380,7 +381,7 @@ func (c *Ctx) QueryInt64(name string) (int64, error) {
 	return n, nil
 }
 
-// QueryUint64 decode val from Query by name
+// QueryUint64 attempts to parse a uint64 from the request URL by name.
 func (c *Ctx) QueryUint64(name string) (uint64, error) {
 	n, err := strconv.ParseUint(c.Query(name), 10, 64)
 	if err != nil {
@@ -389,7 +390,7 @@ func (c *Ctx) QueryUint64(name string) (uint64, error) {
 	return n, nil
 }
 
-// QueryFloat32 decode val from Query by name
+// QueryFloat32 attempts to parse a float32 from the request URL by name.
 func (c *Ctx) QueryFloat32(name string) (float32, error) {
 	n, err := strconv.ParseFloat(c.Query(name), 32)
 	if err != nil {
@@ -398,7 +399,7 @@ func (c *Ctx) QueryFloat32(name string) (float32, error) {
 	return float32(n), nil
 }
 
-// QueryFloat64 decode val from Query by name
+// QueryFloat64 attempts to parse a float64 from the request URL by name.
 func (c *Ctx) QueryFloat64(name string) (float64, error) {
 	n, err := strconv.ParseFloat(c.Query(name), 64)
 	if err != nil {
@@ -407,7 +408,7 @@ func (c *Ctx) QueryFloat64(name string) (float64, error) {
 	return n, nil
 }
 
-// QueryBool decode val from Query by name
+// QueryBool attempts to parse a bool from the request URL by name.
 func (c *Ctx) QueryBool(name string) (bool, error) {
 	n, err := strconv.ParseBool(c.Query(name))
 	if err != nil {
@@ -416,7 +417,7 @@ func (c *Ctx) QueryBool(name string) (bool, error) {
 	return n, nil
 }
 
-// FormIn decode val from Form by name
+// FormIn attempts to parse a int from form value by name.
 func (c *Ctx) FormInt(name string) (int, error) {
 	n, err := strconv.ParseInt(c.Form(name), 10, 0)
 	if err != nil {
@@ -425,7 +426,7 @@ func (c *Ctx) FormInt(name string) (int, error) {
 	return int(n), nil
 }
 
-// FormUint decode val from Form by name
+// FormUint attempts to parse a uint from form value by name.
 func (c *Ctx) FormUint(name string) (uint, error) {
 	n, err := strconv.ParseUint(c.Form(name), 10, 0)
 	if err != nil {
@@ -434,7 +435,7 @@ func (c *Ctx) FormUint(name string) (uint, error) {
 	return uint(n), nil
 }
 
-// FormInt8 decode val from Form by name
+// FormInt8 attempts to parse a int8 from form value by name.
 func (c *Ctx) FormInt8(name string) (int8, error) {
 	n, err := strconv.ParseInt(c.Form(name), 10, 8)
 	if err != nil {
@@ -443,7 +444,7 @@ func (c *Ctx) FormInt8(name string) (int8, error) {
 	return int8(n), nil
 }
 
-// FormUint8 decode val from Form by name
+// FormUint8 attempts to parse a uint8 from form value by name.
 func (c *Ctx) FormUint8(name string) (uint8, error) {
 	n, err := strconv.ParseUint(c.Form(name), 10, 8)
 	if err != nil {
@@ -452,7 +453,7 @@ func (c *Ctx) FormUint8(name string) (uint8, error) {
 	return uint8(n), nil
 }
 
-// FormInt16 decode val from Form by name
+// FormInt16 attempts to parse a int16 from form value by name.
 func (c *Ctx) FormInt16(name string) (int16, error) {
 	n, err := strconv.ParseInt(c.Form(name), 10, 16)
 	if err != nil {
@@ -461,7 +462,7 @@ func (c *Ctx) FormInt16(name string) (int16, error) {
 	return int16(n), nil
 }
 
-// FormUint16 decode val from Form by name
+// FormUint16 attempts to parse a uint16 from form value by name.
 func (c *Ctx) FormUint16(name string) (uint16, error) {
 	n, err := strconv.ParseUint(c.Form(name), 10, 16)
 	if err != nil {
@@ -470,7 +471,7 @@ func (c *Ctx) FormUint16(name string) (uint16, error) {
 	return uint16(n), nil
 }
 
-// FormInt32 decode val from Form by name
+// FormInt32 attempts to parse a int32 from form value by name.
 func (c *Ctx) FormInt32(name string) (int32, error) {
 	n, err := strconv.ParseInt(c.Form(name), 10, 32)
 	if err != nil {
@@ -479,7 +480,7 @@ func (c *Ctx) FormInt32(name string) (int32, error) {
 	return int32(n), nil
 }
 
-// FormUint32 decode val from Form by name
+// FormUint32 attempts to parse a uint32 from form value by name.
 func (c *Ctx) FormUint32(name string) (uint32, error) {
 	n, err := strconv.ParseUint(c.Form(name), 10, 32)
 	if err != nil {
@@ -488,7 +489,7 @@ func (c *Ctx) FormUint32(name string) (uint32, error) {
 	return uint32(n), nil
 }
 
-// FormInt64 decode val from Form by name
+// FormInt64 attempts to parse a int64 from form value by name.
 func (c *Ctx) FormInt64(name string) (int64, error) {
 	n, err := strconv.ParseInt(c.Form(name), 10, 64)
 	if err != nil {
@@ -497,7 +498,7 @@ func (c *Ctx) FormInt64(name string) (int64, error) {
 	return n, nil
 }
 
-// FormUint64 decode val from Form by name
+// FormUint64 attempts to parse a uint64 from form value by name.
 func (c *Ctx) FormUint64(name string) (uint64, error) {
 	n, err := strconv.ParseUint(c.Form(name), 10, 64)
 	if err != nil {
@@ -506,7 +507,7 @@ func (c *Ctx) FormUint64(name string) (uint64, error) {
 	return n, nil
 }
 
-// FormFloat32 decode val from Form by name
+// FormFloat32 attempts to parse a float32 from form value by name.
 func (c *Ctx) FormFloat32(name string) (float32, error) {
 	n, err := strconv.ParseFloat(c.Form(name), 32)
 	if err != nil {
@@ -515,7 +516,7 @@ func (c *Ctx) FormFloat32(name string) (float32, error) {
 	return float32(n), nil
 }
 
-// FormFloat64 decode val from Form by name
+// FormFloat64 attempts to parse a float64 from form value by name.
 func (c *Ctx) FormFloat64(name string) (float64, error) {
 	n, err := strconv.ParseFloat(c.Form(name), 64)
 	if err != nil {
@@ -524,7 +525,7 @@ func (c *Ctx) FormFloat64(name string) (float64, error) {
 	return n, nil
 }
 
-// FormBool decode val from Form by name
+// FormBool attempts to parse a bool from form value by name.
 func (c *Ctx) FormBool(name string) (bool, error) {
 	n, err := strconv.ParseBool(c.Form(name))
 	if err != nil {

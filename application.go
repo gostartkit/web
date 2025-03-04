@@ -173,7 +173,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					code = http.StatusNotImplemented
 				}
 
-				if val != nil && err == ErrCallBack {
+				if val != nil && err == ErrCallback {
 
 					if cb, ok := val.(Callback); ok {
 						if err := cb(w, r); err != nil {

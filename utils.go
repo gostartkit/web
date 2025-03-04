@@ -16,7 +16,7 @@ func Redirect(url string, code int) (Callback, error) {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		http.Redirect(w, r, url, code)
 		return nil
-	}, ErrCallBack
+	}, ErrCallback
 }
 
 func ServeFile(filePath string) (Callback, error) {
@@ -42,7 +42,7 @@ func ServeFile(filePath string) (Callback, error) {
 
 		http.ServeContent(w, r, fi.Name(), fi.ModTime(), f)
 		return nil
-	}, ErrCallBack
+	}, ErrCallback
 }
 
 // TryParse try parse val to v

@@ -124,7 +124,7 @@ func DoReq(req *http.Request, v any, failure func(statusCode int, body io.ReadCl
 	case http.StatusNotFound:
 		return ErrNotFound
 	default:
-		return ErrUnExpected
+		return ErrUnexpected
 	}
 }
 

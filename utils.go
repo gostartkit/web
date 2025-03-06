@@ -287,7 +287,7 @@ func tryParse(val string, v *reflect.Value) error {
 		v.SetBool(n)
 		return nil
 	default:
-		return fmt.Errorf("tryParse(unsupported type '%s')", v.Type().String())
+		return fmt.Errorf("tryParse: unsupported type '%s'", v.Type().String())
 	}
 
 }

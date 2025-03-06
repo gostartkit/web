@@ -53,83 +53,233 @@ func TryParse(val string, v any) error {
 	}
 
 	if v == nil {
-		return errors.New("TryParse(nil)")
+		return errors.New("TryParse: nil pointer")
 	}
 
-	rv := reflect.ValueOf(v)
-
-	if rv.Kind() != reflect.Ptr {
-		return errors.New("TryParse(non-pointer " + reflect.TypeOf(v).String() + ")")
-	}
-
-	if rv.IsNil() {
-		return errors.New("TryParse(nil)")
-	}
-
-	if rv.Kind() == reflect.Ptr && !rv.IsNil() {
+	switch dest := v.(type) {
+	case *string:
+		*dest = val
+		return nil
+	case *int:
+		n, err := strconv.ParseInt(val, 10, 0)
+		if err != nil {
+			return err
+		}
+		*dest = int(n)
+		return nil
+	case *int8:
+		n, err := strconv.ParseInt(val, 10, 8)
+		if err != nil {
+			return err
+		}
+		*dest = int8(n)
+		return nil
+	case *int16:
+		n, err := strconv.ParseInt(val, 10, 16)
+		if err != nil {
+			return err
+		}
+		*dest = int16(n)
+		return nil
+	case *int32:
+		n, err := strconv.ParseInt(val, 10, 32)
+		if err != nil {
+			return err
+		}
+		*dest = int32(n)
+		return nil
+	case *int64:
+		n, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			return err
+		}
+		*dest = n
+		return nil
+	case *uint:
+		n, err := strconv.ParseUint(val, 10, 0)
+		if err != nil {
+			return err
+		}
+		*dest = uint(n)
+		return nil
+	case *uint8:
+		n, err := strconv.ParseUint(val, 10, 8)
+		if err != nil {
+			return err
+		}
+		*dest = uint8(n)
+		return nil
+	case *uint16:
+		n, err := strconv.ParseUint(val, 10, 16)
+		if err != nil {
+			return err
+		}
+		*dest = uint16(n)
+		return nil
+	case *uint32:
+		n, err := strconv.ParseUint(val, 10, 32)
+		if err != nil {
+			return err
+		}
+		*dest = uint32(n)
+		return nil
+	case *uint64:
+		n, err := strconv.ParseUint(val, 10, 64)
+		if err != nil {
+			return err
+		}
+		*dest = n
+		return nil
+	case *float32:
+		n, err := strconv.ParseFloat(val, 32)
+		if err != nil {
+			return err
+		}
+		*dest = float32(n)
+		return nil
+	case *float64:
+		n, err := strconv.ParseFloat(val, 64)
+		if err != nil {
+			return err
+		}
+		*dest = n
+		return nil
+	case *bool:
+		n, err := strconv.ParseBool(val)
+		if err != nil {
+			return err
+		}
+		*dest = n
+		return nil
+	default:
+		rv := reflect.ValueOf(v)
+		if rv.Kind() != reflect.Ptr {
+			return fmt.Errorf("TryParse: non-pointer %s", reflect.TypeOf(v).String())
+		}
+		if rv.IsNil() {
+			return errors.New("TryParse: nil pointer")
+		}
 		rv = rv.Elem()
+		if !rv.CanSet() {
+			return errors.New("TryParse: cannot set value")
+		}
+		return tryParse(val, &rv)
 	}
 
-	if !rv.CanSet() {
-		return errors.New("TryParse(can not set value to v)")
-	}
-
-	return tryParse(val, &rv)
 }
 
 // tryParse try parse val to v
 func tryParse(val string, v *reflect.Value) error {
 
-	if v.Kind() == reflect.Ptr {
+	retry := 3
+
+	for v.Kind() == reflect.Ptr {
 		if v.IsNil() {
 			v.Set(reflect.New(v.Type().Elem()))
 		}
 		*v = v.Elem()
+		if retry--; retry < 0 {
+			return errors.New("tryParse: invalid pointer")
+		}
 	}
 
 	if !v.IsValid() {
-		return errors.New("tryParse(rv invalid)")
+		return errors.New("tryParse: invalid value")
 	}
 
 	if !v.CanSet() {
-		return errors.New("tryParse(can not set value to rv)")
+		return errors.New("tryParse: unsettable value")
 	}
 
-	switch v.Kind() {
-	case reflect.String:
+	switch v.Interface().(type) {
+	case string:
 		v.SetString(val)
 		return nil
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+	case int:
+		n, err := strconv.ParseInt(val, 10, 0)
+		if err != nil {
+			return err
+		}
+		v.SetInt(n)
+		return nil
+	case int8:
+		n, err := strconv.ParseInt(val, 10, 8)
+		if err != nil {
+			return err
+		}
+		v.SetInt(n)
+		return nil
+	case int16:
+		n, err := strconv.ParseInt(val, 10, 16)
+		if err != nil {
+			return err
+		}
+		v.SetInt(n)
+		return nil
+	case int32:
+		n, err := strconv.ParseInt(val, 10, 32)
+		if err != nil {
+			return err
+		}
+		v.SetInt(n)
+		return nil
+	case int64:
 		n, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
 			return err
 		}
-		if v.OverflowInt(n) {
-			return errors.New("tryParse(reflect.Value.OverflowInt)")
-		}
 		v.SetInt(n)
 		return nil
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+	case uint:
+		n, err := strconv.ParseUint(val, 10, 0)
+		if err != nil {
+			return err
+		}
+		v.SetUint(n)
+		return nil
+	case uint8:
+		n, err := strconv.ParseUint(val, 10, 8)
+		if err != nil {
+			return err
+		}
+		v.SetUint(n)
+		return nil
+	case uint16:
+		n, err := strconv.ParseUint(val, 10, 16)
+		if err != nil {
+			return err
+		}
+		v.SetUint(n)
+		return nil
+	case uint32:
+		n, err := strconv.ParseUint(val, 10, 32)
+		if err != nil {
+			return err
+		}
+		v.SetUint(n)
+		return nil
+	case uint64:
 		n, err := strconv.ParseUint(val, 10, 64)
 		if err != nil {
 			return err
 		}
-		if v.OverflowUint(n) {
-			return errors.New("tryParse(reflect.Value.OverflowUint)")
-		}
 		v.SetUint(n)
 		return nil
-	case reflect.Float32, reflect.Float64:
-		n, err := strconv.ParseFloat(val, v.Type().Bits())
+	case float32:
+		n, err := strconv.ParseFloat(val, 32)
 		if err != nil {
 			return err
 		}
-		if v.OverflowFloat(n) {
-			return errors.New("tryParse(reflect.Value.OverflowFloat)")
+		v.SetFloat(n)
+		return nil
+	case float64:
+		n, err := strconv.ParseFloat(val, 64)
+		if err != nil {
+			return err
 		}
 		v.SetFloat(n)
 		return nil
-	case reflect.Bool:
+	case bool:
 		n, err := strconv.ParseBool(val)
 		if err != nil {
 			return err
@@ -139,6 +289,7 @@ func tryParse(val string, v *reflect.Value) error {
 	default:
 		return fmt.Errorf("tryParse(unsupported type '%s')", v.Type().String())
 	}
+
 }
 
 // bearerToken return token

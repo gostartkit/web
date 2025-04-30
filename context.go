@@ -606,9 +606,19 @@ func (c *Ctx) SetContentType(val string) {
 	c.set("Content-Type", val)
 }
 
+// SetCacheControl Set Cache-Control to header
+func (c *Ctx) SetCacheControl(val string) {
+	c.set("Cache-Control", val)
+}
+
+// SetConnection Set Connection to header
+func (c *Ctx) SetConnection(val string) {
+	c.set("Connection", val)
+}
+
 // SetVersion set `version` header
 func (c *Ctx) SetVersion(version string) {
-	c.set("version", version)
+	c.set("Version", version)
 }
 
 // SetCookie adds a Set-Cookie header to the provided [ResponseWriter]'s headers. The provided cookie must have a valid Name. Invalid cookies may be silently dropped.

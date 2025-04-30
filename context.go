@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/gob"
 	"encoding/json"
 	"encoding/xml"
@@ -587,6 +588,33 @@ func (c *Ctx) Accept() string {
 		c.accept = &ac
 	}
 	return *c.accept
+}
+
+// Flusher returns the http.Flusher interface if the response writer supports it.
+// This is useful for enabling HTTP/1.1 chunked transfer encoding.
+// It allows the server to send data to the client in chunks, rather than waiting for the entire response to be ready.
+// This is particularly useful for streaming data or for long-lived connections.
+// If the response writer does not support chunked transfer encoding, it returns nil.
+func (c *Ctx) Flusher() http.Flusher {
+	if flusher, ok := c.w.(http.Flusher); ok {
+		return flusher
+	}
+	return nil
+}
+
+// Hijacker returns the http.Hijacker interface if the response writer supports it.
+// This is useful for upgrading the connection to a different protocol, such as WebSocket.
+// If the response writer does not support hijacking, it returns nil.
+func (c *Ctx) Hijacker() http.Hijacker {
+	if hijacker, ok := c.w.(http.Hijacker); ok {
+		return hijacker
+	}
+	return nil
+}
+
+// Context returns the context of the request.
+func (c *Ctx) Context() context.Context {
+	return c.r.Context()
 }
 
 // ContentType get Content-Type from header

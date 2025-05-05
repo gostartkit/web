@@ -7,4 +7,5 @@ const (
 	QueryPage     = "page"
 	QueryPageSize = "pageSize"
 	HeaderAttrs   = "Attrs"
+	TokenKey      = "tk"
 )

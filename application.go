@@ -207,11 +207,15 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(code)
 				c.write(val)
 
+				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code, err)
+
 				if rel, ok := val.(IRelease); ok {
 					rel.Release()
 				}
 			} else {
 				w.WriteHeader(http.StatusNoContent)
+
+				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, 204, err)
 			}
 
 			releaseCtx(c)

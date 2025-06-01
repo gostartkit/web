@@ -207,7 +207,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(code)
 				c.write(val)
 
-				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code, err)
+				app.logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code)
 
 				if rel, ok := val.(IRelease); ok {
 					rel.Release()
@@ -215,7 +215,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			} else {
 				w.WriteHeader(http.StatusNoContent)
 
-				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, 204, err)
+				app.logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, 204)
 			}
 
 			releaseCtx(c)

@@ -185,7 +185,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						if err := cb(w, r); err != nil {
 							w.WriteHeader(http.StatusBadRequest)
 							c.write(err.Error())
-							app.errorf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code, err)
+							app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code, err)
 						}
 						releaseCtx(c)
 						return
@@ -195,7 +195,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(code)
 				c.write(err.Error())
 
-				app.errorf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code, err)
+				app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code, err)
 				releaseCtx(c)
 
 				return
@@ -213,7 +213,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(code)
 				c.write(val)
 
-				app.logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code)
+				app.Logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code)
 
 				if rel, ok := val.(IRelease); ok {
 					rel.Release()
@@ -221,7 +221,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			} else {
 				w.WriteHeader(http.StatusNoContent)
 
-				app.logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, 204)
+				app.Logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, 204)
 			}
 
 			releaseCtx(c)
@@ -355,15 +355,15 @@ func (app *Application) Inspect() string {
 	return ""
 }
 
-// logf write log
-func (app *Application) logf(format string, v ...any) {
+// Logf write info log
+func (app *Application) Logf(format string, v ...any) {
 	if app.info != nil {
 		app.info.Printf(format, v...)
 	}
 }
 
-// logf write log
-func (app *Application) errorf(format string, v ...any) {
+// Errf write err log
+func (app *Application) Errf(format string, v ...any) {
 	if app.err != nil {
 		app.err.Printf(format, v...)
 	}
@@ -387,7 +387,7 @@ func (app *Application) recv(w http.ResponseWriter, r *http.Request) {
 		if app.panic != nil {
 			app.panic(w, r, rcv)
 		} else {
-			app.errorf("%s %s %s %s rcv: %v", r.RemoteAddr, r.Host, r.Method, r.URL.Path, rcv)
+			app.Errf("%s %s %s %s rcv: %v", r.RemoteAddr, r.Host, r.Method, r.URL.Path, rcv)
 		}
 	}
 }

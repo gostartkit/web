@@ -17,7 +17,8 @@ var (
 // Application is type of a web.Application
 type Application struct {
 	trees         map[string]*node
-	logger        *log.Logger
+	info          *log.Logger
+	err           *log.Logger
 	cors          Cors
 	panic         Panic
 	paramsPool    sync.Pool
@@ -35,9 +36,14 @@ func CreateApplication() *Application {
 	return _app
 }
 
-// SetLogger set Logger
-func (app *Application) SetLogger(logger *log.Logger) {
-	app.logger = logger
+// SetInfoLogger set info logger
+func (app *Application) SetInfoLogger(logger *log.Logger) {
+	app.info = logger
+}
+
+// SetErrLogger set err logger
+func (app *Application) SetErrLogger(logger *log.Logger) {
+	app.err = logger
 }
 
 // SetCORS set CORS
@@ -179,7 +185,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						if err := cb(w, r); err != nil {
 							w.WriteHeader(http.StatusBadRequest)
 							c.write(err.Error())
-							app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code, err)
+							app.errorf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code, err)
 						}
 						releaseCtx(c)
 						return
@@ -189,7 +195,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(code)
 				c.write(err.Error())
 
-				app.logf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code, err)
+				app.errorf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code, err)
 				releaseCtx(c)
 
 				return
@@ -351,8 +357,15 @@ func (app *Application) Inspect() string {
 
 // logf write log
 func (app *Application) logf(format string, v ...any) {
-	if app.logger != nil {
-		app.logger.Printf(format, v...)
+	if app.info != nil {
+		app.info.Printf(format, v...)
+	}
+}
+
+// logf write log
+func (app *Application) errorf(format string, v ...any) {
+	if app.err != nil {
+		app.err.Printf(format, v...)
 	}
 }
 
@@ -374,7 +387,7 @@ func (app *Application) recv(w http.ResponseWriter, r *http.Request) {
 		if app.panic != nil {
 			app.panic(w, r, rcv)
 		} else {
-			app.logf("%s %s %s %s rcv: %v", r.RemoteAddr, r.Host, r.Method, r.URL.Path, rcv)
+			app.errorf("%s %s %s %s rcv: %v", r.RemoteAddr, r.Host, r.Method, r.URL.Path, rcv)
 		}
 	}
 }

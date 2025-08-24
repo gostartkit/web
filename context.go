@@ -31,7 +31,7 @@ func createCtx(w http.ResponseWriter, r *http.Request, params *Params) *Ctx {
 	c.param = params
 	c.query = nil
 	c.userID = 0
-	c.userRight = 0
+	c.organizationID = 0
 	c.accept = nil
 	c.contentType = nil
 
@@ -47,20 +47,20 @@ func releaseCtx(c *Ctx) {
 
 // Ctx represents the context for a web request, holding relevant request data and response methods.
 type Ctx struct {
-	w           http.ResponseWriter
-	r           *http.Request
-	param       *Params
-	query       *url.Values
-	userID      uint64
-	userRight   int64
-	accept      *string
-	contentType *string
+	w              http.ResponseWriter
+	r              *http.Request
+	param          *Params
+	query          *url.Values
+	userID         uint64
+	organizationID uint64
+	accept         *string
+	contentType    *string
 }
 
 // Init initializes the context with user ID and user rights.
-func (c *Ctx) Init(userID uint64, userRight int64) {
+func (c *Ctx) Init(userID uint64, organizationID uint64) {
 	c.userID = userID
-	c.userRight = userRight
+	c.organizationID = organizationID
 }
 
 // UserID returns the user ID from the context.
@@ -68,9 +68,9 @@ func (c *Ctx) UserID() uint64 {
 	return c.userID
 }
 
-// UserRight returns the user rights from the context.
-func (c *Ctx) UserRight() int64 {
-	return c.userRight
+// OrganizationID returns the organization ID from the context.
+func (c *Ctx) OrganizationID() uint64 {
+	return c.organizationID
 }
 
 // Param retrieves a parameter value by name from the Params.

@@ -574,11 +574,7 @@ func (c *Ctx) HeaderAttrs() []string {
 
 	attrs := c.Get(HeaderAttrs)
 
-	if attrs != "" {
-		return strings.Split(attrs, ",")
-	}
-
-	return nil
+	return strings.Split(attrs, ",")
 }
 
 // Accept get Accept from header

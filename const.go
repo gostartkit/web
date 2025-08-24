@@ -6,6 +6,6 @@ const (
 	QueryOrderBy  = "orderBy"
 	QueryPage     = "page"
 	QueryPageSize = "pageSize"
-	HeaderAttrs   = "Attrs"
+	HeaderAttrs   = "attrs"
 	TokenKey      = "tk"
 )

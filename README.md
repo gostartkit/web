@@ -375,7 +375,7 @@ func (r *UserController) UnLinkRoles(c *web.Ctx) (any, error) {
 
 Thanks to all open-source projects, I’ve learned a lot from them.
 
-Special thanks to these two projects：
+Special thanks to：
 
 - [httprouter](https://github.com/julienschmidt/httprouter): A high-performance HTTP router that inspired the routing logic in this project.
 - [web](https://github.com/hoisie/web): A lightweight web framework that provided insights into efficient server design.

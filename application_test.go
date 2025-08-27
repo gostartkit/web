@@ -88,7 +88,7 @@ func TestErrorHandling(t *testing.T) {
 func TestRedirectHandling(t *testing.T) {
 
 	rel := "/redirect/"
-	url := "http://gostartkit.com"
+	url := ""
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, rel, nil)

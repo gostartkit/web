@@ -67,6 +67,9 @@ func (c *Ctx) UserID() uint64 {
 
 // Param retrieves a parameter value by name from the Params.
 func (c *Ctx) Param(name string) string {
+	if c.param == nil {
+		return ""
+	}
 	return c.param.Val(name)
 }
 

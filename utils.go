@@ -153,7 +153,7 @@ func TryParse(val string, v any) error {
 		return nil
 	default:
 		rv := reflect.ValueOf(v)
-		if rv.Kind() != reflect.Ptr {
+		if rv.Kind() != reflect.Pointer {
 			return fmt.Errorf("TryParse: non-pointer %s", reflect.TypeOf(v).String())
 		}
 		if rv.IsNil() {
@@ -173,7 +173,7 @@ func tryParse(val string, v *reflect.Value) error {
 
 	retry := 3
 
-	for v.Kind() == reflect.Ptr {
+	for v.Kind() == reflect.Pointer {
 		if v.IsNil() {
 			v.Set(reflect.New(v.Type().Elem()))
 		}

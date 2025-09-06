@@ -113,4 +113,9 @@ var (
 	// Use this for general validation failures not covered by specific errors like ErrBadRequest.
 	// Example: an invalid date string in a form submission.
 	ErrInvalid = errors.New("object invalid")
+
+	// ErrServerNotInitialized is returned when attempting to perform operations (e.g., Shutdown)
+	// on an Application instance whose HTTP server (app.srv) has not been initialized.
+	// This typically occurs if the serve method has not been called or if the server was explicitly reset.
+	ErrServerNotInitialized = errors.New("server not initialized")
 )

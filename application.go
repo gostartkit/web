@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"crypto/tls"
 	"log"
 	"net"
@@ -16,6 +17,7 @@ var (
 
 // Application is type of a web.Application
 type Application struct {
+	srv           *http.Server
 	trees         map[string]*node
 	info          *log.Logger
 	err           *log.Logger
@@ -91,7 +93,7 @@ func (app *Application) Options(path string, next Next) {
 	app.addRoute(http.MethodOptions, path, next)
 }
 
-func (app *Application) addRoute(method, path string, next Next) {
+func (app *Application) addRoute(method string, path string, next Next) {
 
 	if method == "" {
 		panic("method must not be empty")
@@ -124,8 +126,20 @@ func (app *Application) addRoute(method, path string, next Next) {
 	}
 }
 
-// ServeFiles ("/src/*filepath", http.Dir("/var/www"))
+// ServeFiles registers a route to serve static files from the specified file system under the given path pattern.
+// The path must end with "/*filepath" to capture file paths dynamically.
+// It panics if the path pattern is invalid, ensuring correct configuration during initialization.
+//
+// Parameters:
+//   - path: The URL path pattern (e.g., "/static/*filepath") to match file requests.
+//     Must end with "/*filepath" to extract the file path as a parameter.
+//   - root: The http.FileSystem to serve files from (e.g., http.Dir("./static")).
+//
+// Panics:
+//   - If the path is shorter than 10 characters or does not end with "/*filepath".
 func (app *Application) ServeFiles(path string, root http.FileSystem) {
+	// Validate the path pattern to ensure it ends with "/*filepath" for dynamic file path capturing.
+	// This check prevents incorrect routing configurations.
 	if len(path) < 10 || path[len(path)-10:] != "/*filepath" {
 		panic("path must end with /*filepath in path '" + path + "'")
 	}
@@ -318,18 +332,36 @@ func (app *Application) ListenAndServeTLS(network string, addr string, tlsConfig
 	return app.serve(l, fns...)
 }
 
+// Shutdown gracefully shuts down the HTTP server, allowing active connections to complete.
+// It returns an error if the server is not initialized, ensuring callers can detect invalid states.
+//
+// Parameters:
+//   - ctx: Context controlling the shutdown timeout. If the context expires before shutdown completes,
+//     remaining connections may be forcibly closed.
+//
+// Returns:
+//   - error: Returns ErrServerNotInitialized if the server is not initialized,
+//     or any error from http.Server.Shutdown (e.g., context timeout).
+//     Returns nil if shutdown completes successfully.
+func (app *Application) Shutdown(ctx context.Context) error {
+	if app.srv == nil {
+		return ErrServerNotInitialized
+	}
+	return app.srv.Shutdown(ctx)
+}
+
 func (app *Application) serve(listener net.Listener, fns ...func(*http.Server)) error {
 
 	mux := http.NewServeMux()
 
 	mux.Handle("/", app)
 
-	srv := &http.Server{
+	app.srv = &http.Server{
 		Handler: mux,
 	}
 
 	for _, fn := range fns {
-		fn(srv)
+		fn(app.srv)
 	}
 
 	if app.paramsPool.New == nil && app.maxParams > 0 {
@@ -339,11 +371,7 @@ func (app *Application) serve(listener net.Listener, fns ...func(*http.Server)) 
 		}
 	}
 
-	if err := srv.Serve(listener); err != nil {
-		return err
-	}
-
-	if err := srv.Close(); err != nil {
+	if err := app.srv.Serve(listener); err != nil && err != http.ErrServerClosed {
 		return err
 	}
 

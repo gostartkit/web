@@ -96,7 +96,7 @@ func (r *UserController) Detail(c *web.Ctx) (any, error) {
 
 // CreateID create user.ID
 func (r *UserController) CreateID(c *web.Ctx) (any, error) {
-	return proxy.CreateUserID()
+	return proxy.CreateUserId()
 }
 
 // Create create user
@@ -221,7 +221,7 @@ func (r *UserController) Applications(c *web.Ctx) (any, error) {
 	page := c.QueryPage(_defaultPage)
 	pageSize := c.QueryPageSize(_defaultPageSize)
 
-	return proxy.GetApplicationsByUserID(id, filter, orderBy, page, pageSize)
+	return proxy.GetApplicationsByUserId(id, filter, orderBy, page, pageSize)
 }
 
 // LinkApplications return rowsAffected int64, error
@@ -299,7 +299,7 @@ func (r *UserController) UpdateApplication(c *web.Ctx) (any, error) {
 		return nil, err
 	}
 
-	applicationUser.UserID, err = c.ParamUint64("id")
+	applicationUser.UserId, err = c.ParamUint64("id")
 
 	if err != nil {
 		return nil, err
@@ -326,7 +326,7 @@ func (r *UserController) Roles(c *web.Ctx) (any, error) {
 	page := c.QueryPage(_defaultPage)
 	pageSize := c.QueryPageSize(_defaultPageSize)
 
-	return proxy.GetRolesByUserID(id, filter, orderBy, page, pageSize)
+	return proxy.GetRolesByUserId(id, filter, orderBy, page, pageSize)
 }
 
 // LinkRoles return rowsAffected int64, error

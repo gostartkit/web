@@ -199,7 +199,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						if err := cb(w, r); err != nil {
 							w.WriteHeader(http.StatusBadRequest)
 							c.write(err.Error())
-							app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code, err)
+							app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
 						}
 						releaseCtx(c)
 						return
@@ -209,7 +209,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(code)
 				c.write(err.Error())
 
-				app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code, err)
+				app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
 				releaseCtx(c)
 
 				return
@@ -227,7 +227,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(code)
 				c.write(val)
 
-				app.Logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, code)
+				app.Logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code)
 
 				if rel, ok := val.(IRelease); ok {
 					rel.Release()
@@ -235,7 +235,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			} else {
 				w.WriteHeader(http.StatusNoContent)
 
-				app.Logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserID(), r.Method, rel, 204)
+				app.Logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, 204)
 			}
 
 			releaseCtx(c)

@@ -30,7 +30,7 @@ func createCtx(w http.ResponseWriter, r *http.Request, params *Params) *Ctx {
 	c.r = r
 	c.param = params
 	c.query = nil
-	c.userID = 0
+	c.userId = 0
 	c.accept = nil
 	c.contentType = nil
 
@@ -50,19 +50,19 @@ type Ctx struct {
 	r           *http.Request
 	param       *Params
 	query       *url.Values
-	userID      uint64
+	userId      uint64
 	accept      *string
 	contentType *string
 }
 
 // Init initializes the context with user ID and user rights.
-func (c *Ctx) Init(userID uint64) {
-	c.userID = userID
+func (c *Ctx) Init(userId uint64) {
+	c.userId = userId
 }
 
-// UserID returns the user ID from the context.
-func (c *Ctx) UserID() uint64 {
-	return c.userID
+// UserId returns the user id from the context.
+func (c *Ctx) UserId() uint64 {
+	return c.userId
 }
 
 // Param retrieves a parameter value by name from the Params.

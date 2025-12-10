@@ -541,9 +541,9 @@ func (c *Ctx) QueryOrderBy() string {
 }
 
 // QueryPage c.QueryInt(QueryPage)
-func (c *Ctx) QueryPage(defaultPage int32) int32 {
+func (c *Ctx) QueryPage(defaultPage uint32) uint32 {
 
-	page, err := c.QueryInt32(QueryPage)
+	page, err := c.QueryUint32(QueryPage)
 
 	if err != nil {
 		page = defaultPage
@@ -553,9 +553,9 @@ func (c *Ctx) QueryPage(defaultPage int32) int32 {
 }
 
 // QueryPageSize c.QueryInt(QueryPageSize)
-func (c *Ctx) QueryPageSize(defaultPageSize int32) int32 {
+func (c *Ctx) QueryPageSize(defaultPageSize uint32) uint32 {
 
-	pageSize, err := c.QueryInt32(QueryPageSize)
+	pageSize, err := c.QueryUint32(QueryPageSize)
 
 	if err != nil {
 		pageSize = defaultPageSize

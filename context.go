@@ -540,7 +540,7 @@ func (c *Ctx) QueryOrderBy() string {
 	return c.Query(QueryOrderBy)
 }
 
-// QueryPage c.QueryInt(QueryPage)
+// QueryPage c.QueryUint32("page")
 func (c *Ctx) QueryPage(defaultPage uint32) uint32 {
 
 	page, err := c.QueryUint32(QueryPage)
@@ -552,24 +552,38 @@ func (c *Ctx) QueryPage(defaultPage uint32) uint32 {
 	return page
 }
 
-// QueryPageSize c.QueryInt(QueryPageSize)
-func (c *Ctx) QueryPageSize(defaultPageSize uint32) uint32 {
+// QueryId c.QueryUint32("page")
+func (c *Ctx) QueryId(defaultId uint64) uint64 {
 
-	pageSize, err := c.QueryUint32(QueryPageSize)
+	id, err := c.QueryUint64(QueryId)
 
 	if err != nil {
-		pageSize = defaultPageSize
+		id = defaultId
 	}
 
-	return pageSize
+	return id
+}
+
+// QueryLimit c.QueryUint32("limit")
+func (c *Ctx) QueryLimit(defaultSize uint32) uint32 {
+
+	limit, err := c.QueryUint32(QueryLimit)
+
+	if err != nil {
+		limit = defaultSize
+	}
+
+	return limit
 }
 
 // HeaderAttrs strings.Split(c.Get(HeaderAttrs), ",")
 func (c *Ctx) HeaderAttrs() []string {
 
-	attrs := c.Get(HeaderAttrs)
+	attr := c.Get(HeaderAttrs)
 
-	return strings.Split(attrs, ",")
+	return strings.FieldsFunc(attr, func(r rune) bool {
+		return r == ',' || r == ' ' || r == '|'
+	})
 }
 
 // Accept get Accept from header

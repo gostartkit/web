@@ -73,9 +73,9 @@ func (r *UserController) Index(c *web.Ctx) (any, error) {
 	filter := c.QueryFilter()
 	orderBy := c.QueryOrderBy()
 	page := c.QueryPage(_defaultPage)
-	pageSize := c.QueryPageSize(_defaultPageSize)
+	limit := c.QueryLimit(_defaultPageSize)
 
-	return proxy.GetUsers(filter, orderBy, page, pageSize)
+	return proxy.GetUsers(filter, orderBy, page, limit)
 }
 
 // Detail get user
@@ -219,9 +219,9 @@ func (r *UserController) Applications(c *web.Ctx) (any, error) {
 	filter := c.QueryFilter()
 	orderBy := c.QueryOrderBy()
 	page := c.QueryPage(_defaultPage)
-	pageSize := c.QueryPageSize(_defaultPageSize)
+	limit := c.QueryLimit(_defaultPageSize)
 
-	return proxy.GetApplicationsByUserId(id, filter, orderBy, page, pageSize)
+	return proxy.GetApplicationsByUserId(id, filter, orderBy, page, limit)
 }
 
 // LinkApplications return rowsAffected int64, error
@@ -324,9 +324,9 @@ func (r *UserController) Roles(c *web.Ctx) (any, error) {
 	filter := c.QueryFilter()
 	orderBy := c.QueryOrderBy()
 	page := c.QueryPage(_defaultPage)
-	pageSize := c.QueryPageSize(_defaultPageSize)
+	limit := c.QueryLimit(_defaultPageSize)
 
-	return proxy.GetRolesByUserId(id, filter, orderBy, page, pageSize)
+	return proxy.GetRolesByUserId(id, filter, orderBy, page, limit)
 }
 
 // LinkRoles return rowsAffected int64, error

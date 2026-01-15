@@ -147,8 +147,8 @@ func (app *Application) ServeFiles(path string, root http.FileSystem) {
 	fileServer := http.FileServer(root)
 
 	app.Get(path, func(c *Ctx) (any, error) {
-		c.r.URL.Path = c.Param("filepath")
-		fileServer.ServeHTTP(c.w, c.r)
+		c.request.URL.Path = c.Param("filepath")
+		fileServer.ServeHTTP(c.responseWriter, c.request)
 		return nil, nil
 	})
 }

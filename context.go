@@ -26,8 +26,8 @@ var (
 func createCtx(w http.ResponseWriter, r *http.Request, params *Params) *Ctx {
 
 	c := _ctxPool.Get().(*Ctx)
-	c.w = w
-	c.r = r
+	c.responseWriter = w
+	c.request = r
 	c.param = params
 	c.query = nil
 	c.userId = 0
@@ -46,13 +46,13 @@ func releaseCtx(c *Ctx) {
 
 // Ctx represents the context for a web request, holding relevant request data and response methods.
 type Ctx struct {
-	w           http.ResponseWriter
-	r           *http.Request
-	param       *Params
-	query       url.Values
-	userId      uint64
-	accept      *string
-	contentType *string
+	responseWriter http.ResponseWriter
+	request        *http.Request
+	param          *Params
+	query          url.Values
+	userId         uint64
+	accept         *string
+	contentType    *string
 }
 
 // Init initializes the context with user ID and user rights.
@@ -61,16 +61,16 @@ func (c *Ctx) Init(userId uint64) {
 }
 
 func (c *Ctx) Request() *http.Request {
-	return c.r
+	return c.request
 }
 
 func (c *Ctx) ResponseWriter() http.ResponseWriter {
-	return c.w
+	return c.responseWriter
 }
 
 func (c *Ctx) QueryValues() url.Values {
 	if c.query == nil {
-		c.query = c.r.URL.Query()
+		c.query = c.request.URL.Query()
 	}
 	return c.query
 }
@@ -91,45 +91,45 @@ func (c *Ctx) Param(name string) string {
 // Query retrieves a query string parameter by name from the request URL.
 func (c *Ctx) Query(name string) string {
 	if c.query == nil {
-		c.query = c.r.URL.Query()
+		c.query = c.request.URL.Query()
 	}
 	return c.query.Get(name)
 }
 
 // Form retrieves a form value by name from the request.
 func (c *Ctx) Form(name string) string {
-	return c.r.FormValue(name)
+	return c.request.FormValue(name)
 }
 
 // FormFile retrieves the first file uploaded for the specified form key.
 // It calls Request.ParseMultipartForm and Request.ParseForm if needed.
 func (c *Ctx) FormFile(key string) (multipart.File, *multipart.FileHeader, error) {
-	return c.r.FormFile(key)
+	return c.request.FormFile(key)
 }
 
 // Host returns the host from the request header.
 func (c *Ctx) Host() string {
-	return c.r.Host
+	return c.request.Host
 }
 
 // Path returns the path from the request URL.
 func (c *Ctx) Path() string {
-	return c.r.URL.Path
+	return c.request.URL.Path
 }
 
 // Body returns the request body.
 func (c *Ctx) Body() io.ReadCloser {
-	return c.r.Body
+	return c.request.Body
 }
 
 // Method returns the HTTP method (GET, POST, etc.) used for the request.
 func (c *Ctx) Method() string {
-	return c.r.Method
+	return c.request.Method
 }
 
 // RemoteAddr returns the remote IP address of the client making the request.
 func (c *Ctx) RemoteAddr() string {
-	return c.r.RemoteAddr
+	return c.request.RemoteAddr
 }
 
 // BearerToken retrieves the Bearer token from the Authorization header.
@@ -166,13 +166,13 @@ func (c *Ctx) IsAjax() bool {
 func (c *Ctx) TryParseBody(val any) error {
 	switch {
 	case strings.HasPrefix(c.ContentType(), "application/json"):
-		return json.NewDecoder(c.r.Body).Decode(val)
+		return json.NewDecoder(c.request.Body).Decode(val)
 	case strings.HasPrefix(c.ContentType(), "application/x-gob"):
-		return gob.NewDecoder(c.r.Body).Decode(val)
+		return gob.NewDecoder(c.request.Body).Decode(val)
 	case strings.HasPrefix(c.ContentType(), "application/octet-stream"):
 		return ErrContentType
 	case strings.HasPrefix(c.ContentType(), "application/xml"):
-		return xml.NewDecoder(c.r.Body).Decode(val)
+		return xml.NewDecoder(c.request.Body).Decode(val)
 	default:
 		return ErrContentType
 	}
@@ -559,7 +559,7 @@ func (c *Ctx) Accept() string {
 // This is particularly useful for streaming data or for long-lived connections.
 // If the response writer does not support chunked transfer encoding, it returns nil.
 func (c *Ctx) Flusher() http.Flusher {
-	if flusher, ok := c.w.(http.Flusher); ok {
+	if flusher, ok := c.responseWriter.(http.Flusher); ok {
 		return flusher
 	}
 	return nil
@@ -569,7 +569,7 @@ func (c *Ctx) Flusher() http.Flusher {
 // This is useful for upgrading the connection to a different protocol, such as WebSocket.
 // If the response writer does not support hijacking, it returns nil.
 func (c *Ctx) Hijacker() http.Hijacker {
-	if hijacker, ok := c.w.(http.Hijacker); ok {
+	if hijacker, ok := c.responseWriter.(http.Hijacker); ok {
 		return hijacker
 	}
 	return nil
@@ -577,7 +577,7 @@ func (c *Ctx) Hijacker() http.Hijacker {
 
 // Context returns the context of the request.
 func (c *Ctx) Context() context.Context {
-	return c.r.Context()
+	return c.request.Context()
 }
 
 // ContentType get Content-Type from header
@@ -614,22 +614,22 @@ func (c *Ctx) SetVersion(version string) {
 
 // SetCookie adds a Set-Cookie header to the provided [ResponseWriter]'s headers. The provided cookie must have a valid Name. Invalid cookies may be silently dropped.
 func (c *Ctx) SetCookie(cookie *http.Cookie) {
-	http.SetCookie(c.w, cookie)
+	http.SetCookie(c.responseWriter, cookie)
 }
 
 // GetCookie returns the named cookie provided in the request or [ErrNoCookie] if not found. If multiple cookies match the given name, only one cookie will be returned.
 func (c *Ctx) GetCookie(name string) (*http.Cookie, error) {
-	return c.r.Cookie(name)
+	return c.request.Cookie(name)
 }
 
 // Get Get header, short hand of r.Header.Get
 func (c *Ctx) Get(key string) string {
-	return c.r.Header.Get(key)
+	return c.request.Header.Get(key)
 }
 
 // set set header, short hand of w.Header().set
 func (c *Ctx) set(key string, value string) {
-	c.w.Header().Set(key, value)
+	c.responseWriter.Header().Set(key, value)
 }
 
 // write write data base on accept header
@@ -653,17 +653,17 @@ func (c *Ctx) write(val any) error {
 
 // writeJSON Write JSON
 func (c *Ctx) writeJSON(val any) error {
-	return json.NewEncoder(c.w).Encode(val)
+	return json.NewEncoder(c.responseWriter).Encode(val)
 }
 
 // writeXML Write XML
 func (c *Ctx) writeXML(val any) error {
-	return xml.NewEncoder(c.w).Encode(val)
+	return xml.NewEncoder(c.responseWriter).Encode(val)
 }
 
 // writeGOB Write GOB
 func (c *Ctx) writeGOB(val any) error {
-	return gob.NewEncoder(c.w).Encode(val)
+	return gob.NewEncoder(c.responseWriter).Encode(val)
 }
 
 // writeBinary Write Binary

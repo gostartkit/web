@@ -617,8 +617,8 @@ func (c *Ctx) SetCookie(cookie *http.Cookie) {
 	http.SetCookie(c.w, cookie)
 }
 
-// Cookie returns the named cookie provided in the request or [ErrNoCookie] if not found. If multiple cookies match the given name, only one cookie will be returned.
-func (c *Ctx) Cookie(name string) (*http.Cookie, error) {
+// GetCookie returns the named cookie provided in the request or [ErrNoCookie] if not found. If multiple cookies match the given name, only one cookie will be returned.
+func (c *Ctx) GetCookie(name string) (*http.Cookie, error) {
 	return c.r.Cookie(name)
 }
 

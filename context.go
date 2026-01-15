@@ -134,32 +134,32 @@ func (c *Ctx) RemoteAddr() string {
 
 // BearerToken retrieves the Bearer token from the Authorization header.
 func (c *Ctx) BearerToken() string {
-	return bearerToken(c.Get("Authorization"))
+	return bearerToken(c.GetHeader("Authorization"))
 }
 
 // Origin returns the Origin header from the request.
 func (c *Ctx) Origin() string {
-	return c.Get("Origin")
+	return c.GetHeader("Origin")
 }
 
 // SetOrigin sets the "Access-Control-Allow-Origin" header in the response.
 func (c *Ctx) SetOrigin(origin string) {
-	c.set("Access-Control-Allow-Origin", origin)
+	c.setHeader("Access-Control-Allow-Origin", origin)
 }
 
 // AllowCredentials sets the "Access-Control-Allow-Credentials" header to true in the response.
 func (c *Ctx) AllowCredentials() {
-	c.set("Access-Control-Allow-Credentials", "true")
+	c.setHeader("Access-Control-Allow-Credentials", "true")
 }
 
 // UserAgent returns the User-Agent header from the request.
 func (c *Ctx) UserAgent() string {
-	return c.Get("User-Agent")
+	return c.GetHeader("User-Agent")
 }
 
 // IsAjax checks if the request is an AJAX request based on the "X-Requested-With" header.
 func (c *Ctx) IsAjax() bool {
-	return c.Get("X-Requested-With") == "XMLHttpRequest"
+	return c.GetHeader("X-Requested-With") == "XMLHttpRequest"
 }
 
 // TryParseBody attempts to parse the request body based on its Content-Type and decode it into the provided value.
@@ -547,7 +547,7 @@ func (c *Ctx) FormBool(name string) (bool, error) {
 // Accept get Accept from header
 func (c *Ctx) Accept() string {
 	if c.accept == nil {
-		ac := c.Get("Accept")
+		ac := c.GetHeader("Accept")
 		c.accept = &ac
 	}
 	return *c.accept
@@ -583,7 +583,7 @@ func (c *Ctx) Context() context.Context {
 // ContentType get Content-Type from header
 func (c *Ctx) ContentType() string {
 	if c.contentType == nil {
-		ctype := c.Get("Content-Type")
+		ctype := c.GetHeader("Content-Type")
 		c.contentType = &ctype
 	}
 	return *c.contentType
@@ -594,22 +594,22 @@ func (c *Ctx) SetContentType(val string) {
 	if c.contentType == nil {
 		c.contentType = &val
 	}
-	c.set("Content-Type", val)
+	c.setHeader("Content-Type", val)
 }
 
 // SetCacheControl Set Cache-Control to header
 func (c *Ctx) SetCacheControl(val string) {
-	c.set("Cache-Control", val)
+	c.setHeader("Cache-Control", val)
 }
 
 // SetConnection Set Connection to header
 func (c *Ctx) SetConnection(val string) {
-	c.set("Connection", val)
+	c.setHeader("Connection", val)
 }
 
 // SetVersion set `version` header
 func (c *Ctx) SetVersion(version string) {
-	c.set("Version", version)
+	c.setHeader("Version", version)
 }
 
 // SetCookie adds a Set-Cookie header to the provided [ResponseWriter]'s headers. The provided cookie must have a valid Name. Invalid cookies may be silently dropped.
@@ -622,13 +622,13 @@ func (c *Ctx) GetCookie(name string) (*http.Cookie, error) {
 	return c.request.Cookie(name)
 }
 
-// Get Get header, short hand of r.Header.Get
-func (c *Ctx) Get(key string) string {
+// GetHeader GetHeader header, short hand of r.Header.GetHeader
+func (c *Ctx) GetHeader(key string) string {
 	return c.request.Header.Get(key)
 }
 
-// set set header, short hand of w.Header().set
-func (c *Ctx) set(key string, value string) {
+// setHeader setHeader header, short hand of w.Header().setHeader
+func (c *Ctx) setHeader(key string, value string) {
 	c.responseWriter.Header().Set(key, value)
 }
 

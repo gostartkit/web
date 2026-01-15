@@ -167,6 +167,10 @@ func (c *Ctx) IsAjax() bool {
 	return c.GetHeader("X-Requested-With") == "XMLHttpRequest"
 }
 
+func (c *Ctx) IsFormData() bool {
+	return strings.HasPrefix(c.ContentType(), "application/x-www-form-urlencoded") || strings.HasPrefix(c.ContentType(), "multipart/form-data")
+}
+
 // TryParseBody attempts to parse the request body based on its Content-Type and decode it into the provided value.
 func (c *Ctx) TryParseBody(val any) error {
 	switch {

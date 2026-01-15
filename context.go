@@ -49,7 +49,7 @@ type Ctx struct {
 	w           http.ResponseWriter
 	r           *http.Request
 	param       *Params
-	query       *url.Values
+	query       url.Values
 	userId      uint64
 	accept      *string
 	contentType *string
@@ -58,6 +58,21 @@ type Ctx struct {
 // Init initializes the context with user ID and user rights.
 func (c *Ctx) Init(userId uint64) {
 	c.userId = userId
+}
+
+func (c *Ctx) Request() *http.Request {
+	return c.r
+}
+
+func (c *Ctx) ResponseWriter() http.ResponseWriter {
+	return c.w
+}
+
+func (c *Ctx) QueryValues() url.Values {
+	if c.query == nil {
+		c.query = c.r.URL.Query()
+	}
+	return c.query
 }
 
 // UserId returns the user id from the context.
@@ -76,8 +91,7 @@ func (c *Ctx) Param(name string) string {
 // Query retrieves a query string parameter by name from the request URL.
 func (c *Ctx) Query(name string) string {
 	if c.query == nil {
-		query := c.r.URL.Query()
-		c.query = &query
+		c.query = c.r.URL.Query()
 	}
 	return c.query.Get(name)
 }
@@ -528,62 +542,6 @@ func (c *Ctx) FormBool(name string) (bool, error) {
 		return false, err
 	}
 	return n, nil
-}
-
-// QueryFilter c.Query(QueryFilter)
-func (c *Ctx) QueryFilter() string {
-	return c.Query(QueryFilter)
-}
-
-// QueryOrderBy c.Query(QueryOrderBy)
-func (c *Ctx) QueryOrderBy() string {
-	return c.Query(QueryOrderBy)
-}
-
-// QueryPage c.QueryUint32("page")
-func (c *Ctx) QueryPage(defaultPage uint32) uint32 {
-
-	page, err := c.QueryUint32(QueryPage)
-
-	if err != nil {
-		page = defaultPage
-	}
-
-	return page
-}
-
-// QueryId c.QueryUint32("page")
-func (c *Ctx) QueryId(defaultId uint64) uint64 {
-
-	id, err := c.QueryUint64(QueryId)
-
-	if err != nil {
-		id = defaultId
-	}
-
-	return id
-}
-
-// QueryLimit c.QueryUint32("limit")
-func (c *Ctx) QueryLimit(defaultSize uint32) uint32 {
-
-	limit, err := c.QueryUint32(QueryLimit)
-
-	if err != nil {
-		limit = defaultSize
-	}
-
-	return limit
-}
-
-// HeaderAttrs strings.Split(c.Get(HeaderAttrs), ",")
-func (c *Ctx) HeaderAttrs() []string {
-
-	attr := c.Get(HeaderAttrs)
-
-	return strings.FieldsFunc(attr, func(r rune) bool {
-		return r == ',' || r == ' ' || r == '|'
-	})
 }
 
 // Accept get Accept from header

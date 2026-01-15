@@ -101,6 +101,11 @@ func (c *Ctx) Form(name string) string {
 	return c.request.FormValue(name)
 }
 
+// PostForm retrieves a form value by name from the request.
+func (c *Ctx) PostForm(name string) string {
+	return c.request.PostFormValue(name)
+}
+
 // FormFile retrieves the first file uploaded for the specified form key.
 // It calls Request.ParseMultipartForm and Request.ParseForm if needed.
 func (c *Ctx) FormFile(key string) (multipart.File, *multipart.FileHeader, error) {
@@ -538,6 +543,123 @@ func (c *Ctx) FormFloat64(name string) (float64, error) {
 // FormBool attempts to parse a bool from form value by name.
 func (c *Ctx) FormBool(name string) (bool, error) {
 	n, err := strconv.ParseBool(c.Form(name))
+	if err != nil {
+		return false, err
+	}
+	return n, nil
+}
+
+// PostFormIn attempts to parse a int from PostForm value by name.
+func (c *Ctx) PostFormInt(name string) (int, error) {
+	n, err := strconv.ParseInt(c.PostForm(name), 10, 0)
+	if err != nil {
+		return 0, err
+	}
+	return int(n), nil
+}
+
+// PostFormUint attempts to parse a uint from PostForm value by name.
+func (c *Ctx) PostFormUint(name string) (uint, error) {
+	n, err := strconv.ParseUint(c.PostForm(name), 10, 0)
+	if err != nil {
+		return 0, err
+	}
+	return uint(n), nil
+}
+
+// PostFormInt8 attempts to parse a int8 from PostForm value by name.
+func (c *Ctx) PostFormInt8(name string) (int8, error) {
+	n, err := strconv.ParseInt(c.PostForm(name), 10, 8)
+	if err != nil {
+		return 0, err
+	}
+	return int8(n), nil
+}
+
+// PostFormUint8 attempts to parse a uint8 from PostForm value by name.
+func (c *Ctx) PostFormUint8(name string) (uint8, error) {
+	n, err := strconv.ParseUint(c.PostForm(name), 10, 8)
+	if err != nil {
+		return 0, err
+	}
+	return uint8(n), nil
+}
+
+// PostFormInt16 attempts to parse a int16 from PostForm value by name.
+func (c *Ctx) PostFormInt16(name string) (int16, error) {
+	n, err := strconv.ParseInt(c.PostForm(name), 10, 16)
+	if err != nil {
+		return 0, err
+	}
+	return int16(n), nil
+}
+
+// PostFormUint16 attempts to parse a uint16 from PostForm value by name.
+func (c *Ctx) PostFormUint16(name string) (uint16, error) {
+	n, err := strconv.ParseUint(c.PostForm(name), 10, 16)
+	if err != nil {
+		return 0, err
+	}
+	return uint16(n), nil
+}
+
+// PostFormInt32 attempts to parse a int32 from PostForm value by name.
+func (c *Ctx) PostFormInt32(name string) (int32, error) {
+	n, err := strconv.ParseInt(c.PostForm(name), 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return int32(n), nil
+}
+
+// PostFormUint32 attempts to parse a uint32 from PostForm value by name.
+func (c *Ctx) PostFormUint32(name string) (uint32, error) {
+	n, err := strconv.ParseUint(c.PostForm(name), 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint32(n), nil
+}
+
+// PostFormInt64 attempts to parse a int64 from PostForm value by name.
+func (c *Ctx) PostFormInt64(name string) (int64, error) {
+	n, err := strconv.ParseInt(c.PostForm(name), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// PostFormUint64 attempts to parse a uint64 from PostForm value by name.
+func (c *Ctx) PostFormUint64(name string) (uint64, error) {
+	n, err := strconv.ParseUint(c.PostForm(name), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// PostFormFloat32 attempts to parse a float32 from PostForm value by name.
+func (c *Ctx) PostFormFloat32(name string) (float32, error) {
+	n, err := strconv.ParseFloat(c.PostForm(name), 32)
+	if err != nil {
+		return 0, err
+	}
+	return float32(n), nil
+}
+
+// PostFormFloat64 attempts to parse a float64 from PostForm value by name.
+func (c *Ctx) PostFormFloat64(name string) (float64, error) {
+	n, err := strconv.ParseFloat(c.PostForm(name), 64)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// PostFormBool attempts to parse a bool from PostForm value by name.
+func (c *Ctx) PostFormBool(name string) (bool, error) {
+	n, err := strconv.ParseBool(c.PostForm(name))
 	if err != nil {
 		return false, err
 	}

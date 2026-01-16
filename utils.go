@@ -314,6 +314,149 @@ func TryParse(val string, v any) error {
 	}
 }
 
+func TryInt(val string) (int, error) {
+	if val == "" {
+		return 0, nil
+	}
+	n, err := strconv.ParseInt(val, 10, 0)
+	if err != nil {
+		return 0, err
+	}
+	return int(n), nil
+}
+
+func TryUint(val string) (uint, error) {
+	if val == "" {
+		return 0, nil
+	}
+	n, err := strconv.ParseUint(val, 10, 0)
+	if err != nil {
+		return 0, err
+	}
+	return uint(n), nil
+}
+
+func TryInt8(val string) (int8, error) {
+	if val == "" {
+		return 0, nil
+	}
+	n, err := strconv.ParseInt(val, 10, 8)
+	if err != nil {
+		return 0, err
+	}
+	return int8(n), nil
+}
+
+func TryUint8(val string) (uint8, error) {
+	if val == "" {
+		return 0, nil
+	}
+	n, err := strconv.ParseUint(val, 10, 8)
+	if err != nil {
+		return 0, err
+	}
+	return uint8(n), nil
+}
+
+func TryInt16(val string) (int16, error) {
+	if val == "" {
+		return 0, nil
+	}
+	n, err := strconv.ParseInt(val, 10, 16)
+	if err != nil {
+		return 0, err
+	}
+	return int16(n), nil
+}
+
+func TryUint16(val string) (uint16, error) {
+	if val == "" {
+		return 0, nil
+	}
+	n, err := strconv.ParseUint(val, 10, 16)
+	if err != nil {
+		return 0, err
+	}
+	return uint16(n), nil
+}
+
+func TryInt32(val string) (int32, error) {
+	if val == "" {
+		return 0, nil
+	}
+	n, err := strconv.ParseInt(val, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return int32(n), nil
+}
+
+func TryUint32(val string) (uint32, error) {
+	if val == "" {
+		return 0, nil
+	}
+	n, err := strconv.ParseUint(val, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint32(n), nil
+}
+
+func TryInt64(val string) (int64, error) {
+	if val == "" {
+		return 0, nil
+	}
+	n, err := strconv.ParseInt(val, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+func TryUint64(val string) (uint64, error) {
+	if val == "" {
+		return 0, nil
+	}
+	n, err := strconv.ParseUint(val, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+func TryFloat32(val string) (float32, error) {
+	if val == "" {
+		return 0, nil
+	}
+	n, err := strconv.ParseFloat(val, 32)
+	if err != nil {
+		return 0, err
+	}
+	return float32(n), nil
+}
+
+func TryFloat64(val string) (float64, error) {
+	if val == "" {
+		return 0, nil
+	}
+	n, err := strconv.ParseFloat(val, 64)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+func TryBool(val string) (bool, error) {
+	if val == "" {
+		return false, nil
+	}
+	n, err := strconv.ParseBool(val)
+	if err != nil {
+		return false, err
+	}
+	return n, nil
+}
+
 // bearerToken return token
 func bearerToken(auth string) string {
 	const prefix = "Bearer "

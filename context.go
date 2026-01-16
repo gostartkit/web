@@ -9,7 +9,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 )
@@ -204,470 +203,262 @@ func (c *Ctx) TryParseForm(name string, val any) error {
 
 // ParamInt attempts to parse an integer from the URL parameter by name.
 func (c *Ctx) ParamInt(name string) (int, error) {
-	n, err := strconv.ParseInt(c.Param(name), 10, 0)
-	if err != nil {
-		return 0, err
-	}
-	return int(n), nil
+	return TryInt(c.Param(name))
 }
 
 // ParamUint attempts to parse an unsigned integer from the URL parameter by name.
 func (c *Ctx) ParamUint(name string) (uint, error) {
-	n, err := strconv.ParseUint(c.Param(name), 10, 0)
-	if err != nil {
-		return 0, err
-	}
-	return uint(n), nil
+	return TryUint(c.Param(name))
 }
 
 // ParamInt8 attempts to parse an int8 from the URL parameter by name.
 func (c *Ctx) ParamInt8(name string) (int8, error) {
-	n, err := strconv.ParseInt(c.Param(name), 10, 8)
-	if err != nil {
-		return 0, err
-	}
-	return int8(n), nil
+	return TryInt8(c.Param(name))
 }
 
 // ParamUint8 attempts to parse a uint8 from the URL parameter by name.
 func (c *Ctx) ParamUint8(name string) (uint8, error) {
-	n, err := strconv.ParseUint(c.Param(name), 10, 8)
-	if err != nil {
-		return 0, err
-	}
-	return uint8(n), nil
+	return TryUint8(c.Param(name))
 }
 
 // ParamInt16 attempts to parse an int16 from the URL parameter by name.
 func (c *Ctx) ParamInt16(name string) (int16, error) {
-	n, err := strconv.ParseInt(c.Param(name), 10, 16)
-	if err != nil {
-		return 0, err
-	}
-	return int16(n), nil
+	return TryInt16(c.Param(name))
 }
 
 // ParamUint16 attempts to parse a uint16 from the URL parameter by name.
 func (c *Ctx) ParamUint16(name string) (uint16, error) {
-	n, err := strconv.ParseUint(c.Param(name), 10, 16)
-	if err != nil {
-		return 0, err
-	}
-	return uint16(n), nil
+	return TryUint16(c.Param(name))
 }
 
 // ParamInt32 attempts to parse an int32 from the URL parameter by name.
 func (c *Ctx) ParamInt32(name string) (int32, error) {
-	n, err := strconv.ParseInt(c.Param(name), 10, 32)
-	if err != nil {
-		return 0, err
-	}
-	return int32(n), nil
+	return TryInt32(c.Param(name))
 }
 
 // ParamUint32 attempts to parse a uint32 from the URL parameter by name.
 func (c *Ctx) ParamUint32(name string) (uint32, error) {
-	n, err := strconv.ParseUint(c.Param(name), 10, 32)
-	if err != nil {
-		return 0, err
-	}
-	return uint32(n), nil
+	return TryUint32(c.Param(name))
 }
 
 // ParamInt64 attempts to parse an int64 from the URL parameter by name.
 func (c *Ctx) ParamInt64(name string) (int64, error) {
-	n, err := strconv.ParseInt(c.Param(name), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return n, nil
+	return TryInt64(c.Param(name))
 }
 
 // ParamUint64 attempts to parse a uint64 from the URL parameter by name.
 func (c *Ctx) ParamUint64(name string) (uint64, error) {
-	n, err := strconv.ParseUint(c.Param(name), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return n, nil
+	return TryUint64(c.Param(name))
 }
 
 // ParamFloat32 attempts to parse a float32 from the URL parameter by name.
 func (c *Ctx) ParamFloat32(name string) (float32, error) {
-	n, err := strconv.ParseFloat(c.Param(name), 32)
-	if err != nil {
-		return 0, err
-	}
-	return float32(n), nil
+	return TryFloat32(c.Param(name))
 }
 
 // ParamFloat64 attempts to parse a float64 from the URL parameter by name.
 func (c *Ctx) ParamFloat64(name string) (float64, error) {
-	n, err := strconv.ParseFloat(c.Param(name), 64)
-	if err != nil {
-		return 0, err
-	}
-	return n, nil
+	return TryFloat64(c.Param(name))
 }
 
 // ParamBool attempts to parse a bool from the URL parameter by name.
 func (c *Ctx) ParamBool(name string) (bool, error) {
-	n, err := strconv.ParseBool(c.Param(name))
-	if err != nil {
-		return false, err
-	}
-	return n, nil
+	return TryBool(c.Param(name))
 }
 
 // QueryInt attempts to parse a int from the request URL by name.
 func (c *Ctx) QueryInt(name string) (int, error) {
-	n, err := strconv.ParseInt(c.Query(name), 10, 0)
-	if err != nil {
-		return 0, err
-	}
-	return int(n), nil
+	return TryInt(c.Query(name))
 }
 
 // QueryUint attempts to parse a uint from the request URL by name.
 func (c *Ctx) QueryUint(name string) (uint, error) {
-	n, err := strconv.ParseUint(c.Query(name), 10, 0)
-	if err != nil {
-		return 0, err
-	}
-	return uint(n), nil
+	return TryUint(c.Query(name))
 }
 
 // QueryInt8 attempts to parse a int8 from the request URL by name.
 func (c *Ctx) QueryInt8(name string) (int8, error) {
-	n, err := strconv.ParseInt(c.Query(name), 10, 8)
-	if err != nil {
-		return 0, err
-	}
-	return int8(n), nil
+	return TryInt8(c.Query(name))
 }
 
 // QueryUint8 attempts to parse a uint8 from the request URL by name.
 func (c *Ctx) QueryUint8(name string) (uint8, error) {
-	n, err := strconv.ParseUint(c.Query(name), 10, 8)
-	if err != nil {
-		return 0, err
-	}
-	return uint8(n), nil
+	return TryUint8(c.Query(name))
 }
 
 // QueryInt16 attempts to parse a int16 from the request URL by name.
 func (c *Ctx) QueryInt16(name string) (int16, error) {
-	n, err := strconv.ParseInt(c.Query(name), 10, 16)
-	if err != nil {
-		return 0, err
-	}
-	return int16(n), nil
+	return TryInt16(c.Query(name))
 }
 
 // QueryUint16 attempts to parse a uint16 from the request URL by name.
 func (c *Ctx) QueryUint16(name string) (uint16, error) {
-	n, err := strconv.ParseUint(c.Query(name), 10, 16)
-	if err != nil {
-		return 0, err
-	}
-	return uint16(n), nil
+	return TryUint16(c.Query(name))
 }
 
 // QueryInt32 attempts to parse a int32 from the request URL by name.
 func (c *Ctx) QueryInt32(name string) (int32, error) {
-	n, err := strconv.ParseInt(c.Query(name), 10, 32)
-	if err != nil {
-		return 0, err
-	}
-	return int32(n), nil
+	return TryInt32(c.Query(name))
 }
 
 // QueryUint32 attempts to parse a uint32 from the request URL by name.
 func (c *Ctx) QueryUint32(name string) (uint32, error) {
-	n, err := strconv.ParseUint(c.Query(name), 10, 32)
-	if err != nil {
-		return 0, err
-	}
-	return uint32(n), nil
+	return TryUint32(c.Query(name))
 }
 
 // QueryInt64 attempts to parse a int64 from the request URL by name.
 func (c *Ctx) QueryInt64(name string) (int64, error) {
-	n, err := strconv.ParseInt(c.Query(name), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return n, nil
+	return TryInt64(c.Query(name))
 }
 
 // QueryUint64 attempts to parse a uint64 from the request URL by name.
 func (c *Ctx) QueryUint64(name string) (uint64, error) {
-	n, err := strconv.ParseUint(c.Query(name), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return n, nil
+	return TryUint64(c.Query(name))
 }
 
 // QueryFloat32 attempts to parse a float32 from the request URL by name.
 func (c *Ctx) QueryFloat32(name string) (float32, error) {
-	n, err := strconv.ParseFloat(c.Query(name), 32)
-	if err != nil {
-		return 0, err
-	}
-	return float32(n), nil
+	return TryFloat32(c.Query(name))
 }
 
 // QueryFloat64 attempts to parse a float64 from the request URL by name.
 func (c *Ctx) QueryFloat64(name string) (float64, error) {
-	n, err := strconv.ParseFloat(c.Query(name), 64)
-	if err != nil {
-		return 0, err
-	}
-	return n, nil
+	return TryFloat64(c.Query(name))
 }
 
 // QueryBool attempts to parse a bool from the request URL by name.
 func (c *Ctx) QueryBool(name string) (bool, error) {
-	n, err := strconv.ParseBool(c.Query(name))
-	if err != nil {
-		return false, err
-	}
-	return n, nil
+	return TryBool(c.Query(name))
 }
 
 // FormIn attempts to parse a int from form value by name.
 func (c *Ctx) FormInt(name string) (int, error) {
-	n, err := strconv.ParseInt(c.Form(name), 10, 0)
-	if err != nil {
-		return 0, err
-	}
-	return int(n), nil
+	return TryInt(c.Form(name))
 }
 
 // FormUint attempts to parse a uint from form value by name.
 func (c *Ctx) FormUint(name string) (uint, error) {
-	n, err := strconv.ParseUint(c.Form(name), 10, 0)
-	if err != nil {
-		return 0, err
-	}
-	return uint(n), nil
+	return TryUint(c.Form(name))
 }
 
 // FormInt8 attempts to parse a int8 from form value by name.
 func (c *Ctx) FormInt8(name string) (int8, error) {
-	n, err := strconv.ParseInt(c.Form(name), 10, 8)
-	if err != nil {
-		return 0, err
-	}
-	return int8(n), nil
+	return TryInt8(c.Form(name))
 }
 
 // FormUint8 attempts to parse a uint8 from form value by name.
 func (c *Ctx) FormUint8(name string) (uint8, error) {
-	n, err := strconv.ParseUint(c.Form(name), 10, 8)
-	if err != nil {
-		return 0, err
-	}
-	return uint8(n), nil
+	return TryUint8(c.Form(name))
 }
 
 // FormInt16 attempts to parse a int16 from form value by name.
 func (c *Ctx) FormInt16(name string) (int16, error) {
-	n, err := strconv.ParseInt(c.Form(name), 10, 16)
-	if err != nil {
-		return 0, err
-	}
-	return int16(n), nil
+	return TryInt16(c.Form(name))
 }
 
 // FormUint16 attempts to parse a uint16 from form value by name.
 func (c *Ctx) FormUint16(name string) (uint16, error) {
-	n, err := strconv.ParseUint(c.Form(name), 10, 16)
-	if err != nil {
-		return 0, err
-	}
-	return uint16(n), nil
+	return TryUint16(c.Form(name))
 }
 
 // FormInt32 attempts to parse a int32 from form value by name.
 func (c *Ctx) FormInt32(name string) (int32, error) {
-	n, err := strconv.ParseInt(c.Form(name), 10, 32)
-	if err != nil {
-		return 0, err
-	}
-	return int32(n), nil
+	return TryInt32(c.Form(name))
 }
 
 // FormUint32 attempts to parse a uint32 from form value by name.
 func (c *Ctx) FormUint32(name string) (uint32, error) {
-	n, err := strconv.ParseUint(c.Form(name), 10, 32)
-	if err != nil {
-		return 0, err
-	}
-	return uint32(n), nil
+	return TryUint32(c.Form(name))
 }
 
 // FormInt64 attempts to parse a int64 from form value by name.
 func (c *Ctx) FormInt64(name string) (int64, error) {
-	n, err := strconv.ParseInt(c.Form(name), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return n, nil
+	return TryInt64(c.Form(name))
 }
 
 // FormUint64 attempts to parse a uint64 from form value by name.
 func (c *Ctx) FormUint64(name string) (uint64, error) {
-	n, err := strconv.ParseUint(c.Form(name), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return n, nil
+	return TryUint64(c.Form(name))
 }
 
 // FormFloat32 attempts to parse a float32 from form value by name.
 func (c *Ctx) FormFloat32(name string) (float32, error) {
-	n, err := strconv.ParseFloat(c.Form(name), 32)
-	if err != nil {
-		return 0, err
-	}
-	return float32(n), nil
+	return TryFloat32(c.Form(name))
 }
 
 // FormFloat64 attempts to parse a float64 from form value by name.
 func (c *Ctx) FormFloat64(name string) (float64, error) {
-	n, err := strconv.ParseFloat(c.Form(name), 64)
-	if err != nil {
-		return 0, err
-	}
-	return n, nil
+	return TryFloat64(c.Form(name))
 }
 
 // FormBool attempts to parse a bool from form value by name.
 func (c *Ctx) FormBool(name string) (bool, error) {
-	n, err := strconv.ParseBool(c.Form(name))
-	if err != nil {
-		return false, err
-	}
-	return n, nil
+	return TryBool(c.Form(name))
 }
 
 // PostFormIn attempts to parse a int from PostForm value by name.
 func (c *Ctx) PostFormInt(name string) (int, error) {
-	n, err := strconv.ParseInt(c.PostForm(name), 10, 0)
-	if err != nil {
-		return 0, err
-	}
-	return int(n), nil
+	return TryInt(c.PostForm(name))
 }
 
 // PostFormUint attempts to parse a uint from PostForm value by name.
 func (c *Ctx) PostFormUint(name string) (uint, error) {
-	n, err := strconv.ParseUint(c.PostForm(name), 10, 0)
-	if err != nil {
-		return 0, err
-	}
-	return uint(n), nil
+	return TryUint(c.PostForm(name))
 }
 
 // PostFormInt8 attempts to parse a int8 from PostForm value by name.
 func (c *Ctx) PostFormInt8(name string) (int8, error) {
-	n, err := strconv.ParseInt(c.PostForm(name), 10, 8)
-	if err != nil {
-		return 0, err
-	}
-	return int8(n), nil
+	return TryInt8(c.PostForm(name))
 }
 
 // PostFormUint8 attempts to parse a uint8 from PostForm value by name.
 func (c *Ctx) PostFormUint8(name string) (uint8, error) {
-	n, err := strconv.ParseUint(c.PostForm(name), 10, 8)
-	if err != nil {
-		return 0, err
-	}
-	return uint8(n), nil
+	return TryUint8(c.PostForm(name))
 }
 
 // PostFormInt16 attempts to parse a int16 from PostForm value by name.
 func (c *Ctx) PostFormInt16(name string) (int16, error) {
-	n, err := strconv.ParseInt(c.PostForm(name), 10, 16)
-	if err != nil {
-		return 0, err
-	}
-	return int16(n), nil
+	return TryInt16(c.PostForm(name))
 }
 
 // PostFormUint16 attempts to parse a uint16 from PostForm value by name.
 func (c *Ctx) PostFormUint16(name string) (uint16, error) {
-	n, err := strconv.ParseUint(c.PostForm(name), 10, 16)
-	if err != nil {
-		return 0, err
-	}
-	return uint16(n), nil
+	return TryUint16(c.PostForm(name))
 }
 
 // PostFormInt32 attempts to parse a int32 from PostForm value by name.
 func (c *Ctx) PostFormInt32(name string) (int32, error) {
-	n, err := strconv.ParseInt(c.PostForm(name), 10, 32)
-	if err != nil {
-		return 0, err
-	}
-	return int32(n), nil
+	return TryInt32(c.PostForm(name))
 }
 
 // PostFormUint32 attempts to parse a uint32 from PostForm value by name.
 func (c *Ctx) PostFormUint32(name string) (uint32, error) {
-	n, err := strconv.ParseUint(c.PostForm(name), 10, 32)
-	if err != nil {
-		return 0, err
-	}
-	return uint32(n), nil
+	return TryUint32(c.PostForm(name))
 }
 
 // PostFormInt64 attempts to parse a int64 from PostForm value by name.
 func (c *Ctx) PostFormInt64(name string) (int64, error) {
-	n, err := strconv.ParseInt(c.PostForm(name), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return n, nil
+	return TryInt64(c.PostForm(name))
 }
 
 // PostFormUint64 attempts to parse a uint64 from PostForm value by name.
 func (c *Ctx) PostFormUint64(name string) (uint64, error) {
-	n, err := strconv.ParseUint(c.PostForm(name), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return n, nil
+	return TryUint64(c.PostForm(name))
 }
 
 // PostFormFloat32 attempts to parse a float32 from PostForm value by name.
 func (c *Ctx) PostFormFloat32(name string) (float32, error) {
-	n, err := strconv.ParseFloat(c.PostForm(name), 32)
-	if err != nil {
-		return 0, err
-	}
-	return float32(n), nil
+	return TryFloat32(c.PostForm(name))
 }
 
 // PostFormFloat64 attempts to parse a float64 from PostForm value by name.
 func (c *Ctx) PostFormFloat64(name string) (float64, error) {
-	n, err := strconv.ParseFloat(c.PostForm(name), 64)
-	if err != nil {
-		return 0, err
-	}
-	return n, nil
+	return TryFloat64(c.PostForm(name))
 }
 
 // PostFormBool attempts to parse a bool from PostForm value by name.
 func (c *Ctx) PostFormBool(name string) (bool, error) {
-	n, err := strconv.ParseBool(c.PostForm(name))
-	if err != nil {
-		return false, err
-	}
-	return n, nil
+	return TryBool(c.PostForm(name))
 }
 
 // Accept get Accept from header

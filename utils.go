@@ -11,11 +11,11 @@ import (
 )
 
 // Redirect helper function for return url and redirect error
-func Redirect(url string, code int) (Fn, error) {
-	return func(w http.ResponseWriter, r *http.Request) error {
+func Redirect(url string, code int) (any, error) {
+	return nil, NewErrFn(code, "", func(w http.ResponseWriter, r *http.Request) error {
 		http.Redirect(w, r, url, code)
 		return nil
-	}, ErrCallback
+	})
 }
 
 func ServeFile(filePath string) (Fn, error) {

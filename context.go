@@ -179,13 +179,17 @@ func (c *Ctx) TryParseBody(val any) error {
 
 	switch {
 	case strings.HasPrefix(c.ContentType(), "application/json"):
-		return json.NewDecoder(c.r.Body).Decode(val)
+		dec := json.NewDecoder(c.r.Body)
+		dec.DisallowUnknownFields()
+		return dec.Decode(val)
 	case strings.HasPrefix(c.ContentType(), "application/x-gob"):
-		return gob.NewDecoder(c.r.Body).Decode(val)
+		dec := gob.NewDecoder(c.r.Body)
+		return dec.Decode(val)
 	case strings.HasPrefix(c.ContentType(), "application/octet-stream"):
 		return ErrContentType
 	case strings.HasPrefix(c.ContentType(), "application/xml"):
-		return xml.NewDecoder(c.r.Body).Decode(val)
+		dec := xml.NewDecoder(c.r.Body)
+		return dec.Decode(val)
 	default:
 		return ErrContentType
 	}

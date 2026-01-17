@@ -10,11 +10,6 @@ import (
 	"sync"
 )
 
-var (
-	_app  *Application
-	_once sync.Once
-)
-
 // Application is type of a web.Application
 type Application struct {
 	srv           *http.Server
@@ -30,12 +25,10 @@ type Application struct {
 	NotFound http.Handler
 }
 
-// CreateApplication return a singleton web.Application
-func CreateApplication() *Application {
-	_once.Do(func() {
-		_app = &Application{}
-	})
-	return _app
+// New return *web.Application
+func New() *Application {
+	app := &Application{}
+	return app
 }
 
 // SetInfoLogger set info logger
@@ -165,6 +158,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if next, params, _ := root.getValue(rel, app.getParams); next != nil {
 
 			c := createCtx(w, r, params)
+			defer releaseCtx(c)
 
 			val, err := next(c)
 
@@ -201,7 +195,6 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 							c.write(err.Error())
 							app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
 						}
-						releaseCtx(c)
 						return
 					}
 				}
@@ -210,7 +203,6 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				c.write(err.Error())
 
 				app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
-				releaseCtx(c)
 
 				return
 			}
@@ -237,8 +229,6 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 				app.Logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, 204)
 			}
-
-			releaseCtx(c)
 
 			return
 		}

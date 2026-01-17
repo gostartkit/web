@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -16,32 +14,6 @@ func Redirect(url string, code int) (any, error) {
 		http.Redirect(w, r, url, code)
 		return nil
 	})
-}
-
-func ServeFile(filePath string) (Fn, error) {
-	return func(w http.ResponseWriter, r *http.Request) error {
-		f, err := os.Open(filePath)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		fi, err := f.Stat()
-		if err != nil {
-			return err
-		}
-
-		ext := filepath.Ext(filePath)
-
-		switch ext {
-		case ".json":
-			w.Header().Set("Content-Type", "application/json")
-		}
-		w.Header().Set("Content-Length", strconv.FormatInt(fi.Size(), 10))
-
-		http.ServeContent(w, r, fi.Name(), fi.ModTime(), f)
-		return nil
-	}, ErrCallback
 }
 
 // TryParse try parse val to v

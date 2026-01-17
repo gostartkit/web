@@ -87,13 +87,6 @@ var (
 	// Example: a frontend app on localhost trying to access a restricted API.
 	ErrCors = NewErr(http.StatusBadRequest, "CROSSORIGINREQUESTBLOCKED")
 
-	// ErrCallback indicates an error related to a callback operation.
-	// This error is used when a callback function or mechanism fails, such as in asynchronous operations
-	// or webhook processing.
-	// Note: The specific cause may need additional context (consider wrapping with fmt.Errorf if needed).
-	// Example: invalid callback URL provided in an API request.
-	ErrCallback = NewErr(http.StatusBadRequest, "CALLBACK")
-
 	// ErrUnexpected indicates an unexpected error occurred.
 	// This is a catch-all error for unanticipated issues that don’t fit specific categories,
 	// such as internal server errors or unhandled edge cases.

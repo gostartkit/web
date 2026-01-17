@@ -12,7 +12,7 @@ import (
 
 // Redirect helper function for return url and redirect error
 func Redirect(url string, code int) (any, error) {
-	return nil, NewErrFn(code, "", func(w http.ResponseWriter, r *http.Request) error {
+	return nil, NewErrFn(code, "REDIRECT", func(w http.ResponseWriter, r *http.Request) error {
 		http.Redirect(w, r, url, code)
 		return nil
 	})

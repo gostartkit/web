@@ -139,7 +139,8 @@ func NewErrFn(code int, msg string, cb Fn) error {
 	return &errFn{
 		cb: cb,
 		errString: errString{
-			code: code, s: msg,
+			code: code,
+			s:    msg,
 		},
 	}
 }

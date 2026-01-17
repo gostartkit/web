@@ -60,7 +60,7 @@ func TryParse(val string, v any) error {
 		*dest = val
 		return nil
 	case *int:
-		n, err := strconv.ParseInt(val, 10, 0)
+		n, err := strconv.ParseInt(val, 10, strconv.IntSize)
 		if err != nil {
 			return err
 		}
@@ -95,7 +95,7 @@ func TryParse(val string, v any) error {
 		*dest = n
 		return nil
 	case *uint:
-		n, err := strconv.ParseUint(val, 10, 0)
+		n, err := strconv.ParseUint(val, 10, strconv.IntSize)
 		if err != nil {
 			return err
 		}
@@ -157,7 +157,7 @@ func TryParse(val string, v any) error {
 		parts := strings.Split(val, ",")
 		arr := make([]int, 0, len(parts))
 		for _, part := range parts {
-			n, err := strconv.ParseInt(part, 10, 0)
+			n, err := strconv.ParseInt(part, 10, strconv.IntSize)
 			if err != nil {
 				return err
 			}
@@ -318,7 +318,7 @@ func TryInt(val string) (int, error) {
 	if val == "" {
 		return 0, nil
 	}
-	n, err := strconv.ParseInt(val, 10, 0)
+	n, err := strconv.ParseInt(val, 10, strconv.IntSize)
 	if err != nil {
 		return 0, err
 	}
@@ -329,7 +329,7 @@ func TryUint(val string) (uint, error) {
 	if val == "" {
 		return 0, nil
 	}
-	n, err := strconv.ParseUint(val, 10, 0)
+	n, err := strconv.ParseUint(val, 10, strconv.IntSize)
 	if err != nil {
 		return 0, err
 	}

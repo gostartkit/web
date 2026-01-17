@@ -23,35 +23,36 @@ var (
 
 // createCtx returns a new instance of web.Ctx, initialized with the given HTTP response writer, request, and parameters.
 func createCtx(w http.ResponseWriter, r *http.Request, params *Params) *Ctx {
-
 	c := _ctxPool.Get().(*Ctx)
-	c.responseWriter = w
-	c.request = r
+	c.w = w
+	c.r = r
 	c.param = params
-	c.query = nil
-	c.userId = 0
-	c.accept = nil
-	c.contentType = nil
-
 	return c
 }
 
 // releaseCtx puts the context object back into the pool for reuse.
 func releaseCtx(c *Ctx) {
 	if c != nil {
+		c.w = nil
+		c.r = nil
+		c.param = nil
+		c.query = nil
+		c.userId = 0
+		c.accept = ""
+		c.contentType = ""
 		_ctxPool.Put(c)
 	}
 }
 
 // Ctx represents the context for a web request, holding relevant request data and response methods.
 type Ctx struct {
-	responseWriter http.ResponseWriter
-	request        *http.Request
-	param          *Params
-	query          url.Values
-	userId         uint64
-	accept         *string
-	contentType    *string
+	w           http.ResponseWriter
+	r           *http.Request
+	param       *Params
+	query       url.Values
+	userId      uint64
+	accept      string
+	contentType string
 }
 
 // Init initializes the context with user ID and user rights.
@@ -60,16 +61,16 @@ func (c *Ctx) Init(userId uint64) {
 }
 
 func (c *Ctx) Request() *http.Request {
-	return c.request
+	return c.r
 }
 
 func (c *Ctx) ResponseWriter() http.ResponseWriter {
-	return c.responseWriter
+	return c.w
 }
 
 func (c *Ctx) QueryValues() url.Values {
 	if c.query == nil {
-		c.query = c.request.URL.Query()
+		c.query = c.r.URL.Query()
 	}
 	return c.query
 }
@@ -89,51 +90,48 @@ func (c *Ctx) Param(name string) string {
 
 // Query retrieves a query string parameter by name from the request URL.
 func (c *Ctx) Query(name string) string {
-	if c.query == nil {
-		c.query = c.request.URL.Query()
-	}
-	return c.query.Get(name)
+	return c.QueryValues().Get(name)
 }
 
 // Form retrieves a form value by name from the request.
 func (c *Ctx) Form(name string) string {
-	return c.request.FormValue(name)
+	return c.r.FormValue(name)
 }
 
 // PostForm retrieves a form value by name from the request.
 func (c *Ctx) PostForm(name string) string {
-	return c.request.PostFormValue(name)
+	return c.r.PostFormValue(name)
 }
 
 // FormFile retrieves the first file uploaded for the specified form key.
 // It calls Request.ParseMultipartForm and Request.ParseForm if needed.
 func (c *Ctx) FormFile(key string) (multipart.File, *multipart.FileHeader, error) {
-	return c.request.FormFile(key)
+	return c.r.FormFile(key)
 }
 
 // Host returns the host from the request header.
 func (c *Ctx) Host() string {
-	return c.request.Host
+	return c.r.Host
 }
 
 // Path returns the path from the request URL.
 func (c *Ctx) Path() string {
-	return c.request.URL.Path
+	return c.r.URL.Path
 }
 
 // Body returns the request body.
 func (c *Ctx) Body() io.ReadCloser {
-	return c.request.Body
+	return c.r.Body
 }
 
 // Method returns the HTTP method (GET, POST, etc.) used for the request.
 func (c *Ctx) Method() string {
-	return c.request.Method
+	return c.r.Method
 }
 
 // RemoteAddr returns the remote IP address of the client making the request.
 func (c *Ctx) RemoteAddr() string {
-	return c.request.RemoteAddr
+	return c.r.RemoteAddr
 }
 
 // BearerToken retrieves the Bearer token from the Authorization header.
@@ -172,15 +170,22 @@ func (c *Ctx) IsFormData() bool {
 
 // TryParseBody attempts to parse the request body based on its Content-Type and decode it into the provided value.
 func (c *Ctx) TryParseBody(val any) error {
+
+	if c.r == nil || c.r.Body == nil {
+		return io.EOF
+	}
+
+	defer c.r.Body.Close()
+
 	switch {
 	case strings.HasPrefix(c.ContentType(), "application/json"):
-		return json.NewDecoder(c.request.Body).Decode(val)
+		return json.NewDecoder(c.r.Body).Decode(val)
 	case strings.HasPrefix(c.ContentType(), "application/x-gob"):
-		return gob.NewDecoder(c.request.Body).Decode(val)
+		return gob.NewDecoder(c.r.Body).Decode(val)
 	case strings.HasPrefix(c.ContentType(), "application/octet-stream"):
 		return ErrContentType
 	case strings.HasPrefix(c.ContentType(), "application/xml"):
-		return xml.NewDecoder(c.request.Body).Decode(val)
+		return xml.NewDecoder(c.r.Body).Decode(val)
 	default:
 		return ErrContentType
 	}
@@ -463,11 +468,10 @@ func (c *Ctx) PostFormBool(name string) (bool, error) {
 
 // Accept get Accept from header
 func (c *Ctx) Accept() string {
-	if c.accept == nil {
-		ac := c.GetHeader("Accept")
-		c.accept = &ac
+	if c.accept == "" {
+		c.accept = c.GetHeader("Accept")
 	}
-	return *c.accept
+	return c.accept
 }
 
 // Flusher returns the http.Flusher interface if the response writer supports it.
@@ -476,7 +480,7 @@ func (c *Ctx) Accept() string {
 // This is particularly useful for streaming data or for long-lived connections.
 // If the response writer does not support chunked transfer encoding, it returns nil.
 func (c *Ctx) Flusher() http.Flusher {
-	if flusher, ok := c.responseWriter.(http.Flusher); ok {
+	if flusher, ok := c.w.(http.Flusher); ok {
 		return flusher
 	}
 	return nil
@@ -486,7 +490,7 @@ func (c *Ctx) Flusher() http.Flusher {
 // This is useful for upgrading the connection to a different protocol, such as WebSocket.
 // If the response writer does not support hijacking, it returns nil.
 func (c *Ctx) Hijacker() http.Hijacker {
-	if hijacker, ok := c.responseWriter.(http.Hijacker); ok {
+	if hijacker, ok := c.w.(http.Hijacker); ok {
 		return hijacker
 	}
 	return nil
@@ -494,23 +498,20 @@ func (c *Ctx) Hijacker() http.Hijacker {
 
 // Context returns the context of the request.
 func (c *Ctx) Context() context.Context {
-	return c.request.Context()
+	return c.r.Context()
 }
 
 // ContentType get Content-Type from header
 func (c *Ctx) ContentType() string {
-	if c.contentType == nil {
-		ctype := c.GetHeader("Content-Type")
-		c.contentType = &ctype
+	if c.contentType == "" {
+		c.contentType = c.GetHeader("Content-Type")
 	}
-	return *c.contentType
+	return c.contentType
 }
 
 // SetContentType Set Content-Type to header
 func (c *Ctx) SetContentType(val string) {
-	if c.contentType == nil {
-		c.contentType = &val
-	}
+	c.contentType = val
 	c.setHeader("Content-Type", val)
 }
 
@@ -531,28 +532,28 @@ func (c *Ctx) SetVersion(version string) {
 
 // SetCookie adds a Set-Cookie header to the provided [ResponseWriter]'s headers. The provided cookie must have a valid Name. Invalid cookies may be silently dropped.
 func (c *Ctx) SetCookie(cookie *http.Cookie) {
-	http.SetCookie(c.responseWriter, cookie)
+	http.SetCookie(c.w, cookie)
 }
 
 // GetCookie returns the named cookie provided in the request or [ErrNoCookie] if not found. If multiple cookies match the given name, only one cookie will be returned.
 func (c *Ctx) GetCookie(name string) (*http.Cookie, error) {
-	return c.request.Cookie(name)
+	return c.r.Cookie(name)
 }
 
 // GetHeader GetHeader header, short hand of r.Header.GetHeader
 func (c *Ctx) GetHeader(key string) string {
-	return c.request.Header.Get(key)
+	return c.r.Header.Get(key)
 }
 
 // setHeader setHeader header, short hand of w.Header().setHeader
 func (c *Ctx) setHeader(key string, value string) {
-	c.responseWriter.Header().Set(key, value)
+	c.w.Header().Set(key, value)
 }
 
 // write write data base on accept header
 func (c *Ctx) write(val any) error {
 
-	switch c.ContentType() {
+	switch c.Accept() {
 	case "application/json":
 		return c.writeJSON(val)
 	case "application/x-gob":
@@ -570,17 +571,17 @@ func (c *Ctx) write(val any) error {
 
 // writeJSON Write JSON
 func (c *Ctx) writeJSON(val any) error {
-	return json.NewEncoder(c.responseWriter).Encode(val)
+	return json.NewEncoder(c.w).Encode(val)
 }
 
 // writeXML Write XML
 func (c *Ctx) writeXML(val any) error {
-	return xml.NewEncoder(c.responseWriter).Encode(val)
+	return xml.NewEncoder(c.w).Encode(val)
 }
 
 // writeGOB Write GOB
 func (c *Ctx) writeGOB(val any) error {
-	return gob.NewEncoder(c.responseWriter).Encode(val)
+	return gob.NewEncoder(c.w).Encode(val)
 }
 
 // writeBinary Write Binary

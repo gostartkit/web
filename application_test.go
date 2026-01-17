@@ -23,8 +23,8 @@ func TestHttpGet(t *testing.T) {
 			t.Errorf("Expected GET route to be added, but got %s", c.Method())
 		}
 
-		if c.request.URL.Path != rel {
-			t.Errorf("Expected path %s, but got %s", rel, c.request.URL.Path)
+		if c.r.URL.Path != rel {
+			t.Errorf("Expected path %s, but got %s", rel, c.r.URL.Path)
 		}
 
 		return "", nil
@@ -52,8 +52,8 @@ func TestHttpPost(t *testing.T) {
 			t.Errorf("Expected POST route to be added, but got %s", c.Method())
 		}
 
-		if c.request.URL.Path != rel {
-			t.Errorf("Expected path /route/, but got %s", c.request.URL.Path)
+		if c.r.URL.Path != rel {
+			t.Errorf("Expected path /route/, but got %s", c.r.URL.Path)
 		}
 
 		return 1, nil

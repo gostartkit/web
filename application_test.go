@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	app = CreateApplication()
+	app = New()
 )
 
 func TestHttpGet(t *testing.T) {

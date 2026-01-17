@@ -166,37 +166,15 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			if err != nil {
 
-				code := http.StatusBadRequest
+				code := errCode(err)
 
-				switch err {
-				case ErrUnauthorized:
-					code = http.StatusUnauthorized
-				case ErrForbidden:
-					code = http.StatusForbidden
-				case ErrNotFound:
-					code = http.StatusNotFound
-				case ErrMovedPermanently:
-					code = http.StatusMovedPermanently
-				case ErrFound:
-					code = http.StatusFound
-				case ErrTemporaryRedirect:
-					code = http.StatusTemporaryRedirect
-				case ErrPermanentRedirect:
-					code = http.StatusPermanentRedirect
-				case ErrNotImplemented:
-					code = http.StatusNotImplemented
-				}
-
-				if val != nil && err == ErrCallback {
-
-					if cb, ok := val.(Callback); ok {
-						if err := cb(w, r); err != nil {
-							w.WriteHeader(http.StatusBadRequest)
-							c.write(err.Error())
-							app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
-						}
-						return
+				if e, ok := err.(*errFn); ok {
+					if err := e.cb(w, r); err != nil {
+						w.WriteHeader(code)
+						c.write(err.Error())
+						app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
 					}
+					return
 				}
 
 				w.WriteHeader(code)

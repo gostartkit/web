@@ -146,12 +146,12 @@ func (c *Ctx) Origin() string {
 
 // SetOrigin sets the "Access-Control-Allow-Origin" header in the response.
 func (c *Ctx) SetOrigin(origin string) {
-	c.setHeader("Access-Control-Allow-Origin", origin)
+	c.SetHeader("Access-Control-Allow-Origin", origin)
 }
 
 // AllowCredentials sets the "Access-Control-Allow-Credentials" header to true in the response.
 func (c *Ctx) AllowCredentials() {
-	c.setHeader("Access-Control-Allow-Credentials", "true")
+	c.SetHeader("Access-Control-Allow-Credentials", "true")
 }
 
 // UserAgent returns the User-Agent header from the request.
@@ -516,22 +516,22 @@ func (c *Ctx) ContentType() string {
 // SetContentType Set Content-Type to header
 func (c *Ctx) SetContentType(val string) {
 	c.contentType = val
-	c.setHeader("Content-Type", val)
+	c.SetHeader("Content-Type", val)
 }
 
 // SetCacheControl Set Cache-Control to header
 func (c *Ctx) SetCacheControl(val string) {
-	c.setHeader("Cache-Control", val)
+	c.SetHeader("Cache-Control", val)
 }
 
 // SetConnection Set Connection to header
 func (c *Ctx) SetConnection(val string) {
-	c.setHeader("Connection", val)
+	c.SetHeader("Connection", val)
 }
 
 // SetVersion set `version` header
 func (c *Ctx) SetVersion(version string) {
-	c.setHeader("Version", version)
+	c.SetHeader("Version", version)
 }
 
 // SetCookie adds a Set-Cookie header to the provided [ResponseWriter]'s headers. The provided cookie must have a valid Name. Invalid cookies may be silently dropped.
@@ -544,13 +544,13 @@ func (c *Ctx) GetCookie(name string) (*http.Cookie, error) {
 	return c.r.Cookie(name)
 }
 
-// GetHeader GetHeader header, short hand of r.Header.GetHeader
+// GetHeader GetHeader header, short hand of r.Header.Get
 func (c *Ctx) GetHeader(key string) string {
 	return c.r.Header.Get(key)
 }
 
-// setHeader setHeader header, short hand of w.Header().setHeader
-func (c *Ctx) setHeader(key string, value string) {
+// SetHeader set header, short hand of w.Header().Set
+func (c *Ctx) SetHeader(key string, value string) {
 	c.w.Header().Set(key, value)
 }
 

@@ -543,6 +543,17 @@ func (c *Ctx) SetHeader(key string, value string) {
 	c.w.Header().Set(key, value)
 }
 
+func (c *Ctx) WriteHeader(statusCode int) {
+	ct := c.Accept()
+	switch ct {
+	case "application/json", "application/x-gob", "application/octet-stream", "application/x-avro", "application/xml":
+		c.SetContentType(ct)
+	default:
+		c.SetContentType("application/json")
+	}
+	c.w.WriteHeader(statusCode)
+}
+
 // write write data base on accept header
 func (c *Ctx) write(val any) error {
 
@@ -564,30 +575,25 @@ func (c *Ctx) write(val any) error {
 
 // writeJSON Write JSON
 func (c *Ctx) writeJSON(val any) error {
-	c.SetContentType("application/json")
 	return json.NewEncoder(c.w).Encode(val)
 }
 
 // writeXML Write XML
 func (c *Ctx) writeXML(val any) error {
-	c.SetContentType("application/xml")
 	return xml.NewEncoder(c.w).Encode(val)
 }
 
 // writeGOB Write GOB
 func (c *Ctx) writeGOB(val any) error {
-	c.SetContentType("application/x-gob")
 	return gob.NewEncoder(c.w).Encode(val)
 }
 
 // writeBinary Write Binary
 func (c *Ctx) writeBinary(val any) error {
-	c.SetContentType("application/octet-stream")
 	return ErrNotImplemented
 }
 
 // writeAvro Write Avro
 func (c *Ctx) writeAvro(val any) error {
-	c.SetContentType("application/x-avro")
 	return ErrNotImplemented
 }

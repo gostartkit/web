@@ -170,14 +170,14 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 				if e, ok := err.(*errFn); ok {
 					if err := e.cb(w, r); err != nil {
-						w.WriteHeader(code)
+						c.WriteHeader(code)
 						c.write(err.Error())
 						app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
 					}
 					return
 				}
 
-				w.WriteHeader(code)
+				c.WriteHeader(code)
 				c.write(err.Error())
 
 				app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
@@ -194,7 +194,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					code = http.StatusCreated
 				}
 
-				w.WriteHeader(code)
+				c.WriteHeader(code)
 				c.write(val)
 
 				app.Logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code)
@@ -203,7 +203,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					rel.Release()
 				}
 			} else {
-				w.WriteHeader(http.StatusNoContent)
+				c.WriteHeader(http.StatusNoContent)
 
 				app.Logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, 204)
 			}

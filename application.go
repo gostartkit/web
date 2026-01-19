@@ -219,7 +219,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				app.cors(w.Header().Set, origin, allow)
 			}
 		}
-		writeHeader(w, r, http.StatusNoContent)
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 

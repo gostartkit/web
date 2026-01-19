@@ -543,17 +543,6 @@ func (c *Ctx) SetHeader(key string, value string) {
 	c.w.Header().Set(key, value)
 }
 
-func (c *Ctx) WriteHeader(statusCode int) {
-	ct := c.Accept()
-	switch ct {
-	case "application/json", "application/x-gob", "application/octet-stream", "application/x-avro", "application/xml":
-		c.SetContentType(ct)
-	default:
-		c.SetContentType("application/json")
-	}
-	c.w.WriteHeader(statusCode)
-}
-
 // write write data base on accept header
 func (c *Ctx) write(val any) error {
 

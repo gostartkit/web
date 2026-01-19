@@ -429,6 +429,19 @@ func TryBool(val string) (bool, error) {
 	return n, nil
 }
 
+func writeHeader(w http.ResponseWriter, r *http.Request, statusCode int) {
+	ct := r.Header.Get("Accept")
+	set := w.Header().Set
+
+	switch ct {
+	case "application/json", "application/x-gob", "application/octet-stream", "application/x-avro", "application/xml":
+		set("Content-Type", ct)
+	default:
+		set("Content-Type", "application/json")
+	}
+	w.WriteHeader(statusCode)
+}
+
 // bearerToken return token
 func bearerToken(auth string) string {
 	const prefix = "Bearer "

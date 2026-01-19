@@ -38,8 +38,6 @@ func releaseCtx(c *Ctx) {
 		c.param = nil
 		c.query = nil
 		c.userId = 0
-		c.accept = ""
-		c.contentType = ""
 		_ctxPool.Put(c)
 	}
 }

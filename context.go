@@ -46,13 +46,11 @@ func releaseCtx(c *Ctx) {
 
 // Ctx represents the context for a web request, holding relevant request data and response methods.
 type Ctx struct {
-	w           http.ResponseWriter
-	r           *http.Request
-	param       *Params
-	query       url.Values
-	userId      uint64
-	accept      string
-	contentType string
+	w      http.ResponseWriter
+	r      *http.Request
+	param  *Params
+	query  url.Values
+	userId uint64
 }
 
 // Init initializes the context with user ID and user rights.
@@ -472,10 +470,7 @@ func (c *Ctx) PostFormBool(name string) (bool, error) {
 
 // Accept get Accept from header
 func (c *Ctx) Accept() string {
-	if c.accept == "" {
-		c.accept = c.GetHeader("Accept")
-	}
-	return c.accept
+	return c.GetHeader("Accept")
 }
 
 // Flusher returns the http.Flusher interface if the response writer supports it.
@@ -507,15 +502,11 @@ func (c *Ctx) Context() context.Context {
 
 // ContentType get Content-Type from header
 func (c *Ctx) ContentType() string {
-	if c.contentType == "" {
-		c.contentType = c.GetHeader("Content-Type")
-	}
-	return c.contentType
+	return c.GetHeader("Content-Type")
 }
 
 // SetContentType Set Content-Type to header
 func (c *Ctx) SetContentType(val string) {
-	c.contentType = val
 	c.SetHeader("Content-Type", val)
 }
 
@@ -575,25 +566,30 @@ func (c *Ctx) write(val any) error {
 
 // writeJSON Write JSON
 func (c *Ctx) writeJSON(val any) error {
+	c.SetContentType("application/json")
 	return json.NewEncoder(c.w).Encode(val)
 }
 
 // writeXML Write XML
 func (c *Ctx) writeXML(val any) error {
+	c.SetContentType("application/xml")
 	return xml.NewEncoder(c.w).Encode(val)
 }
 
 // writeGOB Write GOB
 func (c *Ctx) writeGOB(val any) error {
+	c.SetContentType("application/x-gob")
 	return gob.NewEncoder(c.w).Encode(val)
 }
 
 // writeBinary Write Binary
 func (c *Ctx) writeBinary(val any) error {
+	c.SetContentType("application/octet-stream")
 	return ErrNotImplemented
 }
 
 // writeAvro Write Avro
 func (c *Ctx) writeAvro(val any) error {
+	c.SetContentType("application/x-avro")
 	return ErrNotImplemented
 }

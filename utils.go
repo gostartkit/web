@@ -453,3 +453,8 @@ func bearerToken(auth string) string {
 
 	return auth[l:]
 }
+
+func IsErrFn(err error) bool {
+	_, ok := err.(*errFn)
+	return ok
+}

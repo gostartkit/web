@@ -38,17 +38,19 @@ func releaseCtx(c *Ctx) {
 		c.param = nil
 		c.query = nil
 		c.userId = 0
+		c.formDataState = 0
 		_ctxPool.Put(c)
 	}
 }
 
 // Ctx represents the context for a web request, holding relevant request data and response methods.
 type Ctx struct {
-	w      http.ResponseWriter
-	r      *http.Request
-	param  *Params
-	query  url.Values
-	userId uint64
+	w             http.ResponseWriter
+	r             *http.Request
+	param         *Params
+	query         url.Values
+	userId        uint64
+	formDataState uint8
 }
 
 // Init initializes the context with user ID and user rights.
@@ -160,8 +162,28 @@ func (c *Ctx) IsAjax() bool {
 	return c.GetHeader("X-Requested-With") == "XMLHttpRequest"
 }
 
+// Deprecated: use IsForm() instead
 func (c *Ctx) IsFormData() bool {
-	return strings.HasPrefix(c.ContentType(), "application/x-www-form-urlencoded") || strings.HasPrefix(c.ContentType(), "multipart/form-data")
+	return c.IsForm()
+}
+
+func (c *Ctx) IsForm() bool {
+
+	if c.formDataState > 0 {
+		return c.formDataState == 1
+	}
+
+	ct := c.ContentType()
+
+	isForm := ct != "" && (strings.HasPrefix(ct, "application/x-www-form-urlencoded") || strings.HasPrefix(ct, "multipart/form-data"))
+
+	if isForm {
+		c.formDataState = 1
+	} else {
+		c.formDataState = 255
+	}
+
+	return isForm
 }
 
 // TryParseBody attempts to parse the request body based on its Content-Type and decode it into the provided value.

@@ -170,14 +170,14 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 				if e, ok := err.(*errFn); ok {
 					if err := e.cb(w, r); err != nil {
-						writeHeader(w, r, code)
+						writeCode(w, r, code)
 						c.write(err.Error())
 						app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
 					}
 					return
 				}
 
-				writeHeader(w, r, code)
+				writeCode(w, r, code)
 				c.write(err.Error())
 
 				app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
@@ -194,7 +194,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					code = http.StatusCreated
 				}
 
-				writeHeader(w, r, code)
+				writeCode(w, r, code)
 				c.write(val)
 
 				app.Logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code)
@@ -203,7 +203,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					rel.Release()
 				}
 			} else {
-				writeHeader(w, r, http.StatusNoContent)
+				writeCode(w, r, http.StatusNoContent)
 
 				app.Logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, 204)
 			}
@@ -379,7 +379,7 @@ func (app *Application) putParams(ps *Params) {
 
 func (app *Application) recv(w http.ResponseWriter, r *http.Request) {
 	if rcv := recover(); rcv != nil {
-		writeHeader(w, r, http.StatusInternalServerError)
+		writeCode(w, r, http.StatusInternalServerError)
 		if app.panic != nil {
 			app.panic(w, r, rcv)
 		} else {

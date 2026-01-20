@@ -429,7 +429,7 @@ func TryBool(val string) (bool, error) {
 	return n, nil
 }
 
-func writeHeader(w http.ResponseWriter, r *http.Request, code int) {
+func writeCode(w http.ResponseWriter, r *http.Request, code int) {
 
 	set := w.Header().Set
 

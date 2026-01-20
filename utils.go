@@ -429,9 +429,15 @@ func TryBool(val string) (bool, error) {
 	return n, nil
 }
 
-func writeHeader(w http.ResponseWriter, r *http.Request, statusCode int) {
-	ct := r.Header.Get("Accept")
+func writeHeader(w http.ResponseWriter, r *http.Request, code int) {
+
 	set := w.Header().Set
+
+	if code == http.StatusUnauthorized {
+		set("WWW-Authenticate", `Bearer realm="api", error="invalid_token", error_description="Invalid or expired token"`)
+	}
+
+	ct := r.Header.Get("Accept")
 
 	switch ct {
 	case "application/json", "application/x-gob", "application/octet-stream", "application/x-avro", "application/xml":
@@ -439,7 +445,8 @@ func writeHeader(w http.ResponseWriter, r *http.Request, statusCode int) {
 	default:
 		set("Content-Type", "application/json")
 	}
-	w.WriteHeader(statusCode)
+
+	w.WriteHeader(code)
 }
 
 // bearerToken return token

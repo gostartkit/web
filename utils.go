@@ -123,161 +123,289 @@ func TryParse(val string, v any) error {
 		*dest = n
 		return nil
 	case *[]string:
-		*dest = strings.Split(val, ",")
+		parts := make([]string, 0, strings.Count(val, ",")+1)
+		s := val
+		for {
+			i := strings.IndexByte(s, ',')
+			if i < 0 {
+				parts = append(parts, s)
+				break
+			}
+			parts = append(parts, s[:i])
+			s = s[i+1:]
+		}
+		*dest = parts
 		return nil
 	case *[]int:
-		parts := strings.Split(val, ",")
-		arr := make([]int, 0, len(parts))
-		for _, part := range parts {
+		arr := make([]int, 0, strings.Count(val, ",")+1)
+		s := val
+		for {
+			i := strings.IndexByte(s, ',')
+			part := s
+			if i >= 0 {
+				part = s[:i]
+			}
 			n, err := strconv.ParseInt(part, 10, strconv.IntSize)
 			if err != nil {
 				return err
 			}
 			arr = append(arr, int(n))
+			if i < 0 {
+				break
+			}
+			s = s[i+1:]
 		}
 		*dest = arr
 		return nil
 	case *[]int8:
-		parts := strings.Split(val, ",")
-		arr := make([]int8, 0, len(parts))
-		for _, part := range parts {
+		arr := make([]int8, 0, strings.Count(val, ",")+1)
+		s := val
+		for {
+			i := strings.IndexByte(s, ',')
+			part := s
+			if i >= 0 {
+				part = s[:i]
+			}
 			n, err := strconv.ParseInt(part, 10, 8)
 			if err != nil {
 				return err
 			}
 			arr = append(arr, int8(n))
+			if i < 0 {
+				break
+			}
+			s = s[i+1:]
 		}
 		*dest = arr
 		return nil
 	case *[]int16:
-		parts := strings.Split(val, ",")
-		arr := make([]int16, 0, len(parts))
-		for _, part := range parts {
+		arr := make([]int16, 0, strings.Count(val, ",")+1)
+		s := val
+		for {
+			i := strings.IndexByte(s, ',')
+			part := s
+			if i >= 0 {
+				part = s[:i]
+			}
 			n, err := strconv.ParseInt(part, 10, 16)
 			if err != nil {
 				return err
 			}
 			arr = append(arr, int16(n))
+			if i < 0 {
+				break
+			}
+			s = s[i+1:]
 		}
 		*dest = arr
 		return nil
 	case *[]int32:
-		parts := strings.Split(val, ",")
-		arr := make([]int32, 0, len(parts))
-		for _, part := range parts {
+		arr := make([]int32, 0, strings.Count(val, ",")+1)
+		s := val
+		for {
+			i := strings.IndexByte(s, ',')
+			part := s
+			if i >= 0 {
+				part = s[:i]
+			}
 			n, err := strconv.ParseInt(part, 10, 32)
 			if err != nil {
 				return err
 			}
 			arr = append(arr, int32(n))
+			if i < 0 {
+				break
+			}
+			s = s[i+1:]
 		}
 		*dest = arr
 		return nil
 	case *[]int64:
-		parts := strings.Split(val, ",")
-		arr := make([]int64, 0, len(parts))
-		for _, part := range parts {
+		arr := make([]int64, 0, strings.Count(val, ",")+1)
+		s := val
+		for {
+			i := strings.IndexByte(s, ',')
+			part := s
+			if i >= 0 {
+				part = s[:i]
+			}
 			n, err := strconv.ParseInt(part, 10, 64)
 			if err != nil {
 				return err
 			}
 			arr = append(arr, n)
+			if i < 0 {
+				break
+			}
+			s = s[i+1:]
 		}
 		*dest = arr
 		return nil
 	case *[]uint:
-		parts := strings.Split(val, ",")
-		arr := make([]uint, 0, len(parts))
-		for _, part := range parts {
+		arr := make([]uint, 0, strings.Count(val, ",")+1)
+		s := val
+		for {
+			i := strings.IndexByte(s, ',')
+			part := s
+			if i >= 0 {
+				part = s[:i]
+			}
 			n, err := strconv.ParseUint(part, 10, 0)
 			if err != nil {
 				return err
 			}
 			arr = append(arr, uint(n))
+			if i < 0 {
+				break
+			}
+			s = s[i+1:]
 		}
 		*dest = arr
 		return nil
 	case *[]uint8:
-		parts := strings.Split(val, ",")
-		arr := make([]uint8, 0, len(parts))
-		for _, part := range parts {
+		arr := make([]uint8, 0, strings.Count(val, ",")+1)
+		s := val
+		for {
+			i := strings.IndexByte(s, ',')
+			part := s
+			if i >= 0 {
+				part = s[:i]
+			}
 			n, err := strconv.ParseUint(part, 10, 8)
 			if err != nil {
 				return err
 			}
 			arr = append(arr, uint8(n))
+			if i < 0 {
+				break
+			}
+			s = s[i+1:]
 		}
 		*dest = arr
 		return nil
 	case *[]uint16:
-		parts := strings.Split(val, ",")
-		arr := make([]uint16, 0, len(parts))
-		for _, part := range parts {
+		arr := make([]uint16, 0, strings.Count(val, ",")+1)
+		s := val
+		for {
+			i := strings.IndexByte(s, ',')
+			part := s
+			if i >= 0 {
+				part = s[:i]
+			}
 			n, err := strconv.ParseUint(part, 10, 16)
 			if err != nil {
 				return err
 			}
 			arr = append(arr, uint16(n))
+			if i < 0 {
+				break
+			}
+			s = s[i+1:]
 		}
 		*dest = arr
 		return nil
 	case *[]uint32:
-		parts := strings.Split(val, ",")
-		arr := make([]uint32, 0, len(parts))
-		for _, part := range parts {
+		arr := make([]uint32, 0, strings.Count(val, ",")+1)
+		s := val
+		for {
+			i := strings.IndexByte(s, ',')
+			part := s
+			if i >= 0 {
+				part = s[:i]
+			}
 			n, err := strconv.ParseUint(part, 10, 32)
 			if err != nil {
 				return err
 			}
 			arr = append(arr, uint32(n))
+			if i < 0 {
+				break
+			}
+			s = s[i+1:]
 		}
 		*dest = arr
 		return nil
 	case *[]uint64:
-		parts := strings.Split(val, ",")
-		arr := make([]uint64, 0, len(parts))
-		for _, part := range parts {
+		arr := make([]uint64, 0, strings.Count(val, ",")+1)
+		s := val
+		for {
+			i := strings.IndexByte(s, ',')
+			part := s
+			if i >= 0 {
+				part = s[:i]
+			}
 			n, err := strconv.ParseUint(part, 10, 64)
 			if err != nil {
 				return err
 			}
 			arr = append(arr, n)
+			if i < 0 {
+				break
+			}
+			s = s[i+1:]
 		}
 		*dest = arr
 		return nil
 	case *[]float32:
-		parts := strings.Split(val, ",")
-		arr := make([]float32, 0, len(parts))
-		for _, part := range parts {
+		arr := make([]float32, 0, strings.Count(val, ",")+1)
+		s := val
+		for {
+			i := strings.IndexByte(s, ',')
+			part := s
+			if i >= 0 {
+				part = s[:i]
+			}
 			n, err := strconv.ParseFloat(part, 32)
 			if err != nil {
 				return err
 			}
 			arr = append(arr, float32(n))
+			if i < 0 {
+				break
+			}
+			s = s[i+1:]
 		}
 		*dest = arr
 		return nil
 	case *[]float64:
-		parts := strings.Split(val, ",")
-		arr := make([]float64, 0, len(parts))
-		for _, part := range parts {
+		arr := make([]float64, 0, strings.Count(val, ",")+1)
+		s := val
+		for {
+			i := strings.IndexByte(s, ',')
+			part := s
+			if i >= 0 {
+				part = s[:i]
+			}
 			n, err := strconv.ParseFloat(part, 64)
 			if err != nil {
 				return err
 			}
 			arr = append(arr, n)
+			if i < 0 {
+				break
+			}
+			s = s[i+1:]
 		}
 		*dest = arr
 		return nil
 	case *[]bool:
-		parts := strings.Split(val, ",")
-		arr := make([]bool, 0, len(parts))
-		for _, part := range parts {
+		arr := make([]bool, 0, strings.Count(val, ",")+1)
+		s := val
+		for {
+			i := strings.IndexByte(s, ',')
+			part := s
+			if i >= 0 {
+				part = s[:i]
+			}
 			n, err := strconv.ParseBool(part)
 			if err != nil {
 				return err
 			}
 			arr = append(arr, n)
+			if i < 0 {
+				break
+			}
+			s = s[i+1:]
 		}
 		*dest = arr
 		return nil

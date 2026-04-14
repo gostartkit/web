@@ -174,6 +174,21 @@ func BenchmarkServeHTTPAvro(b *testing.B) {
 	}
 }
 
+func BenchmarkCtxWriteBinaryReader(b *testing.B) {
+	payload := bytes.Repeat([]byte("a"), 2048)
+	w := newBenchResponseWriter()
+	c := &Ctx{w: w}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w.reset()
+		if err := c.writeBinary(bytes.NewReader(payload)); err != nil {
+			b.Fatalf("writeBinary failed: %v", err)
+		}
+	}
+}
+
 func BenchmarkTreeGetValueStatic(b *testing.B) {
 	root := new(node)
 	root.addRoute("/v1/ping", func(c *Ctx) (any, error) { return nil, nil })

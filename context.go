@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding"
@@ -9,6 +10,7 @@ import (
 	"encoding/xml"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -21,6 +23,12 @@ var (
 			c := &Ctx{}
 			return c
 		}}
+	_copyBufPool = sync.Pool{
+		New: func() any {
+			b := make([]byte, 32*1024)
+			return &b
+		},
+	}
 )
 
 // createCtx returns a new instance of web.Ctx, initialized with the given HTTP response writer, request, and parameters.
@@ -43,6 +51,8 @@ func releaseCtx(c *Ctx) {
 		c.formDataState = 0
 		c.acceptType = mediaUnknown
 		c.acceptTypeCached = false
+		c.contentTypeValue = ""
+		c.contentTypeValueCached = false
 		c.contentType = mediaUnknown
 		c.contentTypeCached = false
 		_ctxPool.Put(c)
@@ -51,16 +61,18 @@ func releaseCtx(c *Ctx) {
 
 // Ctx represents the context for a web request, holding relevant request data and response methods.
 type Ctx struct {
-	w                 http.ResponseWriter
-	r                 *http.Request
-	param             *Params
-	query             url.Values
-	userId            uint64
-	formDataState     uint8
-	acceptType        mediaType
-	acceptTypeCached  bool
-	contentType       mediaType
-	contentTypeCached bool
+	w                      http.ResponseWriter
+	r                      *http.Request
+	param                  *Params
+	query                  url.Values
+	userId                 uint64
+	formDataState          uint8
+	acceptType             mediaType
+	acceptTypeCached       bool
+	contentTypeValue       string
+	contentTypeValueCached bool
+	contentType            mediaType
+	contentTypeCached      bool
 }
 
 // Init initializes the context with user ID and user rights.
@@ -74,6 +86,21 @@ func (c *Ctx) Request() *http.Request {
 
 func (c *Ctx) ResponseWriter() http.ResponseWriter {
 	return c.w
+}
+
+// Header implements http.ResponseWriter and proxies to the underlying writer.
+func (c *Ctx) Header() http.Header {
+	return c.w.Header()
+}
+
+// Write implements http.ResponseWriter and proxies to the underlying writer.
+func (c *Ctx) Write(p []byte) (int, error) {
+	return c.w.Write(p)
+}
+
+// WriteHeader implements http.ResponseWriter and proxies to the underlying writer.
+func (c *Ctx) WriteHeader(statusCode int) {
+	c.w.WriteHeader(statusCode)
 }
 
 func (c *Ctx) QueryValues() url.Values {
@@ -513,6 +540,13 @@ func (c *Ctx) Flusher() http.Flusher {
 	return nil
 }
 
+// Flush implements http.Flusher when supported by the underlying writer.
+func (c *Ctx) Flush() {
+	if flusher, ok := c.w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
 // Hijacker returns the http.Hijacker interface if the response writer supports it.
 // This is useful for upgrading the connection to a different protocol, such as WebSocket.
 // If the response writer does not support hijacking, it returns nil.
@@ -523,6 +557,22 @@ func (c *Ctx) Hijacker() http.Hijacker {
 	return nil
 }
 
+// Hijack implements http.Hijacker when supported by the underlying writer.
+func (c *Ctx) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hijacker, ok := c.w.(http.Hijacker); ok {
+		return hijacker.Hijack()
+	}
+	return nil, nil, http.ErrNotSupported
+}
+
+// Push implements http.Pusher when supported by the underlying writer.
+func (c *Ctx) Push(target string, opts *http.PushOptions) error {
+	if pusher, ok := c.w.(http.Pusher); ok {
+		return pusher.Push(target, opts)
+	}
+	return http.ErrNotSupported
+}
+
 // Context returns the context of the request.
 func (c *Ctx) Context() context.Context {
 	return c.r.Context()
@@ -530,7 +580,7 @@ func (c *Ctx) Context() context.Context {
 
 // ContentType get Content-Type from header
 func (c *Ctx) ContentType() string {
-	return c.GetHeader("Content-Type")
+	return c.requestContentType()
 }
 
 // SetContentType Set Content-Type to header
@@ -607,9 +657,18 @@ func (c *Ctx) requestMediaType() mediaType {
 		return c.contentType
 	}
 
-	c.contentType = parseMediaType(c.ContentType())
+	c.contentType = parseMediaType(c.requestContentType())
 	c.contentTypeCached = true
 	return c.contentType
+}
+
+func (c *Ctx) requestContentType() string {
+	if c.contentTypeValueCached {
+		return c.contentTypeValue
+	}
+	c.contentTypeValue = c.GetHeader("Content-Type")
+	c.contentTypeValueCached = true
+	return c.contentTypeValue
 }
 
 // writeJSON Write JSON
@@ -639,10 +698,12 @@ func (c *Ctx) writeBinary(val any) error {
 		_, err := io.WriteString(c.w, v)
 		return err
 	case *bytes.Buffer:
-		_, err := c.w.Write(v.Bytes())
+		_, err := v.WriteTo(c.w)
 		return err
 	case io.Reader:
-		_, err := io.Copy(c.w, v)
+		buf := _copyBufPool.Get().(*[]byte)
+		_, err := io.CopyBuffer(c.w, v, *buf)
+		_copyBufPool.Put(buf)
 		return err
 	case encoding.BinaryMarshaler:
 		b, err := v.MarshalBinary()

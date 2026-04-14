@@ -27,6 +27,7 @@ func createCtx(w http.ResponseWriter, r *http.Request, params *Params) *Ctx {
 	c.w = w
 	c.r = r
 	c.param = params
+	c.acceptType = acceptMediaType(r.Header.Get("Accept"))
 	return c
 }
 
@@ -39,18 +40,24 @@ func releaseCtx(c *Ctx) {
 		c.query = nil
 		c.userId = 0
 		c.formDataState = 0
+		c.acceptType = mediaJSON
+		c.contentType = mediaUnknown
+		c.contentTypeCached = false
 		_ctxPool.Put(c)
 	}
 }
 
 // Ctx represents the context for a web request, holding relevant request data and response methods.
 type Ctx struct {
-	w             http.ResponseWriter
-	r             *http.Request
-	param         *Params
-	query         url.Values
-	userId        uint64
-	formDataState uint8
+	w                 http.ResponseWriter
+	r                 *http.Request
+	param             *Params
+	query             url.Values
+	userId            uint64
+	formDataState     uint8
+	acceptType        mediaType
+	contentType       mediaType
+	contentTypeCached bool
 }
 
 // Init initializes the context with user ID and user rights.
@@ -195,17 +202,17 @@ func (c *Ctx) TryParseBody(val any) error {
 
 	defer c.r.Body.Close()
 
-	switch {
-	case strings.HasPrefix(c.ContentType(), "application/json"):
+	switch c.requestMediaType() {
+	case mediaJSON:
 		dec := json.NewDecoder(c.r.Body)
 		dec.DisallowUnknownFields()
 		return dec.Decode(val)
-	case strings.HasPrefix(c.ContentType(), "application/x-gob"):
+	case mediaGOB:
 		dec := gob.NewDecoder(c.r.Body)
 		return dec.Decode(val)
-	case strings.HasPrefix(c.ContentType(), "application/octet-stream"):
+	case mediaOctetStream:
 		return ErrContentType
-	case strings.HasPrefix(c.ContentType(), "application/xml"):
+	case mediaXML:
 		dec := xml.NewDecoder(c.r.Body)
 		return dec.Decode(val)
 	default:
@@ -568,20 +575,30 @@ func (c *Ctx) SetHeader(key string, value string) {
 // write write data base on accept header
 func (c *Ctx) write(val any) error {
 
-	switch c.Accept() {
-	case "application/json":
+	switch c.acceptType {
+	case mediaJSON:
 		return c.writeJSON(val)
-	case "application/x-gob":
+	case mediaGOB:
 		return c.writeGOB(val)
-	case "application/octet-stream":
+	case mediaOctetStream:
 		return c.writeBinary(val)
-	case "application/x-avro":
+	case mediaAvro:
 		return c.writeAvro(val)
-	case "application/xml":
+	case mediaXML:
 		return c.writeXML(val)
 	default:
 		return c.writeJSON(val)
 	}
+}
+
+func (c *Ctx) requestMediaType() mediaType {
+	if c.contentTypeCached {
+		return c.contentType
+	}
+
+	c.contentType = parseMediaType(c.ContentType())
+	c.contentTypeCached = true
+	return c.contentType
 }
 
 // writeJSON Write JSON

@@ -42,7 +42,7 @@ type Params []Param
 
 // Val get value from Params by name
 func (o *Params) Val(name string) string {
-	for i := range *o {
+	for i := len(*o) - 1; i >= 0; i-- {
 		if (*o)[i].Key == name {
 			return (*o)[i].Value
 		}

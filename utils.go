@@ -430,21 +430,17 @@ func TryBool(val string) (bool, error) {
 }
 
 func writeCode(w http.ResponseWriter, r *http.Request, code int) {
+	writeCodeByMedia(w, acceptMediaType(r.Header.Get("Accept")), code)
+}
 
+func writeCodeByMedia(w http.ResponseWriter, mt mediaType, code int) {
 	set := w.Header().Set
 
 	if code == http.StatusUnauthorized {
 		set("WWW-Authenticate", `Bearer realm="api", error="invalid_token", error_description="Invalid or expired token"`)
 	}
 
-	ct := r.Header.Get("Accept")
-
-	switch ct {
-	case "application/json", "application/x-gob", "application/octet-stream", "application/x-avro", "application/xml":
-		set("Content-Type", ct)
-	default:
-		set("Content-Type", "application/json")
-	}
+	set("Content-Type", contentTypeForMedia(mt))
 
 	w.WriteHeader(code)
 }

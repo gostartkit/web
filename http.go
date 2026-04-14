@@ -72,7 +72,7 @@ func Do(ctx context.Context, method string, url string, accessToken string, body
 		return err
 	}
 
-	if before == nil {
+	if len(before) == 0 {
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
 	} else {
@@ -131,150 +131,86 @@ func DoReq(req *http.Request, v any, failure func(statusCode int, body io.ReadCl
 
 // TryGet
 func TryGet(ctx context.Context, url string, accessToken string, v any, retry int, before ...func(r *http.Request)) error {
-
-	var err error
-
-	for i := retry; i > 0; i-- {
-
-		if err = Get(ctx, url, accessToken, v, before...); err == nil {
-			break
-		}
-
-		if err == ErrUnauthorized || err == ErrForbidden || errors.Is(err, ErrBadRequest) {
-			break
-		}
-
-		time.Sleep(time.Second)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return retryLoop(ctx, retry, func() error {
+		return Get(ctx, url, accessToken, v, before...)
+	})
 }
 
 // TryPost
 func TryPost(ctx context.Context, url string, accessToken string, data any, v any, retry int, before ...func(r *http.Request)) error {
-
-	var err error
-
-	for i := retry; i > 0; i-- {
-
-		if err = Post(ctx, url, accessToken, data, v, before...); err == nil {
-			break
-		}
-
-		if err == ErrUnauthorized || err == ErrForbidden || errors.Is(err, ErrBadRequest) {
-			break
-		}
-
-		time.Sleep(time.Second)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return retryLoop(ctx, retry, func() error {
+		return Post(ctx, url, accessToken, data, v, before...)
+	})
 }
 
 // TryPut
 func TryPut(ctx context.Context, url string, accessToken string, data any, v any, retry int, before ...func(r *http.Request)) error {
-
-	var err error
-
-	for i := retry; i > 0; i-- {
-
-		if err = Put(ctx, url, accessToken, data, v, before...); err == nil {
-			break
-		}
-
-		if err == ErrUnauthorized || err == ErrForbidden || errors.Is(err, ErrBadRequest) {
-			break
-		}
-
-		time.Sleep(time.Second)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return retryLoop(ctx, retry, func() error {
+		return Put(ctx, url, accessToken, data, v, before...)
+	})
 }
 
 // TryPatch
 func TryPatch(ctx context.Context, url string, accessToken string, data any, v any, retry int, before ...func(r *http.Request)) error {
-
-	var err error
-
-	for i := retry; i > 0; i-- {
-
-		if err = Patch(ctx, url, accessToken, data, v, before...); err == nil {
-			break
-		}
-
-		if err == ErrUnauthorized || err == ErrForbidden || errors.Is(err, ErrBadRequest) {
-			break
-		}
-
-		time.Sleep(time.Second)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return retryLoop(ctx, retry, func() error {
+		return Patch(ctx, url, accessToken, data, v, before...)
+	})
 }
 
 // TryDelete
 func TryDelete(ctx context.Context, url string, accessToken string, v any, retry int, before ...func(r *http.Request)) error {
-
-	var err error
-
-	for i := retry; i > 0; i-- {
-
-		if err = Delete(ctx, url, accessToken, v, before...); err == nil {
-			break
-		}
-
-		if err == ErrUnauthorized || err == ErrForbidden || errors.Is(err, ErrBadRequest) {
-			break
-		}
-
-		time.Sleep(time.Second)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return retryLoop(ctx, retry, func() error {
+		return Delete(ctx, url, accessToken, v, before...)
+	})
 }
 
 // TryDo
 func TryDo(ctx context.Context, method string, url string, accessToken string, body io.Reader, v any, retry int, before ...func(r *http.Request)) error {
-
+	var payload []byte
 	var err error
 
-	for i := retry; i > 0; i-- {
+	if body != nil {
+		payload, err = io.ReadAll(body)
+		if err != nil {
+			return err
+		}
+	}
 
-		if err = Do(ctx, method, url, accessToken, body, v, before...); err == nil {
+	return retryLoop(ctx, retry, func() error {
+		var reqBody io.Reader
+		if payload != nil {
+			reqBody = bytes.NewReader(payload)
+		}
+		return Do(ctx, method, url, accessToken, reqBody, v, before...)
+	})
+}
+
+func retryLoop(ctx context.Context, retry int, fn func() error) error {
+	attempts := retry
+	if attempts <= 0 {
+		attempts = 1
+	}
+
+	var err error
+	for i := 0; i < attempts; i++ {
+		if err = fn(); err == nil {
+			return nil
+		}
+
+		if isNonRetriable(err) || i == attempts-1 {
 			break
 		}
 
-		if err == ErrUnauthorized || err == ErrForbidden || errors.Is(err, ErrBadRequest) {
-			break
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
 		}
-
-		time.Sleep(time.Second)
 	}
 
-	if err != nil {
-		return err
-	}
+	return err
+}
 
-	return nil
+func isNonRetriable(err error) bool {
+	return err == ErrUnauthorized || err == ErrForbidden || errors.Is(err, ErrBadRequest)
 }

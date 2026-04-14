@@ -1,6 +1,7 @@
 package web
 
 import (
+	"errors"
 	"net/http"
 )
 
@@ -122,6 +123,10 @@ func (e *errString) Error() string {
 	return e.s
 }
 
+func (e *errString) Code() int {
+	return e.code
+}
+
 type errFn struct {
 	cb Fn
 	errString
@@ -129,6 +134,10 @@ type errFn struct {
 
 func (e *errFn) Error() string {
 	return e.s
+}
+
+func (e *errFn) Code() int {
+	return e.code
 }
 
 func NewErr(code int, msg string) error {
@@ -146,8 +155,14 @@ func NewErrFn(code int, msg string, cb Fn) error {
 }
 
 func errCode(err error) int {
-	if e, ok := err.(*errString); ok {
-		return e.code
+	type codeError interface {
+		Code() int
 	}
+
+	var ce codeError
+	if errors.As(err, &ce) {
+		return ce.Code()
+	}
+
 	return http.StatusBadRequest
 }

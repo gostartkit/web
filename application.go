@@ -168,22 +168,26 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 				code := errCode(err)
 
-				if e, ok := err.(*errFn); ok {
-					if err := e.cb(w, r); err != nil {
-						writeCode(w, r, code)
-						c.write(err.Error())
-						app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
+					if e, ok := err.(*errFn); ok {
+						if err := e.cb(w, r); err != nil {
+							writeCode(w, r, code)
+							if writeErr := c.write(err.Error()); writeErr != nil {
+								app.Errf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, writeErr)
+							}
+							app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
+						}
+						return
 					}
+
+					writeCode(w, r, code)
+					if writeErr := c.write(err.Error()); writeErr != nil {
+						app.Errf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, writeErr)
+					}
+
+					app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
+
 					return
 				}
-
-				writeCode(w, r, code)
-				c.write(err.Error())
-
-				app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
-
-				return
-			}
 
 			if val != nil {
 
@@ -195,7 +199,10 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 
 				writeCode(w, r, code)
-				c.write(val)
+				if err := c.write(val); err != nil {
+					app.Errf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
+					return
+				}
 
 				app.Logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code)
 

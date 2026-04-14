@@ -6,11 +6,8 @@ import (
 	"testing"
 )
 
-var (
-	app = New()
-)
-
 func TestHttpGet(t *testing.T) {
+	app := New()
 
 	rel := "/route/"
 
@@ -40,6 +37,7 @@ func TestHttpGet(t *testing.T) {
 }
 
 func TestHttpPost(t *testing.T) {
+	app := New()
 
 	rel := "/route/"
 
@@ -69,6 +67,7 @@ func TestHttpPost(t *testing.T) {
 }
 
 func TestErrorHandling(t *testing.T) {
+	app := New()
 
 	rel := "/error/"
 
@@ -86,14 +85,15 @@ func TestErrorHandling(t *testing.T) {
 }
 
 func TestRedirectHandling(t *testing.T) {
+	app := New()
 
 	rel := "/redirect/"
-	url := ""
+	url := "/new-location/"
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, rel, nil)
 
-	handler := func(c *Ctx) (any, error) { return url, ErrMovedPermanently }
+	handler := func(c *Ctx) (any, error) { return Redirect(url, http.StatusMovedPermanently) }
 	app.Get(rel, handler)
 
 	app.ServeHTTP(rec, req)

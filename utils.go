@@ -440,7 +440,9 @@ func writeCodeByMedia(w http.ResponseWriter, mt mediaType, code int) {
 		set("WWW-Authenticate", `Bearer realm="api", error="invalid_token", error_description="Invalid or expired token"`)
 	}
 
-	set("Content-Type", contentTypeForMedia(mt))
+	if code != http.StatusNoContent {
+		set("Content-Type", contentTypeForMedia(mt))
+	}
 
 	w.WriteHeader(code)
 }

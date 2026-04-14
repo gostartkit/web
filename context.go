@@ -1,7 +1,9 @@
 package web
 
 import (
+	"bytes"
 	"context"
+	"encoding"
 	"encoding/gob"
 	"encoding/json"
 	"encoding/xml"
@@ -27,7 +29,6 @@ func createCtx(w http.ResponseWriter, r *http.Request, params *Params) *Ctx {
 	c.w = w
 	c.r = r
 	c.param = params
-	c.acceptType = acceptMediaType(r.Header.Get("Accept"))
 	return c
 }
 
@@ -40,7 +41,8 @@ func releaseCtx(c *Ctx) {
 		c.query = nil
 		c.userId = 0
 		c.formDataState = 0
-		c.acceptType = mediaJSON
+		c.acceptType = mediaUnknown
+		c.acceptTypeCached = false
 		c.contentType = mediaUnknown
 		c.contentTypeCached = false
 		_ctxPool.Put(c)
@@ -56,6 +58,7 @@ type Ctx struct {
 	userId            uint64
 	formDataState     uint8
 	acceptType        mediaType
+	acceptTypeCached  bool
 	contentType       mediaType
 	contentTypeCached bool
 }
@@ -199,8 +202,6 @@ func (c *Ctx) TryParseBody(val any) error {
 	if c.r == nil || c.r.Body == nil {
 		return io.EOF
 	}
-
-	defer c.r.Body.Close()
 
 	switch c.requestMediaType() {
 	case mediaJSON:
@@ -575,7 +576,7 @@ func (c *Ctx) SetHeader(key string, value string) {
 // write write data base on accept header
 func (c *Ctx) write(val any) error {
 
-	switch c.acceptType {
+	switch c.responseMediaType() {
 	case mediaJSON:
 		return c.writeJSON(val)
 	case mediaGOB:
@@ -589,6 +590,16 @@ func (c *Ctx) write(val any) error {
 	default:
 		return c.writeJSON(val)
 	}
+}
+
+func (c *Ctx) responseMediaType() mediaType {
+	if c.acceptTypeCached {
+		return c.acceptType
+	}
+
+	c.acceptType = acceptMediaType(c.Accept())
+	c.acceptTypeCached = true
+	return c.acceptType
 }
 
 func (c *Ctx) requestMediaType() mediaType {
@@ -618,10 +629,46 @@ func (c *Ctx) writeGOB(val any) error {
 
 // writeBinary Write Binary
 func (c *Ctx) writeBinary(val any) error {
-	return ErrNotImplemented
+	switch v := val.(type) {
+	case nil:
+		return nil
+	case []byte:
+		_, err := c.w.Write(v)
+		return err
+	case string:
+		_, err := io.WriteString(c.w, v)
+		return err
+	case *bytes.Buffer:
+		_, err := c.w.Write(v.Bytes())
+		return err
+	case io.Reader:
+		_, err := io.Copy(c.w, v)
+		return err
+	case encoding.BinaryMarshaler:
+		b, err := v.MarshalBinary()
+		if err != nil {
+			return err
+		}
+		_, err = c.w.Write(b)
+		return err
+	default:
+		return ErrNotImplemented
+	}
 }
 
 // writeAvro Write Avro
 func (c *Ctx) writeAvro(val any) error {
-	return ErrNotImplemented
+	switch v := val.(type) {
+	case nil:
+		return nil
+	case AvroMarshaler:
+		b, err := v.MarshalAvro()
+		if err != nil {
+			return err
+		}
+		_, err = c.w.Write(b)
+		return err
+	default:
+		return c.writeBinary(val)
+	}
 }

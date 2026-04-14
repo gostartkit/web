@@ -8,8 +8,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 )
+
+var _bodyBufferPool = sync.Pool{
+	New: func() any {
+		return new(bytes.Buffer)
+	},
+}
 
 // Get http get
 func Get(ctx context.Context, url string, accessToken string, v any, before ...func(r *http.Request)) error {
@@ -18,44 +25,17 @@ func Get(ctx context.Context, url string, accessToken string, v any, before ...f
 
 // Post http post
 func Post(ctx context.Context, url string, accessToken string, data any, v any, before ...func(r *http.Request)) error {
-
-	body := new(bytes.Buffer)
-
-	err := json.NewEncoder(body).Encode(data)
-
-	if err != nil {
-		return err
-	}
-
-	return Do(ctx, http.MethodPost, url, accessToken, body, v, before...)
+	return doWithJSONBody(ctx, http.MethodPost, url, accessToken, data, v, before...)
 }
 
 // Put http put
 func Put(ctx context.Context, url string, accessToken string, data any, v any, before ...func(r *http.Request)) error {
-
-	body := new(bytes.Buffer)
-
-	err := json.NewEncoder(body).Encode(data)
-
-	if err != nil {
-		return err
-	}
-
-	return Do(ctx, http.MethodPut, url, accessToken, body, v, before...)
+	return doWithJSONBody(ctx, http.MethodPut, url, accessToken, data, v, before...)
 }
 
 // Patch http patch
 func Patch(ctx context.Context, url string, accessToken string, data any, v any, before ...func(r *http.Request)) error {
-
-	body := new(bytes.Buffer)
-
-	err := json.NewEncoder(body).Encode(data)
-
-	if err != nil {
-		return err
-	}
-
-	return Do(ctx, http.MethodPatch, url, accessToken, body, v, before...)
+	return doWithJSONBody(ctx, http.MethodPatch, url, accessToken, data, v, before...)
 }
 
 // Delete http delete
@@ -103,6 +83,10 @@ func DoReq(req *http.Request, v any, failure func(statusCode int, body io.ReadCl
 
 	switch resp.StatusCode {
 	case http.StatusOK, http.StatusCreated, http.StatusAccepted:
+		if v == nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			return nil
+		}
 		if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
 			return err
 		}
@@ -213,4 +197,18 @@ func retryLoop(ctx context.Context, retry int, fn func() error) error {
 
 func isNonRetriable(err error) bool {
 	return err == ErrUnauthorized || err == ErrForbidden || errors.Is(err, ErrBadRequest)
+}
+
+func doWithJSONBody(ctx context.Context, method string, url string, accessToken string, data any, v any, before ...func(r *http.Request)) error {
+	body := _bodyBufferPool.Get().(*bytes.Buffer)
+	body.Reset()
+
+	err := json.NewEncoder(body).Encode(data)
+	if err == nil {
+		err = Do(ctx, method, url, accessToken, bytes.NewReader(body.Bytes()), v, before...)
+	}
+
+	body.Reset()
+	_bodyBufferPool.Put(body)
+	return err
 }

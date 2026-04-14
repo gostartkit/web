@@ -31,6 +31,11 @@ type Reader func(c *Ctx, v any) error
 // Writer
 type Writer func(c *Ctx, v any) error
 
+// AvroMarshaler allows custom zero-reflection avro serialization in hot paths.
+type AvroMarshaler interface {
+	MarshalAvro() ([]byte, error)
+}
+
 // Param struct
 type Param struct {
 	Key   string

@@ -170,7 +170,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 				if e, ok := err.(*errFn); ok {
 					if err := e.cb(w, r); err != nil {
-						writeCodeByMedia(w, c.acceptType, code)
+						writeCodeByMedia(w, c.responseMediaType(), code)
 						if writeErr := c.write(err.Error()); writeErr != nil {
 							app.Errf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, writeErr)
 						}
@@ -179,7 +179,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				writeCodeByMedia(w, c.acceptType, code)
+				writeCodeByMedia(w, c.responseMediaType(), code)
 				if writeErr := c.write(err.Error()); writeErr != nil {
 					app.Errf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, writeErr)
 				}
@@ -193,12 +193,11 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 				code := http.StatusOK
 
-				switch r.Method {
-				case http.MethodPost:
+				if r.Method == http.MethodPost {
 					code = http.StatusCreated
 				}
 
-				writeCodeByMedia(w, c.acceptType, code)
+				writeCodeByMedia(w, c.responseMediaType(), code)
 				if err := c.write(val); err != nil {
 					app.Errf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
 					return
@@ -210,7 +209,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					rel.Release()
 				}
 			} else {
-				writeCodeByMedia(w, c.acceptType, http.StatusNoContent)
+				w.WriteHeader(http.StatusNoContent)
 
 				app.Logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, 204)
 			}

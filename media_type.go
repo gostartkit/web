@@ -26,15 +26,6 @@ func parseMediaType(header string) mediaType {
 		return mediaUnknown
 	}
 
-	// Accept may include multiple values and parameters; keep only the first media range.
-	if i := strings.IndexByte(header, ','); i >= 0 {
-		header = header[:i]
-	}
-	if i := strings.IndexByte(header, ';'); i >= 0 {
-		header = header[:i]
-	}
-	header = strings.TrimSpace(header)
-
 	switch header {
 	case "application/json", "*/*":
 		return mediaJSON
@@ -45,6 +36,21 @@ func parseMediaType(header string) mediaType {
 	case "application/x-avro":
 		return mediaAvro
 	case "application/xml", "text/xml":
+		return mediaXML
+	}
+
+	// Fast prefix path for values with parameters or media-ranges, e.g.
+	// "application/json; charset=utf-8" or "application/json, */*".
+	switch {
+	case strings.HasPrefix(header, "application/json"):
+		return mediaJSON
+	case strings.HasPrefix(header, "application/x-gob"):
+		return mediaGOB
+	case strings.HasPrefix(header, "application/octet-stream"):
+		return mediaOctetStream
+	case strings.HasPrefix(header, "application/x-avro"):
+		return mediaAvro
+	case strings.HasPrefix(header, "application/xml"), strings.HasPrefix(header, "text/xml"):
 		return mediaXML
 	default:
 		return mediaUnknown

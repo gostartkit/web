@@ -29,7 +29,8 @@ func longestCommonPrefix(a, b string) int {
 // Returns -1 as index, if no wildcard was found.
 func findWildcard(path string) (wilcard string, i int, valid bool) {
 	// Find start
-	for start, c := range []byte(path) {
+	for start := 0; start < len(path); start++ {
+		c := path[start]
 		// A wildcard starts with ':' (param) or '*' (catch-all)
 		if c != ':' && c != '*' {
 			continue
@@ -37,10 +38,11 @@ func findWildcard(path string) (wilcard string, i int, valid bool) {
 
 		// Find end and check for invalid characters
 		valid = true
-		for end, c := range []byte(path[start+1:]) {
+		for end := start + 1; end < len(path); end++ {
+			c = path[end]
 			switch c {
 			case '/':
-				return path[start : start+1+end], start, valid
+				return path[start:end], start, valid
 			case ':', '*':
 				valid = false
 			}
@@ -52,7 +54,7 @@ func findWildcard(path string) (wilcard string, i int, valid bool) {
 
 func countParams(path string) uint16 {
 	var n uint
-	for i := range []byte(path) {
+	for i := 0; i < len(path); i++ {
 		switch path[i] {
 		case ':', '*':
 			n++
@@ -183,8 +185,8 @@ walk:
 			}
 
 			// Check if a child with the next path byte exists
-			for i, c := range []byte(n.indices) {
-				if c == idxc {
+			for i := 0; i < len(n.indices); i++ {
+				if n.indices[i] == idxc {
 					i = n.incrementChildPrio(i)
 					n = n.children[i]
 					continue walk
@@ -327,7 +329,7 @@ walk: // Outer loop for walking the tree
 	for {
 		prefix := n.path
 		if len(path) > len(prefix) {
-			if path[:len(prefix)] == prefix {
+			if strings.HasPrefix(path, prefix) {
 				path = path[len(prefix):]
 
 				// If this node does not have a wildcard (param or catchAll)
@@ -335,8 +337,8 @@ walk: // Outer loop for walking the tree
 				// to walk down the tree
 				if !n.wildChild {
 					idxc := path[0]
-					for i, c := range []byte(n.indices) {
-						if c == idxc {
+					for i := 0; i < len(n.indices); i++ {
+						if n.indices[i] == idxc {
 							n = n.children[i]
 							continue walk
 						}
@@ -354,9 +356,9 @@ walk: // Outer loop for walking the tree
 				switch n.nType {
 				case param:
 					// Find param end (either '/' or path end)
-					end := 0
-					for end < len(path) && path[end] != '/' {
-						end++
+					end := strings.IndexByte(path, '/')
+					if end < 0 {
+						end = len(path)
 					}
 
 					// Save param value
@@ -441,8 +443,8 @@ walk: // Outer loop for walking the tree
 
 			// No callback found. Check if a callback for this path + a
 			// trailing slash exists for trailing slash recommendation
-			for i, c := range []byte(n.indices) {
-				if c == '/' {
+			for i := 0; i < len(n.indices); i++ {
+				if n.indices[i] == '/' {
 					n = n.children[i]
 					tsr = (len(n.path) == 1 && n.next != nil) ||
 						(n.nType == catchAll && n.children[0].next != nil)

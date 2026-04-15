@@ -3,10 +3,88 @@ package web
 import (
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
 )
+
+func reuseOrMakeSlice[T any](dst []T, size int) []T {
+	if cap(dst) >= size {
+		return dst[:0]
+	}
+	return make([]T, 0, size)
+}
+
+func parseUintFast64(s string) (uint64, bool) {
+	if s == "" {
+		return 0, false
+	}
+
+	var n uint64
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c < '0' || c > '9' {
+			return 0, false
+		}
+		d := uint64(c - '0')
+		if n > (math.MaxUint64-d)/10 {
+			return 0, false
+		}
+		n = n*10 + d
+	}
+	return n, true
+}
+
+func parseIntFast64(s string) (int64, bool) {
+	if s == "" {
+		return 0, false
+	}
+
+	neg := false
+	switch s[0] {
+	case '-':
+		neg = true
+		s = s[1:]
+	case '+':
+		s = s[1:]
+	}
+	if s == "" {
+		return 0, false
+	}
+
+	u, ok := parseUintFast64(s)
+	if !ok {
+		return 0, false
+	}
+
+	if neg {
+		const maxAbsInt64 = uint64(1) << 63
+		if u > maxAbsInt64 {
+			return 0, false
+		}
+		if u == maxAbsInt64 {
+			return math.MinInt64, true
+		}
+		return -int64(u), true
+	}
+
+	if u > math.MaxInt64 {
+		return 0, false
+	}
+	return int64(u), true
+}
+
+func parseBoolFast(s string) (bool, bool) {
+	switch s {
+	case "1", "t", "T", "true", "TRUE", "True":
+		return true, true
+	case "0", "f", "F", "false", "FALSE", "False":
+		return false, true
+	default:
+		return false, false
+	}
+}
 
 // Redirect helper function for return url and redirect error
 func Redirect(url string, code int) (any, error) {
@@ -32,6 +110,13 @@ func TryParse(val string, v any) error {
 		*dest = val
 		return nil
 	case *int:
+		if n, ok := parseIntFast64(val); ok {
+			if strconv.IntSize == 32 && (n < math.MinInt32 || n > math.MaxInt32) {
+				return strconv.ErrRange
+			}
+			*dest = int(n)
+			return nil
+		}
 		n, err := strconv.ParseInt(val, 10, strconv.IntSize)
 		if err != nil {
 			return err
@@ -67,6 +152,13 @@ func TryParse(val string, v any) error {
 		*dest = n
 		return nil
 	case *uint:
+		if n, ok := parseUintFast64(val); ok {
+			if strconv.IntSize == 32 && n > math.MaxUint32 {
+				return strconv.ErrRange
+			}
+			*dest = uint(n)
+			return nil
+		}
 		n, err := strconv.ParseUint(val, 10, strconv.IntSize)
 		if err != nil {
 			return err
@@ -116,6 +208,10 @@ func TryParse(val string, v any) error {
 		*dest = n
 		return nil
 	case *bool:
+		if n, ok := parseBoolFast(val); ok {
+			*dest = n
+			return nil
+		}
 		n, err := strconv.ParseBool(val)
 		if err != nil {
 			return err
@@ -123,7 +219,7 @@ func TryParse(val string, v any) error {
 		*dest = n
 		return nil
 	case *[]string:
-		parts := make([]string, 0, strings.Count(val, ",")+1)
+		parts := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -137,7 +233,7 @@ func TryParse(val string, v any) error {
 		*dest = parts
 		return nil
 	case *[]int:
-		arr := make([]int, 0, strings.Count(val, ",")+1)
+		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -158,7 +254,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]int8:
-		arr := make([]int8, 0, strings.Count(val, ",")+1)
+		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -179,7 +275,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]int16:
-		arr := make([]int16, 0, strings.Count(val, ",")+1)
+		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -200,7 +296,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]int32:
-		arr := make([]int32, 0, strings.Count(val, ",")+1)
+		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -221,7 +317,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]int64:
-		arr := make([]int64, 0, strings.Count(val, ",")+1)
+		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -242,7 +338,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]uint:
-		arr := make([]uint, 0, strings.Count(val, ",")+1)
+		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -263,7 +359,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]uint8:
-		arr := make([]uint8, 0, strings.Count(val, ",")+1)
+		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -284,7 +380,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]uint16:
-		arr := make([]uint16, 0, strings.Count(val, ",")+1)
+		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -305,7 +401,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]uint32:
-		arr := make([]uint32, 0, strings.Count(val, ",")+1)
+		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -326,7 +422,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]uint64:
-		arr := make([]uint64, 0, strings.Count(val, ",")+1)
+		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -347,7 +443,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]float32:
-		arr := make([]float32, 0, strings.Count(val, ",")+1)
+		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -368,7 +464,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]float64:
-		arr := make([]float64, 0, strings.Count(val, ",")+1)
+		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -389,7 +485,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]bool:
-		arr := make([]bool, 0, strings.Count(val, ",")+1)
+		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -418,6 +514,12 @@ func TryInt(val string) (int, error) {
 	if val == "" {
 		return 0, nil
 	}
+	if n, ok := parseIntFast64(val); ok {
+		if strconv.IntSize == 32 && (n < math.MinInt32 || n > math.MaxInt32) {
+			return 0, strconv.ErrRange
+		}
+		return int(n), nil
+	}
 	n, err := strconv.ParseInt(val, 10, strconv.IntSize)
 	if err != nil {
 		return 0, err
@@ -428,6 +530,12 @@ func TryInt(val string) (int, error) {
 func TryUint(val string) (uint, error) {
 	if val == "" {
 		return 0, nil
+	}
+	if n, ok := parseUintFast64(val); ok {
+		if strconv.IntSize == 32 && n > math.MaxUint32 {
+			return 0, strconv.ErrRange
+		}
+		return uint(n), nil
 	}
 	n, err := strconv.ParseUint(val, 10, strconv.IntSize)
 	if err != nil {
@@ -549,6 +657,9 @@ func TryFloat64(val string) (float64, error) {
 func TryBool(val string) (bool, error) {
 	if val == "" {
 		return false, nil
+	}
+	if n, ok := parseBoolFast(val); ok {
+		return n, nil
 	}
 	n, err := strconv.ParseBool(val)
 	if err != nil {

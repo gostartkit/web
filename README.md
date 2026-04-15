@@ -2,6 +2,55 @@
 
 中文文档: [README_CN.md](./README_CN.md)
 
+### Performance First
+
+This library is optimized around low-latency request handling, tight routing, and low-allocation parsing/writing paths.
+
+Current benchmark snapshot on `darwin/arm64` (`Apple M2`):
+
+| Benchmark | Result | Memory |
+|---|---:|---:|
+| `BenchmarkServeHTTPStaticJSON` | `195.1 ns/op` | `80 B/op`, `5 allocs/op` |
+| `BenchmarkServeHTTPPathParamJSON` | `288.7 ns/op` | `128 B/op`, `6 allocs/op` |
+| `BenchmarkServeHTTPBinary` | `171.7 ns/op` | `104 B/op`, `6 allocs/op` |
+| `BenchmarkTreeGetValueStatic` | `2.616 ns/op` | `0 B/op`, `0 allocs/op` |
+| `BenchmarkTreeGetValueParamPooled` | `14.06 ns/op` | `0 B/op`, `0 allocs/op` |
+| `BenchmarkTryParseIntSlice` | `138.3 ns/op` | `80 B/op`, `1 alloc/op` |
+| `BenchmarkTryParseStringSlice` | `59.62 ns/op` | `80 B/op`, `1 alloc/op` |
+
+Notes:
+
+- Static route lookup is effectively allocation-free.
+- Param and catch-all routing become `0 alloc` when params are pooled, which is already how `Application` runs.
+- Binary and avro responses have direct fast paths.
+- Slice parsing hot paths were optimized to avoid intermediate `strings.Split` allocation patterns.
+
+### Benchmark Workflow
+
+Run the current benchmark suite:
+
+```bash
+go test -run '^$' -bench 'Benchmark(ServeHTTP|TreeGetValue|TryParse|TryInt|TryUint|TryBool|PostJSON|CtxWriteBinaryReader)' -benchmem ./...
+```
+
+Compare current results against the committed baseline:
+
+```bash
+./bench/compare.sh
+```
+
+Files:
+
+- baseline: [bench/baseline.txt](./bench/baseline.txt)
+- compare script: [bench/compare.sh](./bench/compare.sh)
+
+### Performance Guidelines
+
+- Prefer `[]byte` or `web.AvroMarshaler` for binary/avro responses.
+- Reuse destination slices when calling `TryParse(..., &slice)` in hot paths.
+- Prefer pooled param paths if you benchmark routing in isolation; the framework already does this in normal request handling.
+- Treat single benchmark runs as noisy. Use the baseline comparison script for direction, not intuition.
+
 ### Quick Start
 
 ```go
@@ -158,14 +207,6 @@ app.Get("/old", func(c *web.Ctx) (any, error) {
   - `ErrForbidden`
   - `ErrBadRequest` (including wrapped)
 - `TryDo` safely retries with request body replay (body is cached once and recreated per attempt).
-
-### Benchmark
-
-Run focused benchmarks:
-
-```bash
-go test -run '^$' -bench 'Benchmark(ServeHTTP|TreeGetValue|TryParseBody|PostJSON)' -benchmem ./...
-```
 
 ### Notes
 

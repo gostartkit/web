@@ -1,0 +1,23 @@
+goos: darwin
+goarch: arm64
+pkg: pkg.gostartkit.com/web
+cpu: Apple M2
+BenchmarkServeHTTPStaticJSON-8          	 5528582	       195.6 ns/op	      80 B/op	       5 allocs/op
+BenchmarkServeHTTPPathParamJSON-8       	 4161390	       305.6 ns/op	     128 B/op	       6 allocs/op
+BenchmarkTryParseBodyJSON-8             	  707823	      1602 ns/op	    6660 B/op	      24 allocs/op
+BenchmarkPostJSON-8                     	   29493	     39357 ns/op	    6180 B/op	      74 allocs/op
+BenchmarkServeHTTPBinary-8              	 6763214	       175.1 ns/op	     104 B/op	       6 allocs/op
+BenchmarkServeHTTPAvro-8                	 6947179	       173.5 ns/op	     104 B/op	       6 allocs/op
+BenchmarkCtxWriteBinaryReader-8         	36565623	        31.32 ns/op	      48 B/op	       1 allocs/op
+BenchmarkTreeGetValueStatic-8           	455465802	         2.650 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTreeGetValueParam-8            	32517277	        36.72 ns/op	      56 B/op	       2 allocs/op
+BenchmarkTreeGetValueCatchAll-8         	32739475	        36.77 ns/op	      56 B/op	       2 allocs/op
+BenchmarkTreeGetValueParamPooled-8      	81800287	        14.00 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTreeGetValueCatchAllPooled-8   	81366500	        14.83 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTryInt-8                       	137793405	         8.731 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTryUint-8                      	172106856	         7.387 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTryBool-8                      	518639787	         2.347 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTryParseIntSlice-8             	 9137512	       131.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTryParseStringSlice-8          	35943387	        33.34 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	pkg.gostartkit.com/web	24.402s

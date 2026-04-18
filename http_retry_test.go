@@ -95,7 +95,7 @@ func TestDoReqWithClientRawBytesFastPath(t *testing.T) {
 		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(strings.NewReader(`{"ok":true}`)),
+				Body:       io.NopCloser(strings.NewReader(`"AQID"`)),
 				Header:     make(http.Header),
 				Request:    r,
 			}, nil
@@ -111,19 +111,19 @@ func TestDoReqWithClientRawBytesFastPath(t *testing.T) {
 	if err := DoReqWithClient(client, req, &out, nil); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if string(out) != `{"ok":true}` {
-		t.Fatalf("expected raw response bytes, got %q", string(out))
+	if !bytes.Equal(out, []byte{1, 2, 3}) {
+		t.Fatalf("expected JSON-decoded bytes, got %v", out)
 	}
 }
 
-func TestDoReqWithClientRawMessageFastPath(t *testing.T) {
+func TestDoReqWithClientRawMessageUsesJSONValidation(t *testing.T) {
 	t.Parallel()
 
 	client := &http.Client{
 		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(strings.NewReader(`{"ok":true}`)),
+				Body:       io.NopCloser(strings.NewReader(`{"ok":true`)),
 				Header:     make(http.Header),
 				Request:    r,
 			}, nil
@@ -136,15 +136,12 @@ func TestDoReqWithClientRawMessageFastPath(t *testing.T) {
 	}
 
 	var out json.RawMessage
-	if err := DoReqWithClient(client, req, &out, nil); err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if string(out) != `{"ok":true}` {
-		t.Fatalf("expected raw json message, got %q", string(out))
+	if err := DoReqWithClient(client, req, &out, nil); err == nil {
+		t.Fatalf("expected JSON validation error")
 	}
 }
 
-func TestDoReqWithClientBufferFastPath(t *testing.T) {
+func TestDoReqWithClientRawBodyFastPath(t *testing.T) {
 	t.Parallel()
 
 	client := &http.Client{
@@ -163,12 +160,12 @@ func TestDoReqWithClientBufferFastPath(t *testing.T) {
 		t.Fatalf("new request failed: %v", err)
 	}
 
-	var out bytes.Buffer
+	var out RawBody
 	if err := DoReqWithClient(client, req, &out, nil); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if out.String() != `{"ok":true}` {
-		t.Fatalf("expected raw buffer body, got %q", out.String())
+	if string(out) != `{"ok":true}` {
+		t.Fatalf("expected raw response body, got %q", string(out))
 	}
 }
 

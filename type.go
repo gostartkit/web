@@ -31,6 +31,10 @@ type Reader func(c *Ctx, v any) error
 // Writer
 type Writer func(c *Ctx, v any) error
 
+// RawBody is an explicit opt-in container for raw HTTP response bytes.
+// It bypasses JSON decoding in client helpers.
+type RawBody []byte
+
 // AvroMarshaler allows custom zero-reflection avro serialization in hot paths.
 type AvroMarshaler interface {
 	MarshalAvro() ([]byte, error)

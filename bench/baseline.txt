@@ -10,7 +10,7 @@ BenchmarkTryParseJSONBodyFast-8            	  864370	      1413 ns/op	    5599 B
 BenchmarkPostJSON-8                        	   30828	     37868 ns/op	    6210 B/op	      74 allocs/op
 BenchmarkPostBytes-8                       	   32156	     38179 ns/op	    6169 B/op	      74 allocs/op
 BenchmarkDoReqWithClientStruct-8           	 2767962	       428.7 ns/op	     544 B/op	      11 allocs/op
-BenchmarkDoReqWithClientBytes-8            	 6220176	       192.8 ns/op	     328 B/op	       7 allocs/op
+BenchmarkDoReqWithClientRawBody-8         	 6220176	       192.8 ns/op	     328 B/op	       7 allocs/op
 BenchmarkServeHTTPBinary-8                 	 9515851	       197.1 ns/op	      40 B/op	       2 allocs/op
 BenchmarkServeHTTPAvro-8                   	 8294768	       144.7 ns/op	      40 B/op	       2 allocs/op
 BenchmarkCtxWriteBinaryReader-8            	35595940	        32.46 ns/op	      48 B/op	       1 allocs/op

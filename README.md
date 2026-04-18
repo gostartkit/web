@@ -15,7 +15,7 @@ Current benchmark snapshot on `darwin/arm64` (`Apple M2`):
 | `BenchmarkServeHTTPStaticJSONRawMessage` | `124.1 ns/op` | `40 B/op`, `2 allocs/op` |
 | `BenchmarkTryParseJSONBodyFast` | `1413 ns/op` | `5599 B/op`, `20 allocs/op` |
 | `BenchmarkPostBytes` | `38179 ns/op` | `6169 B/op`, `74 allocs/op` |
-| `BenchmarkDoReqWithClientBytes` | `192.8 ns/op` | `328 B/op`, `7 allocs/op` |
+| `BenchmarkDoReqWithClientRawBody` | `192.8 ns/op` | `328 B/op`, `7 allocs/op` |
 | `BenchmarkServeHTTPBinary` | `197.1 ns/op` | `40 B/op`, `2 allocs/op` |
 | `BenchmarkServeHTTPAvro` | `144.7 ns/op` | `40 B/op`, `2 allocs/op` |
 | `BenchmarkTreeGetValueParamPooled` | `14.29 ns/op` | `0 B/op`, `0 allocs/op` |
@@ -28,7 +28,7 @@ Notes:
 - Param and catch-all routing become `0 alloc` when params are pooled, which is already how `Application` runs.
 - Pre-encoded JSON (`json.RawMessage`) has a dedicated write fast path.
 - `TryParseJSONBodyFast` is the opt-in fast path for JSON request bodies when unknown-field rejection is not required.
-- Client response decoding has a raw-body fast path for `*[]byte`, `*json.RawMessage`, and `*bytes.Buffer`.
+- Client response decoding has an explicit raw-body fast path via `*web.RawBody`.
 - Binary and avro responses have direct fast paths.
 - Slice parsing hot paths avoid `strings.Split` and now run with `0 alloc`.
 
@@ -37,7 +37,7 @@ Notes:
 Run the current benchmark suite:
 
 ```bash
-go test -run '^$' -bench 'Benchmark(ServeHTTP|TreeGetValue|TryParse|TryInt|TryUint|TryBool|Post(JSON|Bytes)|DoReqWithClient(Struct|Bytes)|CtxWriteBinaryReader)' -benchmem ./...
+go test -run '^$' -bench 'Benchmark(ServeHTTP|TreeGetValue|TryParse|TryInt|TryUint|TryBool|Post(JSON|Bytes)|DoReqWithClient(Struct|RawBody)|CtxWriteBinaryReader)' -benchmem ./...
 ```
 
 Compare current results against the committed baseline:
@@ -115,7 +115,7 @@ func main() {
 | Context | `Request()`, `ResponseWriter()`, `Context()` | Access raw HTTP objects |
 | Client | `Get/Post/Put/Patch/Delete/Do` | HTTP client helpers using `http.DefaultClient` |
 | Client | `GetWithClient/PostWithClient/PutWithClient/PatchWithClient/DeleteWithClient/DoWithClient` | HTTP helpers with explicit `*http.Client` |
-| Client | `DoReq/DoReqWithClient` | Execute prepared requests and decode JSON/raw response bodies |
+| Client | `DoReq/DoReqWithClient` | Execute prepared requests and decode JSON or `RawBody` responses |
 | Client | `PostBytes/PutBytes/PatchBytes/DoBytes` | Send pre-encoded request bodies without JSON encoding |
 | Client | `PostBytesWithClient/PutBytesWithClient/PatchBytesWithClient/DoBytesWithClient` | Pre-encoded body helpers with explicit `*http.Client` |
 | Client | `TryGet/TryPost/TryPut/TryPatch/TryDelete/TryDo` | HTTP helpers with retry loop |
@@ -153,8 +153,8 @@ func main() {
   - wrapper and retry variants for `Get/Post/Put/Patch/Delete`
   - use these when transport-level performance tuning matters
 - Raw response fast path added:
-  - `DoReq` / `DoReqWithClient` now recognize `*[]byte`, `*json.RawMessage`, and `*bytes.Buffer`
-  - use these when the caller wants the response payload without JSON decoding cost
+  - `DoReq` / `DoReqWithClient` now recognize `*web.RawBody`
+  - existing JSON destinations like `[]byte` and `json.RawMessage` keep their original JSON semantics
 - `Ctx.writeBinary` and `Ctx.writeAvro` are implemented:
   - previous behavior for these media types was `ErrNotImplemented`.
   - now they support fast-path direct writing (see Binary / Avro response section).
@@ -258,12 +258,12 @@ app.Post("/ingest", func(c *web.Ctx) (any, error) {
 
 ### Client Raw Response
 
-Use `DoReqWithClient` with `*[]byte`, `*json.RawMessage`, or `*bytes.Buffer` when you want the response payload without JSON decoding cost.
+Use `DoReqWithClient` with `*web.RawBody` when you want the response payload without JSON decoding cost.
 
 ```go
 req, _ := http.NewRequest(http.MethodGet, "https://example.com/data", nil)
 
-var raw []byte
+var raw web.RawBody
 if err := web.DoReqWithClient(client, req, &raw, nil); err != nil {
 	panic(err)
 }

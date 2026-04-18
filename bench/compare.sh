@@ -4,7 +4,7 @@ set -eu
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 BASELINE_FILE="${1:-$ROOT_DIR/bench/baseline.txt}"
 CURRENT_FILE="$ROOT_DIR/bench/current.txt"
-BENCH_EXPR='Benchmark(ServeHTTP|TreeGetValue|TryParse|TryInt|TryUint|TryBool|Post(JSON|Bytes)|DoReqWithClient(Struct|Bytes)|CtxWriteBinaryReader)'
+BENCH_EXPR='Benchmark(ServeHTTP|TreeGetValue|TryParse|TryInt|TryUint|TryBool|Post(JSON|Bytes)|DoReqWithClient(Struct|RawBody)|CtxWriteBinaryReader)'
 
 cd "$ROOT_DIR"
 

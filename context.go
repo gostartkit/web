@@ -705,15 +705,6 @@ func (c *Ctx) writeJSON(val any) error {
 	case json.RawMessage:
 		_, err := c.w.Write(v)
 		return err
-	case []byte:
-		_, err := c.w.Write(v)
-		return err
-	case string:
-		_, err := io.WriteString(c.w, v)
-		return err
-	case *bytes.Buffer:
-		_, err := v.WriteTo(c.w)
-		return err
 	default:
 		return json.NewEncoder(c.w).Encode(val)
 	}

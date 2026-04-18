@@ -234,7 +234,7 @@ func BenchmarkDoReqWithClientStruct(b *testing.B) {
 	}
 }
 
-func BenchmarkDoReqWithClientBytes(b *testing.B) {
+func BenchmarkDoReqWithClientRawBody(b *testing.B) {
 	client := &http.Client{
 		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 			return &http.Response{
@@ -251,7 +251,7 @@ func BenchmarkDoReqWithClientBytes(b *testing.B) {
 		b.Fatalf("new request failed: %v", err)
 	}
 
-	var out []byte
+	var out RawBody
 
 	b.ReportAllocs()
 	b.ResetTimer()

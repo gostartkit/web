@@ -428,7 +428,7 @@ func decodeJSONBody(body io.ReadCloser, v any) error {
 
 func decodeResponseBody(body io.ReadCloser, v any) error {
 	switch out := v.(type) {
-	case *[]byte:
+	case *RawBody:
 		buf := _bodyReadBufferPool.Get().(*bytes.Buffer)
 		buf.Reset()
 
@@ -439,22 +439,6 @@ func decodeResponseBody(body io.ReadCloser, v any) error {
 
 		buf.Reset()
 		_bodyReadBufferPool.Put(buf)
-		return err
-	case *json.RawMessage:
-		buf := _bodyReadBufferPool.Get().(*bytes.Buffer)
-		buf.Reset()
-
-		_, err := buf.ReadFrom(body)
-		if err == nil {
-			*out = append((*out)[:0], buf.Bytes()...)
-		}
-
-		buf.Reset()
-		_bodyReadBufferPool.Put(buf)
-		return err
-	case *bytes.Buffer:
-		out.Reset()
-		_, err := out.ReadFrom(body)
 		return err
 	default:
 		return decodeJSONBody(body, v)

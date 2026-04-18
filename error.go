@@ -41,6 +41,10 @@ var (
 	// Example: malformed JSON in an API request.
 	ErrBadRequest = NewErr(http.StatusBadRequest, "BADREQUEST")
 
+	// ErrRequestTimeout represents an HTTP 408 Request Timeout error.
+	// This error is returned when request processing exceeds a configured deadline.
+	ErrRequestTimeout = NewErr(http.StatusRequestTimeout, "REQUESTTIMEOUT")
+
 	// ErrUnauthorized represents an HTTP 401 Unauthorized error.
 	// This error indicates that the request lacks valid authentication credentials (e.g., token, username/password).
 	// Return this when a user attempts to access a protected resource without proper authorization.

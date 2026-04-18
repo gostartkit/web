@@ -1,31 +1,26 @@
-// Package web implements a high-performance HTTP web framework for Go.
+// Package web implements a performance-oriented HTTP framework for Go.
 //
-// The framework is optimized for low-latency request handling, efficient routing,
-// and minimal allocations across the request lifecycle.
+// The package is designed around a small, explicit core:
 //
-// Design Philosophy:
+//   - tree-based routing for static, parameter, and catch-all paths
+//   - pooled request context and pooled route params
+//   - explicit request parsing and response writing
+//   - opt-in middleware, route groups, and structured error handling
+//   - integrated HTTP client helpers with retry and raw-body fast paths
 //
-// The framework focuses on simplicity, performance, and explicit control.
-// It avoids heavy abstractions while providing enough flexibility for building
-// scalable HTTP services.
+// The default request path is intentionally tight. Additional framework features
+// such as middleware, custom readers/writers, structured JSON error output, and
+// client transport tuning are all opt-in so that unused capabilities do not add
+// work to the hot path.
 //
-// Key Features:
-//
-//   - Provides high-performance routing with support for static, parameter (:name),
-//     and catch-all (*path) routes using a tree-based matcher.
-//   - Uses a specialized Ctx object for efficient request/response handling,
-//     minimizing allocations via parameter pooling.
-//   - Supports content negotiation for multiple formats (JSON, GOB, XML, Binary, Avro).
-//   - Includes an integrated HTTP client with retry support and safe request replay.
-//
-// Quick Start:
+// Quick start:
 //
 //	package main
 //
 //	import (
 //		"log"
 //
-//		"github.com/gostartkit/web"
+//		"pkg.gostartkit.com/web"
 //	)
 //
 //	func main() {
@@ -38,50 +33,46 @@
 //		log.Fatal(app.ListenAndServe("tcp", ":8080"))
 //	}
 //
-// Routing and Parameters:
+// Modern framework composition:
 //
-//	app.Get("/user/:id", func(c *web.Ctx) (any, error) {
-//		id := c.Param("id")
-//		return "User ID: " + id, nil
+//	app := web.New()
+//	app.Use(web.RequestID("", nil), web.Recover(nil))
+//	app.SetErrorHandler(web.JSONErrorHandler(true))
+//
+//	api := app.Group("/api", web.Timeout(2*time.Second))
+//	api.Get("/users/:id", func(c *web.Ctx) (any, error) {
+//		return map[string]string{
+//			"id":         c.Param("id"),
+//			"request_id": c.RequestID(),
+//		}, nil
 //	})
 //
-// Handler Signatures:
+// Request and response model:
 //
-// In addition to the traditional handler:
+// Handlers use the form:
 //
-//	app.Get("/users", func(c *web.Ctx) (any, error) { ... })
+//	func(c *web.Ctx) (any, error)
 //
-// The framework also supports automatic parameter injection:
+// The returned value controls the default response semantics:
 //
-//	type UserQuery struct {
-//		Page  uint32 `query:"page"`
-//		Limit uint32 `query:"limit"`
-//	}
+//   - (nil, nil) -> 204 No Content
+//   - (value, nil) -> 200 OK, or 201 Created for POST
+//   - (_, err) -> status inferred from framework error type
 //
-//	app.Get("/users", func(ctx context.Context, q UserQuery) (any, error) {
-//		return q, nil
-//	})
+// Request bodies are parsed from Content-Type using Ctx.TryParseBody, or
+// Ctx.TryParseJSONBodyFast when unknown-field rejection is not required.
 //
-// Supported injected types include:
-// - *web.Ctx
-// - context.Context
-// - struct (bound from query, body, path, or headers)
+// Responses are negotiated from Accept and support JSON, GOB, XML, binary, and Avro.
+// Pre-encoded JSON can be returned as json.RawMessage. Raw client response bytes use
+// the explicit RawBody type.
 //
-// Content Negotiation:
+// Performance guidance:
 //
-// Responses are encoded based on the "Accept" header.
-// Supported formats include JSON (default), GOB, XML,
-// binary streams, and Avro.
+//   - Prefer []byte or AvroMarshaler for binary and Avro output
+//   - Prefer PostBytes/PutBytes/PatchBytes/DoBytes when request payloads are already encoded
+//   - Reuse destination slices in TryParse hot paths
+//   - Use explicit *WithClient helpers when transport-level tuning matters
 //
-// Request bodies are decoded according to the "Content-Type" header
-// using Ctx.TryParseBody.
-//
-// Performance Guidelines:
-//
-// - Prefer returning []byte or AvroMarshaler for zero-copy fast paths.
-// - Reuse buffers and slices when parsing in hot paths.
-// - Avoid unnecessary allocations inside handlers.
-// - Parameter storage is pooled internally by the Application.
-//
-// For more details, see the README.md or visit the project repository.
+// See README.md and README_CN.md for benchmark snapshots, compatibility notes,
+// and the full API surface.
 package web

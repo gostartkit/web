@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 )
 
@@ -123,5 +124,105 @@ func TestRedirectHandling(t *testing.T) {
 	}
 	if rec.Header().Get("Location") != url {
 		t.Errorf("Expected Location header '%s', but got %s", url, rec.Header().Get("Location"))
+	}
+}
+
+func TestApplicationMiddlewareAndGroupOrder(t *testing.T) {
+	app := New()
+	order := make([]string, 0, 7)
+
+	app.Use(func(next Next) Next {
+		return func(c *Ctx) (any, error) {
+			order = append(order, "app:before")
+			val, err := next(c)
+			order = append(order, "app:after")
+			return val, err
+		}
+	})
+
+	api := app.Group("/api")
+	api.Use(func(next Next) Next {
+		return func(c *Ctx) (any, error) {
+			order = append(order, "group:before")
+			val, err := next(c)
+			order = append(order, "group:after")
+			return val, err
+		}
+	})
+
+	api.Handle(http.MethodGet, "/users/:id", func(c *Ctx) (any, error) {
+		order = append(order, "handler:"+c.Param("id"))
+		return "ok", nil
+	}, func(next Next) Next {
+		return func(c *Ctx) (any, error) {
+			order = append(order, "route:before")
+			val, err := next(c)
+			order = append(order, "route:after")
+			return val, err
+		}
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/users/42", nil)
+	app.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected status code 200, but got %d", rec.Code)
+	}
+
+	want := []string{
+		"app:before",
+		"group:before",
+		"route:before",
+		"handler:42",
+		"route:after",
+		"group:after",
+		"app:after",
+	}
+	if !reflect.DeepEqual(order, want) {
+		t.Fatalf("unexpected middleware order: got %v want %v", order, want)
+	}
+}
+
+func TestCustomErrorHandler(t *testing.T) {
+	app := New()
+	app.SetErrorHandler(func(c *Ctx, err error) error {
+		c.SetHeader("Content-Type", "text/plain")
+		c.WriteHeader(http.StatusTeapot)
+		_, writeErr := c.Write([]byte("teapot"))
+		return writeErr
+	})
+
+	app.Get("/brew", func(c *Ctx) (any, error) {
+		return nil, ErrNotFound
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/brew", nil)
+	app.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusTeapot {
+		t.Fatalf("Expected status code 418, but got %d", rec.Code)
+	}
+	if rec.Body.String() != "teapot" {
+		t.Fatalf("Expected body teapot, but got %q", rec.Body.String())
+	}
+}
+
+func TestMethodNotAllowed(t *testing.T) {
+	app := New()
+	app.Get("/users", func(c *Ctx) (any, error) {
+		return "ok", nil
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/users", nil)
+	app.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("Expected status code 405, but got %d", rec.Code)
+	}
+	if got := rec.Header().Get("Allow"); got != "GET, OPTIONS" {
+		t.Fatalf("Expected Allow header %q, but got %q", "GET, OPTIONS", got)
 	}
 }

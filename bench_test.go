@@ -109,7 +109,7 @@ func BenchmarkTryParseBodyJSON(b *testing.B) {
 		req := httptest.NewRequest(http.MethodPost, "/v1/user", bytes.NewReader(payload))
 		req.Header.Set("Content-Type", "application/json; charset=utf-8")
 		rec := httptest.NewRecorder()
-		c := createCtx(rec, req, nil)
+		c := createCtx(nil, rec, req, nil)
 
 		var body reqBody
 		if err := c.TryParseBody(&body); err != nil {
@@ -134,7 +134,7 @@ func BenchmarkTryParseJSONBodyFast(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		req := httptest.NewRequest(http.MethodPost, "/v1/user", bytes.NewReader(payload))
 		rec := httptest.NewRecorder()
-		c := createCtx(rec, req, nil)
+		c := createCtx(nil, rec, req, nil)
 
 		var body reqBody
 		if err := c.TryParseJSONBodyFast(&body); err != nil {

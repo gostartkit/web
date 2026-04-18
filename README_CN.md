@@ -8,19 +8,21 @@ English Version: [README.md](./README.md)
 
 当前在 `darwin/arm64` (`Apple M2`) 上的基准测试快照：
 
-| 基准测试 | 结果 | 内存 |
+<!-- BENCHMARK_SNAPSHOT:BEGIN -->
+| Benchmark | Result | Memory |
 |---|---:|---:|
-| `BenchmarkServeHTTPStaticJSON` | `157.9 ns/op` | `16 B/op`, `1 alloc/op` |
-| `BenchmarkServeHTTPPathParamJSON` | `202.7 ns/op` | `24 B/op`, `2 allocs/op` |
-| `BenchmarkServeHTTPStaticJSONRawMessage` | `124.1 ns/op` | `40 B/op`, `2 allocs/op` |
-| `BenchmarkTryParseJSONBodyFast` | `1413 ns/op` | `5599 B/op`, `20 allocs/op` |
-| `BenchmarkPostBytes` | `38179 ns/op` | `6169 B/op`, `74 allocs/op` |
-| `BenchmarkDoReqWithClientRawBody` | `192.8 ns/op` | `328 B/op`, `7 allocs/op` |
-| `BenchmarkServeHTTPBinary` | `197.1 ns/op` | `40 B/op`, `2 allocs/op` |
-| `BenchmarkServeHTTPAvro` | `144.7 ns/op` | `40 B/op`, `2 allocs/op` |
-| `BenchmarkTreeGetValueParamPooled` | `14.29 ns/op` | `0 B/op`, `0 allocs/op` |
-| `BenchmarkTryParseIntSlice` | `98.10 ns/op` | `0 B/op`, `0 alloc/op` |
-| `BenchmarkTryParseStringSlice` | `36.58 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkServeHTTPStaticJSON` | `152.4 ns/op` | `16 B/op`, `1 alloc/op` |
+| `BenchmarkServeHTTPPathParamJSON` | `196.3 ns/op` | `24 B/op`, `2 alloc/op` |
+| `BenchmarkServeHTTPStaticJSONRawMessage` | `119.9 ns/op` | `40 B/op`, `2 alloc/op` |
+| `BenchmarkTryParseJSONBodyFast` | `1417.0 ns/op` | `5600 B/op`, `20 alloc/op` |
+| `BenchmarkPostBytes` | `38264.0 ns/op` | `6165 B/op`, `74 alloc/op` |
+| `BenchmarkDoReqWithClientRawBody` | `189.4 ns/op` | `328 B/op`, `7 alloc/op` |
+| `BenchmarkServeHTTPBinary` | `125.2 ns/op` | `40 B/op`, `2 alloc/op` |
+| `BenchmarkServeHTTPAvro` | `124.7 ns/op` | `40 B/op`, `2 alloc/op` |
+| `BenchmarkTreeGetValueParamPooled` | `14.2 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkTryParseIntSlice` | `121.2 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkTryParseStringSlice` | `34.9 ns/op` | `0 B/op`, `0 alloc/op` |
+<!-- BENCHMARK_SNAPSHOT:END -->
 
 备注：
 
@@ -46,10 +48,43 @@ go test -run '^$' -bench 'Benchmark(ServeHTTP|TreeGetValue|TryParse|TryInt|TryUi
 ./bench/compare.sh
 ```
 
+刷新提交到仓库的基准线：
+
+```bash
+./bench/update_baseline.sh
+```
+
+生成可直接粘贴到 README 的 Markdown 性能快照：
+
+```bash
+./bench/snapshot.sh
+```
+
+直接更新 `README.md` 和 `README_CN.md` 中的快照区块：
+
+```bash
+./bench/update_snapshot_readme.sh
+```
+
+常用覆盖方式：
+
+```bash
+COUNT=3 ./bench/compare.sh
+BENCH_EXPR='BenchmarkServeHTTP(StaticJSON|PathParamJSON)$' ./bench/compare.sh
+CURRENT_FILE=./bench/servehttp.txt COUNT=3 ./bench/compare.sh
+SHOW_MISSING=1 ./bench/compare.sh
+COUNT=3 ./bench/update_baseline.sh
+COUNT=3 ./bench/snapshot.sh
+COUNT=3 ./bench/update_snapshot_readme.sh
+```
+
 文件：
 
 - 基准线: [bench/baseline.txt](./bench/baseline.txt)
 - 比较脚本: [bench/compare.sh](./bench/compare.sh)
+- 刷新脚本: [bench/update_baseline.sh](./bench/update_baseline.sh)
+- 快照脚本: [bench/snapshot.sh](./bench/snapshot.sh)
+- README 更新脚本: [bench/update_snapshot_readme.sh](./bench/update_snapshot_readme.sh)
 
 ### 性能指南
 
@@ -87,13 +122,15 @@ func main() {
 
 - `web.New() *Application`
 - 路由注册：
-  - `Get`, `Post`, `Put`, `Patch`, `Delete`, `Head`, `Options`
+  - `Get`, `Post`, `Put`, `Patch`, `Delete`, `Head`, `Options`, `Handle`
+- 框架组合：
+  - `Use`, `Group`, `SetErrorHandler`, `RegisterReader`, `RegisterWriter`
 - 服务器生命周期：
   - `ListenAndServe`, `ListenAndServeTLS`, `Shutdown`
 - 辅助函数：
-  - `ServeFiles`, `Redirect`, `TryParse(...)`, `TryXxx(...)`
+  - `ServeFiles`, `Redirect`, `TryParse(...)`, `TryXxx(...)`, `JSONErrorHandler`
 - 上下文 (`*Ctx`) 常用方法：
-  - 请求：`Method`, `Path`, `Query`, `Param`, `Body`, `ContentType`, `BearerToken`
+  - 请求：`Method`, `Path`, `Query`, `Param`, `Body`, `ContentType`, `BearerToken`, `RequestID`
   - 解析：`TryParseBody`, `TryParseJSONBodyFast`, `TryParseParam`, `TryParseQuery`, `TryParseForm`
   - 响应：`SetHeader`, `SetCookie`, `AllowCredentials`, 通过 `Accept` 进行内容协商
 
@@ -103,16 +140,23 @@ func main() {
 |---|---|---|
 | 应用程序 | `New()` | 创建应用程序实例 |
 | 应用程序 | `Get/Post/Put/Patch/Delete/Head/Options(path, handler)` | 注册路由处理器 |
+| 应用程序 | `Handle(method, path, handler)` | 为任意 HTTP 方法注册路由 |
+| 应用程序 | `Use(middleware...)` | 为后续注册的路由附加应用级中间件 |
+| 应用程序 | `Group(prefix, middleware...)` | 创建带共享前缀和中间件的路由分组 |
+| 应用程序 | `SetErrorHandler(handler)` | 安装自定义路由错误处理器 |
+| 应用程序 | `RegisterReader(contentType, reader)` | 为指定媒体类型覆写请求解码 |
+| 应用程序 | `RegisterWriter(contentType, writer)` | 为指定媒体类型覆写响应编码 |
 | 应用程序 | `ServeFiles("/static/*filepath", fs)` | 使用通配路径提供静态文件服务 |
 | 应用程序 | `ListenAndServe(network, addr, ...opts)` | 启动 HTTP 服务器 |
 | 应用程序 | `ListenAndServeTLS(network, addr, tlsConfig, ...opts)` | 启动 HTTPS 服务器 |
 | 应用程序 | `Shutdown(ctx)` | 优雅关闭 |
-| 上下文 | `Param(name)`, `Query(name)`, `Form(name)` | 读取路径/查询/表单值 |
+| 上下文 | `Param(name)`, `Query(name)`, `Form(name)`, `RequestID()` | 读取路径/查询/表单值及请求 ID |
 | 上下文 | `TryParseBody(v)` | 根据内容类型（JSON/GOB/XML）解析请求体 |
 | 上下文 | `TryParseJSONBodyFast(v)` | 使用 pooled buffer + `json.Unmarshal` 快速解析 JSON 请求体 |
 | 上下文 | `TryParseParam/Query/Form(name, &v)` | 将字符串值解析为类型化值 |
 | 上下文 | `SetHeader`, `SetCookie`, `SetContentType` | 写入响应头 |
 | 上下文 | `Request()`, `ResponseWriter()`, `Context()` | 访问原始 HTTP 对象 |
+| 中间件 | `RequestID`, `Recover`, `RecoverWithOptions`, `Timeout`, `AccessLog`, `AccessLogWithOptions` | 内建的显式启用中间件 |
 | 客户端 | `Get/Post/Put/Patch/Delete/Do` | 使用 `http.DefaultClient` 的 HTTP 辅助函数 |
 | 客户端 | `GetWithClient/PostWithClient/PutWithClient/PatchWithClient/DeleteWithClient/DoWithClient` | 显式传入 `*http.Client` 的 HTTP 辅助函数 |
 | 客户端 | `DoReq/DoReqWithClient` | 执行已构造请求，并解码 JSON 或 `RawBody` 响应体 |
@@ -124,6 +168,7 @@ func main() {
 | 客户端 | `TryPostBytesWithClient/TryPutBytesWithClient/TryPatchBytesWithClient/TryDoBytesWithClient` | 显式传入 `*http.Client` 的预编码请求体重试辅助函数 |
 | 错误 | `NewErr(code, msg)` | 带有 HTTP 状态码的错误 |
 | 错误 | `Redirect(url, code)` | 从处理器返回重定向响应 |
+| 错误 | `JSONErrorHandler(includeRequestID)` | 输出结构化 JSON API 错误 |
 
 ### 响应行为
 
@@ -137,6 +182,52 @@ func main() {
   - `application/xml`
   - `application/octet-stream`
   - `application/x-avro`
+
+### 现代框架能力
+
+- 中间件和路由分组在“注册期”完成，不在请求期动态拼装：
+  - `app.Use(...)`
+  - `app.Group("/api", ...)`
+  - 分组级 `Use(...)`
+- 内建中间件为显式 opt-in：
+  - `RequestID`
+  - `Recover`
+  - `RecoverWithOptions`
+  - `Timeout`
+  - `AccessLog`
+  - `AccessLogWithOptions`
+- 结构化 API 错误通过 `SetErrorHandler(JSONErrorHandler(...))` 显式启用
+- `Reader/Writer` 覆写按媒体类型注册；未注册时不会影响默认热路径
+
+```go
+app := web.New()
+app.Use(web.RequestID("", nil), web.Recover(nil))
+app.SetErrorHandler(web.JSONErrorHandler(true))
+
+api := app.Group("/api", web.Timeout(2*time.Second))
+api.Get("/users/:id", func(c *web.Ctx) (any, error) {
+	return map[string]string{
+		"id":         c.Param("id"),
+		"request_id": c.RequestID(),
+	}, nil
+})
+```
+
+如果你需要更细的控制，可以使用带 options 的中间件变体：
+
+```go
+app.Use(
+	web.RecoverWithOptions(web.RecoverOptions{
+		DefaultStatus: http.StatusServiceUnavailable,
+		DefaultBody:   "UNAVAILABLE",
+	}),
+	web.AccessLogWithOptions(web.AccessLogOptions{
+		Log: func(c *web.Ctx, entry web.AccessLogEntry) {
+			// 在这里接入路由级访问日志
+		},
+	}),
+)
+```
 
 ### 兼容性 / 破坏性变更
 
@@ -169,22 +260,6 @@ func main() {
 - 如果你依赖 `retry=0` 来跳过外部调用，请在调用方替换为显式的条件判断。
 - 如果你的处理器使用了 `application/octet-stream` 或 `application/x-avro`，你现在可以直接返回 `[]byte`、`io.Reader` 或自定义的序列化类型。
 - 对于重定向，请迁移到 `web.Redirect(...)` 以获得可预测的行为。
-
-### 当前功能 (2026-04)
-
-- 路由：
-  - 静态路径, `:param`, `*catchAll`
-  - 高性能树匹配器（灵感来自 `httprouter`）
-- 根据 `Accept` 进行响应编码：
-  - `application/json`
-  - `application/x-gob`
-  - `application/xml`
-  - `application/octet-stream` (已实现)
-  - `application/x-avro` (已实现)
-- 根据 `Content-Type` 进行请求体解析：
-  - `application/json`
-  - `application/x-gob`
-  - `application/xml`
 
 ### 二进制 / Avro 响应
 

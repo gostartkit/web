@@ -13,6 +13,8 @@ const (
 	mediaXML
 )
 
+const mediaTypeSlots = int(mediaXML) + 1
+
 func acceptMediaType(header string) mediaType {
 	mt := parseMediaType(header)
 	if mt == mediaUnknown {

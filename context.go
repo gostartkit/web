@@ -37,8 +37,9 @@ var (
 )
 
 // createCtx returns a new instance of web.Ctx, initialized with the given HTTP response writer, request, and parameters.
-func createCtx(w http.ResponseWriter, r *http.Request, params *Params) *Ctx {
+func createCtx(app *Application, w http.ResponseWriter, r *http.Request, params *Params) *Ctx {
 	c := _ctxPool.Get().(*Ctx)
+	c.app = app
 	c.w = w
 	c.r = r
 	c.param = params
@@ -50,6 +51,7 @@ func releaseCtx(c *Ctx) {
 	if c != nil {
 		c.w = nil
 		c.r = nil
+		c.app = nil
 		c.param = nil
 		c.query = nil
 		c.userId = 0
@@ -66,6 +68,7 @@ func releaseCtx(c *Ctx) {
 
 // Ctx represents the context for a web request, holding relevant request data and response methods.
 type Ctx struct {
+	app                    *Application
 	w                      http.ResponseWriter
 	r                      *http.Request
 	param                  *Params
@@ -118,6 +121,14 @@ func (c *Ctx) QueryValues() url.Values {
 // UserId returns the user id from the context.
 func (c *Ctx) UserId() uint64 {
 	return c.userId
+}
+
+// RequestID returns the request ID injected into the request context by RequestID middleware.
+func (c *Ctx) RequestID() string {
+	if c == nil || c.r == nil {
+		return ""
+	}
+	return RequestIDFromContext(c.r.Context())
 }
 
 // Param retrieves a parameter value by name from the Params.
@@ -237,15 +248,35 @@ func (c *Ctx) TryParseBody(val any) error {
 
 	switch c.requestMediaType() {
 	case mediaJSON:
+		if c.app != nil && c.app.hasReaders {
+			if reader := c.app.readers[mediaJSON]; reader != nil {
+				return reader(c, val)
+			}
+		}
 		dec := json.NewDecoder(c.r.Body)
 		dec.DisallowUnknownFields()
 		return dec.Decode(val)
 	case mediaGOB:
+		if c.app != nil && c.app.hasReaders {
+			if reader := c.app.readers[mediaGOB]; reader != nil {
+				return reader(c, val)
+			}
+		}
 		dec := gob.NewDecoder(c.r.Body)
 		return dec.Decode(val)
 	case mediaOctetStream:
+		if c.app != nil && c.app.hasReaders {
+			if reader := c.app.readers[mediaOctetStream]; reader != nil {
+				return reader(c, val)
+			}
+		}
 		return ErrContentType
 	case mediaXML:
+		if c.app != nil && c.app.hasReaders {
+			if reader := c.app.readers[mediaXML]; reader != nil {
+				return reader(c, val)
+			}
+		}
 		dec := xml.NewDecoder(c.r.Body)
 		return dec.Decode(val)
 	default:
@@ -654,16 +685,46 @@ func (c *Ctx) write(val any) error {
 
 	switch c.responseMediaType() {
 	case mediaJSON:
+		if c.app != nil && c.app.hasWriters {
+			if writer := c.app.writers[mediaJSON]; writer != nil {
+				return writer(c, val)
+			}
+		}
 		return c.writeJSON(val)
 	case mediaGOB:
+		if c.app != nil && c.app.hasWriters {
+			if writer := c.app.writers[mediaGOB]; writer != nil {
+				return writer(c, val)
+			}
+		}
 		return c.writeGOB(val)
 	case mediaOctetStream:
+		if c.app != nil && c.app.hasWriters {
+			if writer := c.app.writers[mediaOctetStream]; writer != nil {
+				return writer(c, val)
+			}
+		}
 		return c.writeBinary(val)
 	case mediaAvro:
+		if c.app != nil && c.app.hasWriters {
+			if writer := c.app.writers[mediaAvro]; writer != nil {
+				return writer(c, val)
+			}
+		}
 		return c.writeAvro(val)
 	case mediaXML:
+		if c.app != nil && c.app.hasWriters {
+			if writer := c.app.writers[mediaXML]; writer != nil {
+				return writer(c, val)
+			}
+		}
 		return c.writeXML(val)
 	default:
+		if c.app != nil && c.app.hasWriters {
+			if writer := c.app.writers[mediaJSON]; writer != nil {
+				return writer(c, val)
+			}
+		}
 		return c.writeJSON(val)
 	}
 }

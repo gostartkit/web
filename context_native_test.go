@@ -20,7 +20,7 @@ func TestCtxNativeRequestResponseWriter(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/native", nil)
 	rec := httptest.NewRecorder()
-	c := createCtx(rec, req, nil)
+	c := createCtx(nil, rec, req, nil)
 	defer releaseCtx(c)
 
 	if c.Request() != req {
@@ -37,7 +37,7 @@ func TestCtxImplementsResponseWriterMethods(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/rw", nil)
 	rec := httptest.NewRecorder()
-	c := createCtx(rec, req, nil)
+	c := createCtx(nil, rec, req, nil)
 	defer releaseCtx(c)
 
 	c.Header().Set("X-Test", "1")
@@ -63,7 +63,7 @@ func TestCtxFlushAndUnsupportedMethods(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/flush", nil)
 	rec := &flushRecorder{ResponseRecorder: httptest.NewRecorder()}
-	c := createCtx(rec, req, nil)
+	c := createCtx(nil, rec, req, nil)
 	defer releaseCtx(c)
 
 	c.Flush()

@@ -19,11 +19,22 @@ type Fn func(w http.ResponseWriter, r *http.Request) error
 // Panic
 type Panic func(http.ResponseWriter, *http.Request, any)
 
+// ErrorHandler handles a route error. Returning nil means the error was fully handled.
+// Returning a non-nil error delegates to the framework default error writer.
+type ErrorHandler func(c *Ctx, err error) error
+
 // Middleware
 type Middleware func(Next) Next
 
 // Chain middleware chain
 type Chain []Middleware
+
+// RouteGroup groups routes under a shared path prefix and middleware chain.
+type RouteGroup struct {
+	app        *Application
+	prefix     string
+	middleware Chain
+}
 
 // Reader
 type Reader func(c *Ctx, v any) error

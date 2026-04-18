@@ -8,19 +8,21 @@ This library is optimized around low-latency request handling, tight routing, an
 
 Current benchmark snapshot on `darwin/arm64` (`Apple M2`):
 
+<!-- BENCHMARK_SNAPSHOT:BEGIN -->
 | Benchmark | Result | Memory |
 |---|---:|---:|
-| `BenchmarkServeHTTPStaticJSON` | `157.9 ns/op` | `16 B/op`, `1 alloc/op` |
-| `BenchmarkServeHTTPPathParamJSON` | `202.7 ns/op` | `24 B/op`, `2 allocs/op` |
-| `BenchmarkServeHTTPStaticJSONRawMessage` | `124.1 ns/op` | `40 B/op`, `2 allocs/op` |
-| `BenchmarkTryParseJSONBodyFast` | `1413 ns/op` | `5599 B/op`, `20 allocs/op` |
-| `BenchmarkPostBytes` | `38179 ns/op` | `6169 B/op`, `74 allocs/op` |
-| `BenchmarkDoReqWithClientRawBody` | `192.8 ns/op` | `328 B/op`, `7 allocs/op` |
-| `BenchmarkServeHTTPBinary` | `197.1 ns/op` | `40 B/op`, `2 allocs/op` |
-| `BenchmarkServeHTTPAvro` | `144.7 ns/op` | `40 B/op`, `2 allocs/op` |
-| `BenchmarkTreeGetValueParamPooled` | `14.29 ns/op` | `0 B/op`, `0 allocs/op` |
-| `BenchmarkTryParseIntSlice` | `98.10 ns/op` | `0 B/op`, `0 alloc/op` |
-| `BenchmarkTryParseStringSlice` | `36.58 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkServeHTTPStaticJSON` | `152.4 ns/op` | `16 B/op`, `1 alloc/op` |
+| `BenchmarkServeHTTPPathParamJSON` | `196.3 ns/op` | `24 B/op`, `2 alloc/op` |
+| `BenchmarkServeHTTPStaticJSONRawMessage` | `119.9 ns/op` | `40 B/op`, `2 alloc/op` |
+| `BenchmarkTryParseJSONBodyFast` | `1417.0 ns/op` | `5600 B/op`, `20 alloc/op` |
+| `BenchmarkPostBytes` | `38264.0 ns/op` | `6165 B/op`, `74 alloc/op` |
+| `BenchmarkDoReqWithClientRawBody` | `189.4 ns/op` | `328 B/op`, `7 alloc/op` |
+| `BenchmarkServeHTTPBinary` | `125.2 ns/op` | `40 B/op`, `2 alloc/op` |
+| `BenchmarkServeHTTPAvro` | `124.7 ns/op` | `40 B/op`, `2 alloc/op` |
+| `BenchmarkTreeGetValueParamPooled` | `14.2 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkTryParseIntSlice` | `121.2 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkTryParseStringSlice` | `34.9 ns/op` | `0 B/op`, `0 alloc/op` |
+<!-- BENCHMARK_SNAPSHOT:END -->
 
 Notes:
 
@@ -46,10 +48,43 @@ Compare current results against the committed baseline:
 ./bench/compare.sh
 ```
 
+Refresh the committed baseline:
+
+```bash
+./bench/update_baseline.sh
+```
+
+Generate a Markdown benchmark snapshot ready to paste into the README:
+
+```bash
+./bench/snapshot.sh
+```
+
+Update the benchmark snapshot blocks in `README.md` and `README_CN.md`:
+
+```bash
+./bench/update_snapshot_readme.sh
+```
+
+Useful overrides:
+
+```bash
+COUNT=3 ./bench/compare.sh
+BENCH_EXPR='BenchmarkServeHTTP(StaticJSON|PathParamJSON)$' ./bench/compare.sh
+CURRENT_FILE=./bench/servehttp.txt COUNT=3 ./bench/compare.sh
+SHOW_MISSING=1 ./bench/compare.sh
+COUNT=3 ./bench/update_baseline.sh
+COUNT=3 ./bench/snapshot.sh
+COUNT=3 ./bench/update_snapshot_readme.sh
+```
+
 Files:
 
 - baseline: [bench/baseline.txt](./bench/baseline.txt)
 - compare script: [bench/compare.sh](./bench/compare.sh)
+- update script: [bench/update_baseline.sh](./bench/update_baseline.sh)
+- snapshot script: [bench/snapshot.sh](./bench/snapshot.sh)
+- README update script: [bench/update_snapshot_readme.sh](./bench/update_snapshot_readme.sh)
 
 ### Performance Guidelines
 
@@ -87,13 +122,15 @@ func main() {
 
 - `web.New() *Application`
 - route registration:
-  - `Get`, `Post`, `Put`, `Patch`, `Delete`, `Head`, `Options`
+  - `Get`, `Post`, `Put`, `Patch`, `Delete`, `Head`, `Options`, `Handle`
+- framework composition:
+  - `Use`, `Group`, `SetErrorHandler`, `RegisterReader`, `RegisterWriter`
 - server lifecycle:
   - `ListenAndServe`, `ListenAndServeTLS`, `Shutdown`
 - helpers:
-  - `ServeFiles`, `Redirect`, `TryParse(...)`, `TryXxx(...)`
+  - `ServeFiles`, `Redirect`, `TryParse(...)`, `TryXxx(...)`, `JSONErrorHandler`
 - context (`*Ctx`) common methods:
-  - request: `Method`, `Path`, `Query`, `Param`, `Body`, `ContentType`, `BearerToken`
+  - request: `Method`, `Path`, `Query`, `Param`, `Body`, `ContentType`, `BearerToken`, `RequestID`
   - parse: `TryParseBody`, `TryParseJSONBodyFast`, `TryParseParam`, `TryParseQuery`, `TryParseForm`
   - response: `SetHeader`, `SetCookie`, `AllowCredentials`, content negotiation via `Accept`
 
@@ -103,16 +140,23 @@ func main() {
 |---|---|---|
 | Application | `New()` | Create app instance |
 | Application | `Get/Post/Put/Patch/Delete/Head/Options(path, handler)` | Register route handler |
+| Application | `Handle(method, path, handler)` | Register route handler for an arbitrary HTTP method |
+| Application | `Use(middleware...)` | Apply app-level middleware to subsequently registered routes |
+| Application | `Group(prefix, middleware...)` | Create route groups with shared prefix and middleware |
+| Application | `SetErrorHandler(handler)` | Install a custom route error handler |
+| Application | `RegisterReader(contentType, reader)` | Override request decoding for a media type |
+| Application | `RegisterWriter(contentType, writer)` | Override response encoding for a media type |
 | Application | `ServeFiles("/static/*filepath", fs)` | Serve static files with catch-all path |
 | Application | `ListenAndServe(network, addr, ...opts)` | Start HTTP server |
 | Application | `ListenAndServeTLS(network, addr, tlsConfig, ...opts)` | Start HTTPS server |
 | Application | `Shutdown(ctx)` | Graceful shutdown |
-| Context | `Param(name)`, `Query(name)`, `Form(name)` | Read path/query/form values |
+| Context | `Param(name)`, `Query(name)`, `Form(name)`, `RequestID()` | Read path/query/form values and middleware-provided request ID |
 | Context | `TryParseBody(v)` | Parse request body by content type (JSON/GOB/XML) |
 | Context | `TryParseJSONBodyFast(v)` | Fast JSON body parse using pooled buffer + `json.Unmarshal` |
 | Context | `TryParseParam/Query/Form(name, &v)` | Parse string values into typed value |
 | Context | `SetHeader`, `SetCookie`, `SetContentType` | Write response headers |
 | Context | `Request()`, `ResponseWriter()`, `Context()` | Access raw HTTP objects |
+| Middleware | `RequestID`, `Recover`, `RecoverWithOptions`, `Timeout`, `AccessLog`, `AccessLogWithOptions` | Built-in opt-in middleware helpers |
 | Client | `Get/Post/Put/Patch/Delete/Do` | HTTP client helpers using `http.DefaultClient` |
 | Client | `GetWithClient/PostWithClient/PutWithClient/PatchWithClient/DeleteWithClient/DoWithClient` | HTTP helpers with explicit `*http.Client` |
 | Client | `DoReq/DoReqWithClient` | Execute prepared requests and decode JSON or `RawBody` responses |
@@ -124,6 +168,7 @@ func main() {
 | Client | `TryPostBytesWithClient/TryPutBytesWithClient/TryPatchBytesWithClient/TryDoBytesWithClient` | Retry-capable pre-encoded helpers with explicit `*http.Client` |
 | Error | `NewErr(code, msg)` | Error with HTTP status code |
 | Error | `Redirect(url, code)` | Return redirect response from handler |
+| Error | `JSONErrorHandler(includeRequestID)` | Write structured JSON API errors |
 
 ### Response Behavior
 
@@ -137,6 +182,52 @@ func main() {
   - `application/xml`
   - `application/octet-stream`
   - `application/x-avro`
+
+### Modern Framework Features
+
+- Middleware and route groups are registration-time features:
+  - `app.Use(...)`
+  - `app.Group("/api", ...)`
+  - group-local `Use(...)`
+- Built-in middleware is explicit opt-in:
+  - `RequestID`
+  - `Recover`
+  - `RecoverWithOptions`
+  - `Timeout`
+  - `AccessLog`
+  - `AccessLogWithOptions`
+- Structured API errors are opt-in via `SetErrorHandler(JSONErrorHandler(...))`
+- Reader/writer overrides are media-type specific and do not affect the default hot path unless registered
+
+```go
+app := web.New()
+app.Use(web.RequestID("", nil), web.Recover(nil))
+app.SetErrorHandler(web.JSONErrorHandler(true))
+
+api := app.Group("/api", web.Timeout(2*time.Second))
+api.Get("/users/:id", func(c *web.Ctx) (any, error) {
+	return map[string]string{
+		"id":         c.Param("id"),
+		"request_id": c.RequestID(),
+	}, nil
+})
+```
+
+For finer control, use the options-based middleware variants:
+
+```go
+app.Use(
+	web.RecoverWithOptions(web.RecoverOptions{
+		DefaultStatus: http.StatusServiceUnavailable,
+		DefaultBody:   "UNAVAILABLE",
+	}),
+	web.AccessLogWithOptions(web.AccessLogOptions{
+		Log: func(c *web.Ctx, entry web.AccessLogEntry) {
+			// route-aware access logging hook
+		},
+	}),
+)
+```
 
 ### Compatibility / Breaking Changes
 
@@ -169,22 +260,6 @@ Migration tips:
 - If you relied on `retry=0` to skip outbound call, replace with explicit conditional in caller.
 - If your handlers used `application/octet-stream` or `application/x-avro`, you can now return `[]byte`, `io.Reader`, or custom marshaler types directly.
 - For redirects, migrate to `web.Redirect(...)` for predictable behavior.
-
-### Current capabilities (2026-04)
-
-- Routing:
-  - static path, `:param`, `*catchAll`
-  - high-performance tree matcher (inspired by `httprouter`)
-- Response encoding by `Accept`:
-  - `application/json`
-  - `application/x-gob`
-  - `application/xml`
-  - `application/octet-stream` (implemented)
-  - `application/x-avro` (implemented)
-- Request body parsing by `Content-Type`:
-  - `application/json`
-  - `application/x-gob`
-  - `application/xml`
 
 ### Binary / Avro response
 

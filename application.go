@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -18,11 +19,18 @@ type Application struct {
 	err           *log.Logger
 	cors          Cors
 	panic         Panic
+	errorHandler  ErrorHandler
+	middleware    Chain
+	readers       [mediaTypeSlots]Reader
+	writers       [mediaTypeSlots]Writer
+	hasReaders    bool
+	hasWriters    bool
 	paramsPool    sync.Pool
 	maxParams     uint16
 	globalAllowed []string
 
-	NotFound http.Handler
+	NotFound         http.Handler
+	MethodNotAllowed http.Handler
 }
 
 // New return *web.Application
@@ -59,39 +67,88 @@ func (app *Application) SetPanic(panic Panic) {
 	app.panic = panic
 }
 
+// SetErrorHandler sets a custom route error handler.
+func (app *Application) SetErrorHandler(handler ErrorHandler) {
+	app.errorHandler = handler
+}
+
+// RegisterReader registers a request body reader for a supported content type.
+func (app *Application) RegisterReader(contentType string, reader Reader) error {
+	mt := parseMediaType(contentType)
+	if mt == mediaUnknown {
+		return ErrContentType
+	}
+	app.readers[mt] = reader
+	app.hasReaders = true
+	return nil
+}
+
+// RegisterWriter registers a response writer for a supported accept/content type.
+func (app *Application) RegisterWriter(contentType string, writer Writer) error {
+	mt := parseMediaType(contentType)
+	if mt == mediaUnknown {
+		return ErrContentType
+	}
+	app.writers[mt] = writer
+	app.hasWriters = true
+	return nil
+}
+
+// Use appends application middleware for subsequently registered routes.
+func (app *Application) Use(middleware ...Middleware) {
+	app.middleware = append(app.middleware, middleware...)
+}
+
+// Group creates a route group with a shared prefix and middleware chain.
+func (app *Application) Group(prefix string, middleware ...Middleware) *RouteGroup {
+	if prefix != "" && prefix[0] != '/' {
+		panic("group prefix must begin with '/' in path '" + prefix + "'")
+	}
+	return &RouteGroup{
+		app:        app,
+		prefix:     prefix,
+		middleware: append(Chain(nil), middleware...),
+	}
+}
+
+// Handle registers a route for an arbitrary HTTP method.
+func (app *Application) Handle(method string, path string, next Next, middleware ...Middleware) {
+	app.addRoute(method, path, wrapNext(next, app.middleware, Chain(middleware)))
+}
+
 // Get method
 func (app *Application) Get(path string, next Next) {
-	app.addRoute(http.MethodGet, path, next)
+	app.Handle(http.MethodGet, path, next)
 }
 
 // Head method
 func (app *Application) Head(path string, cb Next) {
-	app.addRoute(http.MethodHead, path, cb)
+	app.Handle(http.MethodHead, path, cb)
 }
 
 // Post method
 func (app *Application) Post(path string, next Next) {
-	app.addRoute(http.MethodPost, path, next)
+	app.Handle(http.MethodPost, path, next)
 }
 
 // Put method
 func (app *Application) Put(path string, next Next) {
-	app.addRoute(http.MethodPut, path, next)
+	app.Handle(http.MethodPut, path, next)
 }
 
 // Patch method
 func (app *Application) Patch(path string, next Next) {
-	app.addRoute(http.MethodPatch, path, next)
+	app.Handle(http.MethodPatch, path, next)
 }
 
 // Delete method
 func (app *Application) Delete(path string, next Next) {
-	app.addRoute(http.MethodDelete, path, next)
+	app.Handle(http.MethodDelete, path, next)
 }
 
 // Options method
 func (app *Application) Options(path string, next Next) {
-	app.addRoute(http.MethodOptions, path, next)
+	app.Handle(http.MethodOptions, path, next)
 }
 
 func (app *Application) addRoute(method string, path string, next Next) {
@@ -167,35 +224,12 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if next, params, _ := root.getValue(rel, app.getParams); next != nil {
 
-			c := createCtx(w, r, params)
+			c := createCtx(app, w, r, params)
 			val, err := next(c)
 			userID := c.UserId()
 
 			if err != nil {
-
-				code := errCode(err)
-
-				if e, ok := err.(*errFn); ok {
-					if err := e.cb(w, r); err != nil {
-						writeCodeByMedia(w, c.responseMediaType(), code)
-						writeErr := c.write(err.Error())
-						app.putParams(params)
-						releaseCtx(c)
-						if writeErr != nil && errLogger != nil {
-							errLogger.Printf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, writeErr)
-						}
-						if errLogger != nil {
-							errLogger.Printf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, err)
-						}
-						return
-					}
-					app.putParams(params)
-					releaseCtx(c)
-					return
-				}
-
-				writeCodeByMedia(w, c.responseMediaType(), code)
-				writeErr := c.write(err.Error())
+				code, writeErr := app.handleError(c, err)
 				app.putParams(params)
 				releaseCtx(c)
 				if writeErr != nil && errLogger != nil {
@@ -259,11 +293,129 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if allow := app.allowed(rel, r.Method); len(allow) > 0 {
+		w.Header().Set("Allow", strings.Join(allow, ", "))
+		if app.MethodNotAllowed != nil {
+			app.MethodNotAllowed.ServeHTTP(w, r)
+		} else {
+			http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
 	if app.NotFound != nil {
 		app.NotFound.ServeHTTP(w, r)
 	} else {
 		http.NotFound(w, r)
 	}
+}
+
+func (app *Application) handleError(c *Ctx, err error) (int, error) {
+	if app.errorHandler != nil {
+		if nextErr := app.errorHandler(c, err); nextErr == nil {
+			return errCode(err), nil
+		} else {
+			err = nextErr
+		}
+	}
+
+	code := errCode(err)
+	if e, ok := err.(*errFn); ok {
+		if cbErr := e.cb(c.w, c.r); cbErr == nil {
+			return code, nil
+		} else {
+			err = cbErr
+			code = errCode(err)
+		}
+	}
+
+	writeCodeByMedia(c.w, c.responseMediaType(), code)
+	return code, c.write(err.Error())
+}
+
+func wrapNext(next Next, chains ...Chain) Next {
+	for i := len(chains) - 1; i >= 0; i-- {
+		chain := chains[i]
+		for j := len(chain) - 1; j >= 0; j-- {
+			if mw := chain[j]; mw != nil {
+				next = mw(next)
+			}
+		}
+	}
+	return next
+}
+
+func joinPaths(prefix, path string) string {
+	switch {
+	case prefix == "":
+		return path
+	case path == "":
+		return prefix
+	case prefix[len(prefix)-1] == '/' && path[0] == '/':
+		return prefix[:len(prefix)-1] + path
+	case prefix[len(prefix)-1] != '/' && path[0] != '/':
+		return prefix + "/" + path
+	default:
+		return prefix + path
+	}
+}
+
+// Use appends middleware to the group.
+func (g *RouteGroup) Use(middleware ...Middleware) {
+	g.middleware = append(g.middleware, middleware...)
+}
+
+// Group creates a nested route group.
+func (g *RouteGroup) Group(prefix string, middleware ...Middleware) *RouteGroup {
+	if prefix != "" && prefix[0] != '/' {
+		panic("group prefix must begin with '/' in path '" + prefix + "'")
+	}
+	child := &RouteGroup{
+		app:        g.app,
+		prefix:     joinPaths(g.prefix, prefix),
+		middleware: append(append(Chain(nil), g.middleware...), middleware...),
+	}
+	return child
+}
+
+// Handle registers a route on the group.
+func (g *RouteGroup) Handle(method string, path string, next Next, middleware ...Middleware) {
+	g.app.addRoute(method, joinPaths(g.prefix, path), wrapNext(next, g.app.middleware, g.middleware, Chain(middleware)))
+}
+
+// Get registers a GET route on the group.
+func (g *RouteGroup) Get(path string, next Next) {
+	g.Handle(http.MethodGet, path, next)
+}
+
+// Head registers a HEAD route on the group.
+func (g *RouteGroup) Head(path string, next Next) {
+	g.Handle(http.MethodHead, path, next)
+}
+
+// Post registers a POST route on the group.
+func (g *RouteGroup) Post(path string, next Next) {
+	g.Handle(http.MethodPost, path, next)
+}
+
+// Put registers a PUT route on the group.
+func (g *RouteGroup) Put(path string, next Next) {
+	g.Handle(http.MethodPut, path, next)
+}
+
+// Patch registers a PATCH route on the group.
+func (g *RouteGroup) Patch(path string, next Next) {
+	g.Handle(http.MethodPatch, path, next)
+}
+
+// Delete registers a DELETE route on the group.
+func (g *RouteGroup) Delete(path string, next Next) {
+	g.Handle(http.MethodDelete, path, next)
+}
+
+// Options registers an OPTIONS route on the group.
+func (g *RouteGroup) Options(path string, next Next) {
+	g.Handle(http.MethodOptions, path, next)
 }
 
 func (app *Application) allowed(path, reqMethod string) []string {

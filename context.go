@@ -23,6 +23,11 @@ var (
 			c := &Ctx{}
 			return c
 		}}
+	_bodyReadBufferPool = sync.Pool{
+		New: func() any {
+			return new(bytes.Buffer)
+		},
+	}
 	_copyBufPool = sync.Pool{
 		New: func() any {
 			b := make([]byte, 32*1024)
@@ -246,6 +251,27 @@ func (c *Ctx) TryParseBody(val any) error {
 	default:
 		return ErrContentType
 	}
+}
+
+// TryParseJSONBodyFast parses a JSON request body using a pooled buffer and
+// json.Unmarshal. This is faster than TryParseBody for common JSON payloads,
+// but unlike TryParseBody it does not reject unknown fields.
+func (c *Ctx) TryParseJSONBodyFast(val any) error {
+	if c.r == nil || c.r.Body == nil {
+		return io.EOF
+	}
+
+	buf := _bodyReadBufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+
+	_, err := buf.ReadFrom(c.r.Body)
+	if err == nil {
+		err = json.Unmarshal(buf.Bytes(), val)
+	}
+
+	buf.Reset()
+	_bodyReadBufferPool.Put(buf)
+	return err
 }
 
 // TryParseParam attempts to parse a parameter value from the URL parameters.
@@ -673,7 +699,24 @@ func (c *Ctx) requestContentType() string {
 
 // writeJSON Write JSON
 func (c *Ctx) writeJSON(val any) error {
-	return json.NewEncoder(c.w).Encode(val)
+	switch v := val.(type) {
+	case nil:
+		return nil
+	case json.RawMessage:
+		_, err := c.w.Write(v)
+		return err
+	case []byte:
+		_, err := c.w.Write(v)
+		return err
+	case string:
+		_, err := io.WriteString(c.w, v)
+		return err
+	case *bytes.Buffer:
+		_, err := v.WriteTo(c.w)
+		return err
+	default:
+		return json.NewEncoder(c.w).Encode(val)
+	}
 }
 
 // writeXML Write XML

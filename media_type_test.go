@@ -41,3 +41,23 @@ func TestTryParseBodyContentTypeWithParameters(t *testing.T) {
 		t.Fatalf("expected parsed payload")
 	}
 }
+
+func TestTryParseJSONBodyFast(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"ok":true,"extra":1}`))
+	rec := httptest.NewRecorder()
+
+	c := createCtx(rec, req, nil)
+	defer releaseCtx(c)
+
+	var payload struct {
+		Ok bool `json:"ok"`
+	}
+	if err := c.TryParseJSONBodyFast(&payload); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !payload.Ok {
+		t.Fatalf("expected parsed payload")
+	}
+}

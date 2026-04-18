@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -61,5 +62,30 @@ func TestWriteAvro(t *testing.T) {
 	}
 	if got := rec.Body.Bytes(); len(got) != 2 || got[0] != 0xAA || got[1] != 0xBB {
 		t.Fatalf("unexpected avro body: %v", got)
+	}
+}
+
+func TestWriteJSONRawMessage(t *testing.T) {
+	t.Parallel()
+
+	app := New()
+	app.Get("/json", func(c *Ctx) (any, error) {
+		return json.RawMessage(`{"ok":true}`), nil
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/json", nil)
+	req.Header.Set("Accept", "application/json")
+	rec := httptest.NewRecorder()
+
+	app.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rec.Code)
+	}
+	if got := rec.Header().Get("Content-Type"); got != "application/json" {
+		t.Fatalf("expected json content type, got %q", got)
+	}
+	if got := rec.Body.String(); got != `{"ok":true}` {
+		t.Fatalf("unexpected json body: %q", got)
 	}
 }

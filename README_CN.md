@@ -10,27 +10,34 @@ English Version: [README.md](./README.md)
 
 | 基准测试 | 结果 | 内存 |
 |---|---:|---:|
-| `BenchmarkServeHTTPStaticJSON` | `195.1 ns/op` | `80 B/op`, `5 allocs/op` |
-| `BenchmarkServeHTTPPathParamJSON` | `288.7 ns/op` | `128 B/op`, `6 allocs/op` |
-| `BenchmarkServeHTTPBinary` | `171.7 ns/op` | `104 B/op`, `6 allocs/op` |
-| `BenchmarkTreeGetValueStatic` | `2.616 ns/op` | `0 B/op`, `0 allocs/op` |
-| `BenchmarkTreeGetValueParamPooled` | `14.06 ns/op` | `0 B/op`, `0 allocs/op` |
-| `BenchmarkTryParseIntSlice` | `138.3 ns/op` | `80 B/op`, `1 alloc/op` |
-| `BenchmarkTryParseStringSlice` | `59.62 ns/op` | `80 B/op`, `1 alloc/op` |
+| `BenchmarkServeHTTPStaticJSON` | `157.9 ns/op` | `16 B/op`, `1 alloc/op` |
+| `BenchmarkServeHTTPPathParamJSON` | `202.7 ns/op` | `24 B/op`, `2 allocs/op` |
+| `BenchmarkServeHTTPStaticJSONRawMessage` | `124.1 ns/op` | `40 B/op`, `2 allocs/op` |
+| `BenchmarkTryParseJSONBodyFast` | `1413 ns/op` | `5599 B/op`, `20 allocs/op` |
+| `BenchmarkPostBytes` | `38179 ns/op` | `6169 B/op`, `74 allocs/op` |
+| `BenchmarkDoReqWithClientBytes` | `192.8 ns/op` | `328 B/op`, `7 allocs/op` |
+| `BenchmarkServeHTTPBinary` | `197.1 ns/op` | `40 B/op`, `2 allocs/op` |
+| `BenchmarkServeHTTPAvro` | `144.7 ns/op` | `40 B/op`, `2 allocs/op` |
+| `BenchmarkTreeGetValueParamPooled` | `14.29 ns/op` | `0 B/op`, `0 allocs/op` |
+| `BenchmarkTryParseIntSlice` | `98.10 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkTryParseStringSlice` | `36.58 ns/op` | `0 B/op`, `0 alloc/op` |
 
 备注：
 
-- 静态路由查找实际上是零分配的。
+- 静态 JSON 响应路径已经压到单次分配。
 - 当参数被池化时，参数路由和通配路由变为 `0 alloc`，这已经是 `Application` 的运行方式。
+- 预编码 JSON (`json.RawMessage`) 有独立的快速写出路径。
+- `TryParseJSONBodyFast` 是 JSON 请求体的显式快路径，适用于不要求拒绝未知字段的场景。
+- 客户端响应解码对 `*[]byte`、`*json.RawMessage`、`*bytes.Buffer` 有原始字节快速路径。
 - 二进制和 Avro 响应具有直接的快速路径。
-- 切片解析热路径经过优化，避免了中间的 `strings.Split` 分配模式。
+- 切片解析热路径避免了中间 `strings.Split`，现在可以做到 `0 alloc`。
 
 ### 基准测试流程
 
 运行当前的基准测试套件：
 
 ```bash
-go test -run '^$' -bench 'Benchmark(ServeHTTP|TreeGetValue|TryParse|TryInt|TryUint|TryBool|PostJSON|CtxWriteBinaryReader)' -benchmem ./...
+go test -run '^$' -bench 'Benchmark(ServeHTTP|TreeGetValue|TryParse|TryInt|TryUint|TryBool|Post(JSON|Bytes)|DoReqWithClient(Struct|Bytes)|CtxWriteBinaryReader)' -benchmem ./...
 ```
 
 将当前结果与提交的基准线进行比较：
@@ -47,6 +54,8 @@ go test -run '^$' -bench 'Benchmark(ServeHTTP|TreeGetValue|TryParse|TryInt|TryUi
 ### 性能指南
 
 - 对于二进制/Avro 响应，首选 `[]byte` 或 `web.AvroMarshaler`。
+- 如果请求体已经编码完成，优先使用 `PostBytes/PutBytes/PatchBytes/DoBytes`。
+- 如果需要自定义超时、连接池或 transport，优先使用 `*WithClient` 系列 helper。
 - 在热路径中调用 `TryParse(..., &slice)` 时，重用目标切片。
 - 如果孤立地对路由进行基准测试，请首选池化参数路径；框架在正常请求处理中已经这样做了。
 - 将单次基准测试运行视为存在噪声。使用基准线比较脚本作为方向，而不是凭直觉。
@@ -85,7 +94,7 @@ func main() {
   - `ServeFiles`, `Redirect`, `TryParse(...)`, `TryXxx(...)`
 - 上下文 (`*Ctx`) 常用方法：
   - 请求：`Method`, `Path`, `Query`, `Param`, `Body`, `ContentType`, `BearerToken`
-  - 解析：`TryParseBody`, `TryParseParam`, `TryParseQuery`, `TryParseForm`
+  - 解析：`TryParseBody`, `TryParseJSONBodyFast`, `TryParseParam`, `TryParseQuery`, `TryParseForm`
   - 响应：`SetHeader`, `SetCookie`, `AllowCredentials`, 通过 `Accept` 进行内容协商
 
 ### API 快速参考 (CN)
@@ -100,11 +109,19 @@ func main() {
 | 应用程序 | `Shutdown(ctx)` | 优雅关闭 |
 | 上下文 | `Param(name)`, `Query(name)`, `Form(name)` | 读取路径/查询/表单值 |
 | 上下文 | `TryParseBody(v)` | 根据内容类型（JSON/GOB/XML）解析请求体 |
+| 上下文 | `TryParseJSONBodyFast(v)` | 使用 pooled buffer + `json.Unmarshal` 快速解析 JSON 请求体 |
 | 上下文 | `TryParseParam/Query/Form(name, &v)` | 将字符串值解析为类型化值 |
 | 上下文 | `SetHeader`, `SetCookie`, `SetContentType` | 写入响应头 |
 | 上下文 | `Request()`, `ResponseWriter()`, `Context()` | 访问原始 HTTP 对象 |
-| 客户端 | `Get/Post/Put/Patch/Delete/Do` | HTTP 客户端辅助函数 |
+| 客户端 | `Get/Post/Put/Patch/Delete/Do` | 使用 `http.DefaultClient` 的 HTTP 辅助函数 |
+| 客户端 | `GetWithClient/PostWithClient/PutWithClient/PatchWithClient/DeleteWithClient/DoWithClient` | 显式传入 `*http.Client` 的 HTTP 辅助函数 |
+| 客户端 | `DoReq/DoReqWithClient` | 执行已构造请求，并解码 JSON / 原始响应体 |
+| 客户端 | `PostBytes/PutBytes/PatchBytes/DoBytes` | 发送预编码请求体，绕过 JSON 编码 |
+| 客户端 | `PostBytesWithClient/PutBytesWithClient/PatchBytesWithClient/DoBytesWithClient` | 显式传入 `*http.Client` 的预编码请求体辅助函数 |
 | 客户端 | `TryGet/TryPost/TryPut/TryPatch/TryDelete/TryDo` | 带有重试循环的 HTTP 辅助函数 |
+| 客户端 | `TryGetWithClient/TryPostWithClient/TryPutWithClient/TryPatchWithClient/TryDeleteWithClient/TryDoWithClient` | 显式传入 `*http.Client` 的重试辅助函数 |
+| 客户端 | `TryPostBytes/TryPutBytes/TryPatchBytes/TryDoBytes` | 预编码请求体的重试辅助函数 |
+| 客户端 | `TryPostBytesWithClient/TryPutBytesWithClient/TryPatchBytesWithClient/TryDoBytesWithClient` | 显式传入 `*http.Client` 的预编码请求体重试辅助函数 |
 | 错误 | `NewErr(code, msg)` | 带有 HTTP 状态码的错误 |
 | 错误 | `Redirect(url, code)` | 从处理器返回重定向响应 |
 
@@ -127,6 +144,17 @@ func main() {
   - `retry <= 0` 现在仍执行一次请求尝试。
   - 对于 `ErrUnauthorized`、`ErrForbidden` 和 `ErrBadRequest`（包括包装后的），重试循环会提早停止。
 - `TryDo` 现在支持跨重试的请求体安全重放（请求体会被缓冲一次并在每次尝试时重新创建）。
+- 新增原始请求体辅助函数：
+  - `PostBytes`, `PutBytes`, `PatchBytes`, `DoBytes`
+  - `TryPostBytes`, `TryPutBytes`, `TryPatchBytes`, `TryDoBytes`
+  - 默认请求头为 `Content-Type: application/octet-stream` 和 `Accept: application/json`
+- 新增显式 client 辅助函数：
+  - `DoReqWithClient`, `DoWithClient`, `DoBytesWithClient`
+  - `Get/Post/Put/Patch/Delete` 以及对应重试版本都提供 `*WithClient` 变体
+  - 需要 transport 级性能调优时应优先使用
+- 新增原始响应体快速路径：
+  - `DoReq` / `DoReqWithClient` 可识别 `*[]byte`、`*json.RawMessage`、`*bytes.Buffer`
+  - 适合调用方想拿到原始 payload 而不承担 JSON 解码成本的场景
 - 实现了 `Ctx.writeBinary` 和 `Ctx.writeAvro`：
   - 之前这些媒体类型的行为是 `ErrNotImplemented`。
   - 现在它们支持快速路径直接写入（见二进制 / Avro 响应章节）。
@@ -207,6 +235,39 @@ app.Get("/old", func(c *web.Ctx) (any, error) {
   - `ErrForbidden`
   - `ErrBadRequest` (包括包装后的)
 - `TryDo` 安全地通过请求体重放进行重试（请求体被缓存一次并在每次尝试时重新创建）。
+
+### JSON 请求体快路径
+
+当请求体是 JSON，且你不需要“拒绝未知字段”这一语义时，可以使用 `TryParseJSONBodyFast`。
+
+```go
+app.Post("/ingest", func(c *web.Ctx) (any, error) {
+	var req struct {
+		ID int `json:"id"`
+	}
+
+	if err := c.TryParseJSONBodyFast(&req); err != nil {
+		return nil, err
+	}
+
+	return struct {
+		Ok bool `json:"ok"`
+	}{Ok: true}, nil
+})
+```
+
+### 客户端原始响应体
+
+当你希望拿到原始响应 payload，而不是做 JSON 解码时，可以把 `DoReqWithClient` 的目标参数写成 `*[]byte`、`*json.RawMessage` 或 `*bytes.Buffer`。
+
+```go
+req, _ := http.NewRequest(http.MethodGet, "https://example.com/data", nil)
+
+var raw []byte
+if err := web.DoReqWithClient(client, req, &raw, nil); err != nil {
+	panic(err)
+}
+```
 
 ### 注意事项
 

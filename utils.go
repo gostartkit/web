@@ -241,11 +241,18 @@ func TryParse(val string, v any) error {
 			if i >= 0 {
 				part = s[:i]
 			}
-			n, err := strconv.ParseInt(part, 10, strconv.IntSize)
-			if err != nil {
-				return err
+			if n, ok := parseIntFast64(part); ok {
+				if strconv.IntSize == 32 && (n < math.MinInt32 || n > math.MaxInt32) {
+					return strconv.ErrRange
+				}
+				arr = append(arr, int(n))
+			} else {
+				n, err := strconv.ParseInt(part, 10, strconv.IntSize)
+				if err != nil {
+					return err
+				}
+				arr = append(arr, int(n))
 			}
-			arr = append(arr, int(n))
 			if i < 0 {
 				break
 			}
@@ -262,11 +269,18 @@ func TryParse(val string, v any) error {
 			if i >= 0 {
 				part = s[:i]
 			}
-			n, err := strconv.ParseInt(part, 10, 8)
-			if err != nil {
-				return err
+			if n, ok := parseIntFast64(part); ok {
+				if n < math.MinInt8 || n > math.MaxInt8 {
+					return strconv.ErrRange
+				}
+				arr = append(arr, int8(n))
+			} else {
+				n, err := strconv.ParseInt(part, 10, 8)
+				if err != nil {
+					return err
+				}
+				arr = append(arr, int8(n))
 			}
-			arr = append(arr, int8(n))
 			if i < 0 {
 				break
 			}
@@ -283,11 +297,18 @@ func TryParse(val string, v any) error {
 			if i >= 0 {
 				part = s[:i]
 			}
-			n, err := strconv.ParseInt(part, 10, 16)
-			if err != nil {
-				return err
+			if n, ok := parseIntFast64(part); ok {
+				if n < math.MinInt16 || n > math.MaxInt16 {
+					return strconv.ErrRange
+				}
+				arr = append(arr, int16(n))
+			} else {
+				n, err := strconv.ParseInt(part, 10, 16)
+				if err != nil {
+					return err
+				}
+				arr = append(arr, int16(n))
 			}
-			arr = append(arr, int16(n))
 			if i < 0 {
 				break
 			}
@@ -304,11 +325,18 @@ func TryParse(val string, v any) error {
 			if i >= 0 {
 				part = s[:i]
 			}
-			n, err := strconv.ParseInt(part, 10, 32)
-			if err != nil {
-				return err
+			if n, ok := parseIntFast64(part); ok {
+				if n < math.MinInt32 || n > math.MaxInt32 {
+					return strconv.ErrRange
+				}
+				arr = append(arr, int32(n))
+			} else {
+				n, err := strconv.ParseInt(part, 10, 32)
+				if err != nil {
+					return err
+				}
+				arr = append(arr, int32(n))
 			}
-			arr = append(arr, int32(n))
 			if i < 0 {
 				break
 			}
@@ -325,11 +353,15 @@ func TryParse(val string, v any) error {
 			if i >= 0 {
 				part = s[:i]
 			}
-			n, err := strconv.ParseInt(part, 10, 64)
-			if err != nil {
-				return err
+			if n, ok := parseIntFast64(part); ok {
+				arr = append(arr, n)
+			} else {
+				n, err := strconv.ParseInt(part, 10, 64)
+				if err != nil {
+					return err
+				}
+				arr = append(arr, n)
 			}
-			arr = append(arr, n)
 			if i < 0 {
 				break
 			}
@@ -346,11 +378,18 @@ func TryParse(val string, v any) error {
 			if i >= 0 {
 				part = s[:i]
 			}
-			n, err := strconv.ParseUint(part, 10, 0)
-			if err != nil {
-				return err
+			if n, ok := parseUintFast64(part); ok {
+				if strconv.IntSize == 32 && n > math.MaxUint32 {
+					return strconv.ErrRange
+				}
+				arr = append(arr, uint(n))
+			} else {
+				n, err := strconv.ParseUint(part, 10, 0)
+				if err != nil {
+					return err
+				}
+				arr = append(arr, uint(n))
 			}
-			arr = append(arr, uint(n))
 			if i < 0 {
 				break
 			}
@@ -367,11 +406,18 @@ func TryParse(val string, v any) error {
 			if i >= 0 {
 				part = s[:i]
 			}
-			n, err := strconv.ParseUint(part, 10, 8)
-			if err != nil {
-				return err
+			if n, ok := parseUintFast64(part); ok {
+				if n > math.MaxUint8 {
+					return strconv.ErrRange
+				}
+				arr = append(arr, uint8(n))
+			} else {
+				n, err := strconv.ParseUint(part, 10, 8)
+				if err != nil {
+					return err
+				}
+				arr = append(arr, uint8(n))
 			}
-			arr = append(arr, uint8(n))
 			if i < 0 {
 				break
 			}
@@ -388,11 +434,18 @@ func TryParse(val string, v any) error {
 			if i >= 0 {
 				part = s[:i]
 			}
-			n, err := strconv.ParseUint(part, 10, 16)
-			if err != nil {
-				return err
+			if n, ok := parseUintFast64(part); ok {
+				if n > math.MaxUint16 {
+					return strconv.ErrRange
+				}
+				arr = append(arr, uint16(n))
+			} else {
+				n, err := strconv.ParseUint(part, 10, 16)
+				if err != nil {
+					return err
+				}
+				arr = append(arr, uint16(n))
 			}
-			arr = append(arr, uint16(n))
 			if i < 0 {
 				break
 			}
@@ -409,11 +462,18 @@ func TryParse(val string, v any) error {
 			if i >= 0 {
 				part = s[:i]
 			}
-			n, err := strconv.ParseUint(part, 10, 32)
-			if err != nil {
-				return err
+			if n, ok := parseUintFast64(part); ok {
+				if n > math.MaxUint32 {
+					return strconv.ErrRange
+				}
+				arr = append(arr, uint32(n))
+			} else {
+				n, err := strconv.ParseUint(part, 10, 32)
+				if err != nil {
+					return err
+				}
+				arr = append(arr, uint32(n))
 			}
-			arr = append(arr, uint32(n))
 			if i < 0 {
 				break
 			}
@@ -430,11 +490,15 @@ func TryParse(val string, v any) error {
 			if i >= 0 {
 				part = s[:i]
 			}
-			n, err := strconv.ParseUint(part, 10, 64)
-			if err != nil {
-				return err
+			if n, ok := parseUintFast64(part); ok {
+				arr = append(arr, n)
+			} else {
+				n, err := strconv.ParseUint(part, 10, 64)
+				if err != nil {
+					return err
+				}
+				arr = append(arr, n)
 			}
-			arr = append(arr, n)
 			if i < 0 {
 				break
 			}
@@ -493,11 +557,15 @@ func TryParse(val string, v any) error {
 			if i >= 0 {
 				part = s[:i]
 			}
-			n, err := strconv.ParseBool(part)
-			if err != nil {
-				return err
+			if n, ok := parseBoolFast(part); ok {
+				arr = append(arr, n)
+			} else {
+				n, err := strconv.ParseBool(part)
+				if err != nil {
+					return err
+				}
+				arr = append(arr, n)
 			}
-			arr = append(arr, n)
 			if i < 0 {
 				break
 			}

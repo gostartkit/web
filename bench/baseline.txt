@@ -2,20 +2,25 @@ goos: darwin
 goarch: arm64
 pkg: pkg.gostartkit.com/web
 cpu: Apple M2
-BenchmarkServeHTTPStaticJSON-8          	 5546745	       195.1 ns/op	      80 B/op	       5 allocs/op
-BenchmarkServeHTTPPathParamJSON-8       	 4192274	       288.7 ns/op	     128 B/op	       6 allocs/op
-BenchmarkTryParseBodyJSON-8             	  779562	      1567 ns/op	    6660 B/op	      24 allocs/op
-BenchmarkPostJSON-8                     	   30174	     39050 ns/op	    6198 B/op	      74 allocs/op
-BenchmarkServeHTTPBinary-8              	 6827266	       171.7 ns/op	     104 B/op	       6 allocs/op
-BenchmarkServeHTTPAvro-8                	 6959004	       172.3 ns/op	     104 B/op	       6 allocs/op
-BenchmarkCtxWriteBinaryReader-8         	39095056	        30.85 ns/op	      48 B/op	       1 allocs/op
-BenchmarkTreeGetValueStatic-8           	458330295	         2.616 ns/op	       0 B/op	       0 allocs/op
-BenchmarkTreeGetValueParam-8            	32261677	        36.81 ns/op	      56 B/op	       2 allocs/op
-BenchmarkTreeGetValueCatchAll-8         	32653431	        36.59 ns/op	      56 B/op	       2 allocs/op
-BenchmarkTreeGetValueParamPooled-8      	84739029	        14.06 ns/op	       0 B/op	       0 allocs/op
-BenchmarkTreeGetValueCatchAllPooled-8   	81094554	        14.75 ns/op	       0 B/op	       0 allocs/op
-BenchmarkTryInt-8                       	133726573	         8.833 ns/op	       0 B/op	       0 allocs/op
-BenchmarkTryUint-8                      	171394149	         7.066 ns/op	       0 B/op	       0 allocs/op
-BenchmarkTryBool-8                      	510932355	         2.347 ns/op	       0 B/op	       0 allocs/op
-BenchmarkTryParseIntSlice-8             	 8705035	       138.3 ns/op	      80 B/op	       1 allocs/op
-BenchmarkTryParseStringSlice-8          	20032747	        59.62 ns/op	      80 B/op	       1 allocs/op
+BenchmarkServeHTTPStaticJSON-8             	 7606530	       157.9 ns/op	      16 B/op	       1 allocs/op
+BenchmarkServeHTTPPathParamJSON-8          	 5926454	       202.7 ns/op	      24 B/op	       2 allocs/op
+BenchmarkServeHTTPStaticJSONRawMessage-8   	 9242870	       124.1 ns/op	      40 B/op	       2 allocs/op
+BenchmarkTryParseBodyJSON-8                	  727959	      1690 ns/op	    6661 B/op	      24 allocs/op
+BenchmarkTryParseJSONBodyFast-8            	  864370	      1413 ns/op	    5599 B/op	      20 allocs/op
+BenchmarkPostJSON-8                        	   30828	     37868 ns/op	    6210 B/op	      74 allocs/op
+BenchmarkPostBytes-8                       	   32156	     38179 ns/op	    6169 B/op	      74 allocs/op
+BenchmarkDoReqWithClientStruct-8           	 2767962	       428.7 ns/op	     544 B/op	      11 allocs/op
+BenchmarkDoReqWithClientBytes-8            	 6220176	       192.8 ns/op	     328 B/op	       7 allocs/op
+BenchmarkServeHTTPBinary-8                 	 9515851	       197.1 ns/op	      40 B/op	       2 allocs/op
+BenchmarkServeHTTPAvro-8                   	 8294768	       144.7 ns/op	      40 B/op	       2 allocs/op
+BenchmarkCtxWriteBinaryReader-8            	35595940	        32.46 ns/op	      48 B/op	       1 allocs/op
+BenchmarkTreeGetValueStatic-8              	300827526	         4.023 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTreeGetValueParam-8               	32033742	        38.06 ns/op	      56 B/op	       2 allocs/op
+BenchmarkTreeGetValueCatchAll-8            	31182768	        38.41 ns/op	      56 B/op	       2 allocs/op
+BenchmarkTreeGetValueParamPooled-8         	83668395	        14.29 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTreeGetValueCatchAllPooled-8      	78671546	        15.38 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTryInt-8                          	132174559	        11.16 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTryUint-8                         	159444194	         7.490 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTryBool-8                         	476866983	         2.472 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTryParseIntSlice-8                	12239209	        98.10 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTryParseStringSlice-8             	32751464	        36.58 ns/op	       0 B/op	       0 allocs/op

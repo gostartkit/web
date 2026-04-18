@@ -66,6 +66,26 @@ func TestHttpPost(t *testing.T) {
 	}
 }
 
+func TestHttpPathParamWithoutServe(t *testing.T) {
+	app := New()
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/user/42", nil)
+
+	app.Get("/user/:id", func(c *Ctx) (any, error) {
+		if got := c.Param("id"); got != "42" {
+			t.Fatalf("expected param id=42, got %q", got)
+		}
+		return "ok", nil
+	})
+
+	app.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected status code 200, but got %d", rec.Code)
+	}
+}
+
 func TestErrorHandling(t *testing.T) {
 	app := New()
 

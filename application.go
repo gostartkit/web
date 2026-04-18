@@ -28,6 +28,14 @@ type Application struct {
 // New return *web.Application
 func New() *Application {
 	app := &Application{}
+	app.paramsPool.New = func() any {
+		n := app.maxParams
+		if n == 0 {
+			n = 1
+		}
+		ps := make(Params, 0, n)
+		return &ps
+	}
 	return app
 }
 
@@ -152,17 +160,16 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer app.recv(w, r)
 
 	rel := r.URL.Path
+	infoLogger := app.info
+	errLogger := app.err
 
 	if root := app.trees[r.Method]; root != nil {
 
 		if next, params, _ := root.getValue(rel, app.getParams); next != nil {
 
 			c := createCtx(w, r, params)
-			defer releaseCtx(c)
-
 			val, err := next(c)
-
-			app.putParams(params)
+			userID := c.UserId()
 
 			if err != nil {
 
@@ -171,20 +178,32 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				if e, ok := err.(*errFn); ok {
 					if err := e.cb(w, r); err != nil {
 						writeCodeByMedia(w, c.responseMediaType(), code)
-						if writeErr := c.write(err.Error()); writeErr != nil {
-							app.Errf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, writeErr)
+						writeErr := c.write(err.Error())
+						app.putParams(params)
+						releaseCtx(c)
+						if writeErr != nil && errLogger != nil {
+							errLogger.Printf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, writeErr)
 						}
-						app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
+						if errLogger != nil {
+							errLogger.Printf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, err)
+						}
+						return
 					}
+					app.putParams(params)
+					releaseCtx(c)
 					return
 				}
 
 				writeCodeByMedia(w, c.responseMediaType(), code)
-				if writeErr := c.write(err.Error()); writeErr != nil {
-					app.Errf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, writeErr)
+				writeErr := c.write(err.Error())
+				app.putParams(params)
+				releaseCtx(c)
+				if writeErr != nil && errLogger != nil {
+					errLogger.Printf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, writeErr)
 				}
-
-				app.Errf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
+				if errLogger != nil {
+					errLogger.Printf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, err)
+				}
 
 				return
 			}
@@ -198,20 +217,31 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 
 				writeCodeByMedia(w, c.responseMediaType(), code)
-				if err := c.write(val); err != nil {
-					app.Errf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code, err)
+				err := c.write(val)
+				app.putParams(params)
+				releaseCtx(c)
+				if err != nil {
+					if errLogger != nil {
+						errLogger.Printf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, err)
+					}
 					return
 				}
 
-				app.Logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, code)
+				if infoLogger != nil {
+					infoLogger.Printf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, userID, r.Method, rel, code)
+				}
 
 				if rel, ok := val.(IRelease); ok {
 					rel.Release()
 				}
 			} else {
+				app.putParams(params)
+				releaseCtx(c)
 				w.WriteHeader(http.StatusNoContent)
 
-				app.Logf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, c.UserId(), r.Method, rel, 204)
+				if infoLogger != nil {
+					infoLogger.Printf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, userID, r.Method, rel, 204)
+				}
 			}
 
 			return
@@ -338,13 +368,6 @@ func (app *Application) serve(listener net.Listener, fns ...func(*http.Server)) 
 		fn(app.srv)
 	}
 
-	if app.paramsPool.New == nil && app.maxParams > 0 {
-		app.paramsPool.New = func() any {
-			ps := make(Params, 0, app.maxParams)
-			return &ps
-		}
-	}
-
 	if err := app.srv.Serve(listener); err != nil && err != http.ErrServerClosed {
 		return err
 	}
@@ -373,7 +396,11 @@ func (app *Application) Errf(format string, v ...any) {
 
 func (app *Application) getParams() *Params {
 	ps := app.paramsPool.Get().(*Params)
-	*ps = (*ps)[0:0] // reset slice
+	if uint16(cap(*ps)) < app.maxParams {
+		*ps = make(Params, 0, app.maxParams)
+	} else {
+		*ps = (*ps)[0:0]
+	}
 	return ps
 }
 

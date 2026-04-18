@@ -10,27 +10,34 @@ Current benchmark snapshot on `darwin/arm64` (`Apple M2`):
 
 | Benchmark | Result | Memory |
 |---|---:|---:|
-| `BenchmarkServeHTTPStaticJSON` | `195.1 ns/op` | `80 B/op`, `5 allocs/op` |
-| `BenchmarkServeHTTPPathParamJSON` | `288.7 ns/op` | `128 B/op`, `6 allocs/op` |
-| `BenchmarkServeHTTPBinary` | `171.7 ns/op` | `104 B/op`, `6 allocs/op` |
-| `BenchmarkTreeGetValueStatic` | `2.616 ns/op` | `0 B/op`, `0 allocs/op` |
-| `BenchmarkTreeGetValueParamPooled` | `14.06 ns/op` | `0 B/op`, `0 allocs/op` |
-| `BenchmarkTryParseIntSlice` | `138.3 ns/op` | `80 B/op`, `1 alloc/op` |
-| `BenchmarkTryParseStringSlice` | `59.62 ns/op` | `80 B/op`, `1 alloc/op` |
+| `BenchmarkServeHTTPStaticJSON` | `157.9 ns/op` | `16 B/op`, `1 alloc/op` |
+| `BenchmarkServeHTTPPathParamJSON` | `202.7 ns/op` | `24 B/op`, `2 allocs/op` |
+| `BenchmarkServeHTTPStaticJSONRawMessage` | `124.1 ns/op` | `40 B/op`, `2 allocs/op` |
+| `BenchmarkTryParseJSONBodyFast` | `1413 ns/op` | `5599 B/op`, `20 allocs/op` |
+| `BenchmarkPostBytes` | `38179 ns/op` | `6169 B/op`, `74 allocs/op` |
+| `BenchmarkDoReqWithClientBytes` | `192.8 ns/op` | `328 B/op`, `7 allocs/op` |
+| `BenchmarkServeHTTPBinary` | `197.1 ns/op` | `40 B/op`, `2 allocs/op` |
+| `BenchmarkServeHTTPAvro` | `144.7 ns/op` | `40 B/op`, `2 allocs/op` |
+| `BenchmarkTreeGetValueParamPooled` | `14.29 ns/op` | `0 B/op`, `0 allocs/op` |
+| `BenchmarkTryParseIntSlice` | `98.10 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkTryParseStringSlice` | `36.58 ns/op` | `0 B/op`, `0 alloc/op` |
 
 Notes:
 
-- Static route lookup is effectively allocation-free.
+- Static JSON responses are down to a single allocation on the request path.
 - Param and catch-all routing become `0 alloc` when params are pooled, which is already how `Application` runs.
+- Pre-encoded JSON (`json.RawMessage`) has a dedicated write fast path.
+- `TryParseJSONBodyFast` is the opt-in fast path for JSON request bodies when unknown-field rejection is not required.
+- Client response decoding has a raw-body fast path for `*[]byte`, `*json.RawMessage`, and `*bytes.Buffer`.
 - Binary and avro responses have direct fast paths.
-- Slice parsing hot paths were optimized to avoid intermediate `strings.Split` allocation patterns.
+- Slice parsing hot paths avoid `strings.Split` and now run with `0 alloc`.
 
 ### Benchmark Workflow
 
 Run the current benchmark suite:
 
 ```bash
-go test -run '^$' -bench 'Benchmark(ServeHTTP|TreeGetValue|TryParse|TryInt|TryUint|TryBool|PostJSON|CtxWriteBinaryReader)' -benchmem ./...
+go test -run '^$' -bench 'Benchmark(ServeHTTP|TreeGetValue|TryParse|TryInt|TryUint|TryBool|Post(JSON|Bytes)|DoReqWithClient(Struct|Bytes)|CtxWriteBinaryReader)' -benchmem ./...
 ```
 
 Compare current results against the committed baseline:
@@ -47,6 +54,8 @@ Files:
 ### Performance Guidelines
 
 - Prefer `[]byte` or `web.AvroMarshaler` for binary/avro responses.
+- Prefer `PostBytes/PutBytes/PatchBytes/DoBytes` when the request body is already encoded.
+- Prefer `*WithClient` helpers when you need tuned timeouts, connection pooling, or a custom transport.
 - Reuse destination slices when calling `TryParse(..., &slice)` in hot paths.
 - Prefer pooled param paths if you benchmark routing in isolation; the framework already does this in normal request handling.
 - Treat single benchmark runs as noisy. Use the baseline comparison script for direction, not intuition.
@@ -85,7 +94,7 @@ func main() {
   - `ServeFiles`, `Redirect`, `TryParse(...)`, `TryXxx(...)`
 - context (`*Ctx`) common methods:
   - request: `Method`, `Path`, `Query`, `Param`, `Body`, `ContentType`, `BearerToken`
-  - parse: `TryParseBody`, `TryParseParam`, `TryParseQuery`, `TryParseForm`
+  - parse: `TryParseBody`, `TryParseJSONBodyFast`, `TryParseParam`, `TryParseQuery`, `TryParseForm`
   - response: `SetHeader`, `SetCookie`, `AllowCredentials`, content negotiation via `Accept`
 
 ### API Quick Reference (EN)
@@ -100,11 +109,19 @@ func main() {
 | Application | `Shutdown(ctx)` | Graceful shutdown |
 | Context | `Param(name)`, `Query(name)`, `Form(name)` | Read path/query/form values |
 | Context | `TryParseBody(v)` | Parse request body by content type (JSON/GOB/XML) |
+| Context | `TryParseJSONBodyFast(v)` | Fast JSON body parse using pooled buffer + `json.Unmarshal` |
 | Context | `TryParseParam/Query/Form(name, &v)` | Parse string values into typed value |
 | Context | `SetHeader`, `SetCookie`, `SetContentType` | Write response headers |
 | Context | `Request()`, `ResponseWriter()`, `Context()` | Access raw HTTP objects |
-| Client | `Get/Post/Put/Patch/Delete/Do` | HTTP client helpers |
+| Client | `Get/Post/Put/Patch/Delete/Do` | HTTP client helpers using `http.DefaultClient` |
+| Client | `GetWithClient/PostWithClient/PutWithClient/PatchWithClient/DeleteWithClient/DoWithClient` | HTTP helpers with explicit `*http.Client` |
+| Client | `DoReq/DoReqWithClient` | Execute prepared requests and decode JSON/raw response bodies |
+| Client | `PostBytes/PutBytes/PatchBytes/DoBytes` | Send pre-encoded request bodies without JSON encoding |
+| Client | `PostBytesWithClient/PutBytesWithClient/PatchBytesWithClient/DoBytesWithClient` | Pre-encoded body helpers with explicit `*http.Client` |
 | Client | `TryGet/TryPost/TryPut/TryPatch/TryDelete/TryDo` | HTTP helpers with retry loop |
+| Client | `TryGetWithClient/TryPostWithClient/TryPutWithClient/TryPatchWithClient/TryDeleteWithClient/TryDoWithClient` | Retry helpers with explicit `*http.Client` |
+| Client | `TryPostBytes/TryPutBytes/TryPatchBytes/TryDoBytes` | Retry-capable helpers for pre-encoded request bodies |
+| Client | `TryPostBytesWithClient/TryPutBytesWithClient/TryPatchBytesWithClient/TryDoBytesWithClient` | Retry-capable pre-encoded helpers with explicit `*http.Client` |
 | Error | `NewErr(code, msg)` | Error with HTTP status code |
 | Error | `Redirect(url, code)` | Return redirect response from handler |
 
@@ -127,6 +144,17 @@ func main() {
   - `retry <= 0` now still performs one request attempt.
   - retry loop stops early for `ErrUnauthorized`, `ErrForbidden`, and `ErrBadRequest` (including wrapped).
 - `TryDo` now supports safe body replay across retries (request body is buffered once and recreated per attempt).
+- Raw body helpers added:
+  - `PostBytes`, `PutBytes`, `PatchBytes`, `DoBytes`
+  - `TryPostBytes`, `TryPutBytes`, `TryPatchBytes`, `TryDoBytes`
+  - default request headers are `Content-Type: application/octet-stream` and `Accept: application/json`
+- Explicit client helpers added:
+  - `DoReqWithClient`, `DoWithClient`, `DoBytesWithClient`
+  - wrapper and retry variants for `Get/Post/Put/Patch/Delete`
+  - use these when transport-level performance tuning matters
+- Raw response fast path added:
+  - `DoReq` / `DoReqWithClient` now recognize `*[]byte`, `*json.RawMessage`, and `*bytes.Buffer`
+  - use these when the caller wants the response payload without JSON decoding cost
 - `Ctx.writeBinary` and `Ctx.writeAvro` are implemented:
   - previous behavior for these media types was `ErrNotImplemented`.
   - now they support fast-path direct writing (see Binary / Avro response section).
@@ -207,6 +235,39 @@ app.Get("/old", func(c *web.Ctx) (any, error) {
   - `ErrForbidden`
   - `ErrBadRequest` (including wrapped)
 - `TryDo` safely retries with request body replay (body is cached once and recreated per attempt).
+
+### Fast JSON Body Parse
+
+Use `TryParseJSONBodyFast` when the request body is JSON and unknown-field rejection is not required.
+
+```go
+app.Post("/ingest", func(c *web.Ctx) (any, error) {
+	var req struct {
+		ID int `json:"id"`
+	}
+
+	if err := c.TryParseJSONBodyFast(&req); err != nil {
+		return nil, err
+	}
+
+	return struct {
+		Ok bool `json:"ok"`
+	}{Ok: true}, nil
+})
+```
+
+### Client Raw Response
+
+Use `DoReqWithClient` with `*[]byte`, `*json.RawMessage`, or `*bytes.Buffer` when you want the response payload without JSON decoding cost.
+
+```go
+req, _ := http.NewRequest(http.MethodGet, "https://example.com/data", nil)
+
+var raw []byte
+if err := web.DoReqWithClient(client, req, &raw, nil); err != nil {
+	panic(err)
+}
+```
 
 ### Notes
 

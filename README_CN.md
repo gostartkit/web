@@ -154,7 +154,7 @@ func main() {
 | 上下文 | `TryParseBody(v)` | 根据内容类型（JSON/GOB/XML）解析请求体 |
 | 上下文 | `TryParseJSONBodyFast(v)` | 使用 pooled buffer + `json.Unmarshal` 快速解析 JSON 请求体 |
 | 上下文 | `TryParseParam/Query/Form(name, &v)` | 将字符串值解析为类型化值 |
-| 上下文 | `SetHeader`, `SetCookie`, `SetContentType` | 写入响应头 |
+| 上下文 | `SetHeader`, `SetCookie`, `SetContentType`, `SetStatus` | 写入响应头并覆写默认成功状态码 |
 | 上下文 | `Request()`, `ResponseWriter()`, `Context()` | 访问原始 HTTP 对象 |
 | 中间件 | `RequestID`, `Recover`, `RecoverWithOptions`, `Timeout`, `AccessLog`, `AccessLogWithOptions` | 内建的显式启用中间件 |
 | 客户端 | `Get/Post/Put/Patch/Delete/Do` | 使用 `http.DefaultClient` 的 HTTP 辅助函数 |
@@ -174,7 +174,8 @@ func main() {
 
 - 处理器返回值控制响应：
   - `(nil, nil)` -> `204 No Content`
-  - `(value, nil)` -> `200 OK` (`POST` 使用 `201 Created`)
+  - `(value, nil)` -> `200 OK`
+  - 调用 `c.SetStatus(code)` 可以显式覆写默认成功状态码
   - `(_, err)` -> 状态码来自框架错误类型，响应体包含 `err.Error()`
 - 响应格式通过请求的 `Accept` 头部选择：
   - `application/json`

@@ -62,6 +62,26 @@ func TestHttpPost(t *testing.T) {
 
 	app.ServeHTTP(rec, req)
 
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected status code 200, but got %d", rec.Code)
+	}
+}
+
+func TestHttpPostExplicitStatusOverride(t *testing.T) {
+	app := New()
+
+	rel := "/route/"
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, rel, nil)
+
+	app.Post(rel, func(c *Ctx) (any, error) {
+		c.SetStatus(http.StatusCreated)
+		return 1, nil
+	})
+
+	app.ServeHTTP(rec, req)
+
 	if rec.Code != http.StatusCreated {
 		t.Errorf("Expected status code 201, but got %d", rec.Code)
 	}

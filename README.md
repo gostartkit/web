@@ -154,7 +154,7 @@ func main() {
 | Context | `TryParseBody(v)` | Parse request body by content type (JSON/GOB/XML) |
 | Context | `TryParseJSONBodyFast(v)` | Fast JSON body parse using pooled buffer + `json.Unmarshal` |
 | Context | `TryParseParam/Query/Form(name, &v)` | Parse string values into typed value |
-| Context | `SetHeader`, `SetCookie`, `SetContentType` | Write response headers |
+| Context | `SetHeader`, `SetCookie`, `SetContentType`, `SetStatus` | Write response headers and override the default success status |
 | Context | `Request()`, `ResponseWriter()`, `Context()` | Access raw HTTP objects |
 | Middleware | `RequestID`, `Recover`, `RecoverWithOptions`, `Timeout`, `AccessLog`, `AccessLogWithOptions` | Built-in opt-in middleware helpers |
 | Client | `Get/Post/Put/Patch/Delete/Do` | HTTP client helpers using `http.DefaultClient` |
@@ -174,7 +174,8 @@ func main() {
 
 - Handler return value controls response:
   - `(nil, nil)` -> `204 No Content`
-  - `(value, nil)` -> `200 OK` (`POST` uses `201 Created`)
+  - `(value, nil)` -> `200 OK`
+  - call `c.SetStatus(code)` to explicitly override the default success status
   - `(_, err)` -> status code from framework error type, body contains `err.Error()`
 - Response format is selected by request `Accept` header:
   - `application/json`

@@ -52,12 +52,15 @@ func releaseCtx(c *Ctx) {
 		c.w = nil
 		c.r = nil
 		c.app = nil
-		c.param = nil
-		c.query = nil
-		c.userId = 0
-		c.formDataState = 0
-		c.acceptType = mediaUnknown
-		c.acceptTypeCached = false
+	c.param = nil
+	c.query = nil
+	c.userId = 0
+	c.formDataState = 0
+	c.statusCode = 0
+	c.statusSet = false
+	c.responseCommitted = false
+	c.acceptType = mediaUnknown
+	c.acceptTypeCached = false
 		c.contentTypeValue = ""
 		c.contentTypeValueCached = false
 		c.contentType = mediaUnknown
@@ -75,6 +78,9 @@ type Ctx struct {
 	query                  url.Values
 	userId                 uint64
 	formDataState          uint8
+	statusCode             int
+	statusSet              bool
+	responseCommitted      bool
 	acceptType             mediaType
 	acceptTypeCached       bool
 	contentTypeValue       string
@@ -103,12 +109,23 @@ func (c *Ctx) Header() http.Header {
 
 // Write implements http.ResponseWriter and proxies to the underlying writer.
 func (c *Ctx) Write(p []byte) (int, error) {
+	c.responseCommitted = true
 	return c.w.Write(p)
 }
 
 // WriteHeader implements http.ResponseWriter and proxies to the underlying writer.
 func (c *Ctx) WriteHeader(statusCode int) {
+	c.statusCode = statusCode
+	c.statusSet = true
+	c.responseCommitted = true
 	c.w.WriteHeader(statusCode)
+}
+
+// SetStatus sets the response status code for framework-managed writes without
+// immediately committing the response.
+func (c *Ctx) SetStatus(statusCode int) {
+	c.statusCode = statusCode
+	c.statusSet = true
 }
 
 func (c *Ctx) QueryValues() url.Values {

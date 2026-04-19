@@ -166,7 +166,31 @@ func TestAccessLogMiddlewareReportsFrameworkStatus(t *testing.T) {
 		app.ServeHTTP(rec, req)
 	}
 
-	want := []int{http.StatusNoContent, http.StatusCreated, http.StatusNotFound}
+	want := []int{http.StatusNoContent, http.StatusOK, http.StatusNotFound}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected logged statuses: got %v want %v", got, want)
+	}
+}
+
+func TestAccessLogMiddlewareUsesExplicitStatusOverride(t *testing.T) {
+	t.Parallel()
+
+	app := New()
+	got := make([]int, 0, 1)
+	app.Use(AccessLog(func(c *Ctx, status int, d time.Duration, err error) {
+		got = append(got, status)
+	}))
+
+	app.Post("/accepted", func(c *Ctx) (any, error) {
+		c.SetStatus(http.StatusAccepted)
+		return "ok", nil
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/accepted", nil)
+	app.ServeHTTP(rec, req)
+
+	want := []int{http.StatusAccepted}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected logged statuses: got %v want %v", got, want)
 	}

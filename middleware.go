@@ -177,7 +177,7 @@ func AccessLogWithOptions(opts AccessLogOptions) Middleware {
 	statusMapper := opts.StatusMapper
 	if statusMapper == nil {
 		statusMapper = func(c *Ctx, val any, err error) int {
-			return statusFromResult(c.Method(), val, err)
+			return statusFromResult(c, val, err)
 		}
 	}
 
@@ -195,15 +195,15 @@ func AccessLogWithOptions(opts AccessLogOptions) Middleware {
 	}
 }
 
-func statusFromResult(method string, val any, err error) int {
+func statusFromResult(c *Ctx, val any, err error) int {
 	if err != nil {
 		return errCode(err)
 	}
+	if c != nil && c.statusSet {
+		return c.statusCode
+	}
 	if val == nil {
 		return http.StatusNoContent
-	}
-	if method == http.MethodPost {
-		return http.StatusCreated
 	}
 	return http.StatusOK
 }

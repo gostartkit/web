@@ -116,8 +116,8 @@ func TestApplicationCustomReader(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	app.ServeHTTP(rec, req)
 
-	if got := rec.Code; got != http.StatusCreated {
-		t.Fatalf("expected status 201, got %d", got)
+	if got := rec.Code; got != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", got)
 	}
 	if got := rec.Body.String(); got != "{\"ok\":true}\n" {
 		t.Fatalf("expected custom reader to set payload, got %q", got)

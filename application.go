@@ -243,14 +243,10 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if val != nil {
-
-				code := http.StatusOK
-
-				if r.Method == http.MethodPost {
-					code = http.StatusCreated
+				code := statusFromResult(c, val, nil)
+				if !c.responseCommitted {
+					writeCodeByMedia(w, c.responseMediaType(), code)
 				}
-
-				writeCodeByMedia(w, c.responseMediaType(), code)
 				err := c.write(val)
 				app.putParams(params)
 				releaseCtx(c)
@@ -269,12 +265,16 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					rel.Release()
 				}
 			} else {
+				code := statusFromResult(c, nil, nil)
+				committed := c.responseCommitted
 				app.putParams(params)
 				releaseCtx(c)
-				w.WriteHeader(http.StatusNoContent)
+				if !committed {
+					w.WriteHeader(code)
+				}
 
 				if infoLogger != nil {
-					infoLogger.Printf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, userID, r.Method, rel, 204)
+					infoLogger.Printf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, userID, r.Method, rel, code)
 				}
 			}
 

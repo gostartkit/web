@@ -56,7 +56,8 @@
 // The returned value controls the default response semantics:
 //
 //   - (nil, nil) -> 204 No Content
-//   - (value, nil) -> 200 OK, or 201 Created for POST
+//   - (value, nil) -> 200 OK
+//   - call c.SetStatus(code) to explicitly override the default success status
 //   - (_, err) -> status inferred from framework error type
 //
 // Request bodies are parsed from Content-Type using Ctx.TryParseBody, or

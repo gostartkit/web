@@ -694,8 +694,11 @@ func (c *Ctx) SetHeader(key string, value string) {
 
 // write write data base on accept header
 func (c *Ctx) write(val any) error {
+	return c.writeMedia(c.responseMediaType(), val)
+}
 
-	switch c.responseMediaType() {
+func (c *Ctx) writeMedia(mt mediaType, val any) error {
+	switch mt {
 	case mediaJSON:
 		if c.app != nil && c.app.hasWriters {
 			if writer := c.app.writers[mediaJSON]; writer != nil {

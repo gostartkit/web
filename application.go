@@ -11,10 +11,38 @@ import (
 	"sync"
 )
 
+const methodRootSlots = 9
+
+func methodRootIndex(method string) int {
+	switch method {
+	case http.MethodGet:
+		return 0
+	case http.MethodHead:
+		return 1
+	case http.MethodPost:
+		return 2
+	case http.MethodPut:
+		return 3
+	case http.MethodPatch:
+		return 4
+	case http.MethodDelete:
+		return 5
+	case http.MethodOptions:
+		return 6
+	case http.MethodConnect:
+		return 7
+	case http.MethodTrace:
+		return 8
+	default:
+		return -1
+	}
+}
+
 // Application is type of a web.Application
 type Application struct {
 	srv           *http.Server
 	trees         map[string]*node
+	methodRoots   [methodRootSlots]*node
 	info          *log.Logger
 	err           *log.Logger
 	cors          Cors
@@ -174,6 +202,9 @@ func (app *Application) addRoute(method string, path string, next Next) {
 	if root == nil {
 		root = new(node)
 		app.trees[method] = root
+		if idx := methodRootIndex(method); idx >= 0 {
+			app.methodRoots[idx] = root
+		}
 		app.globalAllowed = app.allowed("*", "")
 	}
 
@@ -220,9 +251,9 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	infoLogger := app.info
 	errLogger := app.err
 
-	if root := app.trees[r.Method]; root != nil {
+	if root := app.rootForMethod(r.Method); root != nil {
 
-		if next, params, _ := root.getValue(rel, app.getParams); next != nil {
+		if next, params, _ := root.getValue(rel, app); next != nil {
 
 			c := createCtx(app, w, r, params)
 			val, err := next(c)
@@ -247,10 +278,11 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				if code == 0 {
 					code = http.StatusOK
 				}
+				mt := c.responseMediaType()
 				if !c.responseCommitted {
-					writeCodeByMedia(w, c.responseMediaType(), code)
+					writeCodeByMedia(w, mt, code)
 				}
-				err := c.write(val)
+				err := c.writeMedia(mt, val)
 				app.putParams(params)
 				releaseCtx(c)
 				if err != nil {
@@ -335,8 +367,9 @@ func (app *Application) handleError(c *Ctx, err error) (int, error) {
 		}
 	}
 
-	writeCodeByMedia(c.w, c.responseMediaType(), code)
-	return code, c.write(err.Error())
+	mt := c.responseMediaType()
+	writeCodeByMedia(c.w, mt, code)
+	return code, c.writeMedia(mt, err.Error())
 }
 
 func wrapNext(next Next, chains ...Chain) Next {
@@ -464,6 +497,13 @@ func (app *Application) allowed(path, reqMethod string) []string {
 	}
 
 	return allowed
+}
+
+func (app *Application) rootForMethod(method string) *node {
+	if idx := methodRootIndex(method); idx >= 0 {
+		return app.methodRoots[idx]
+	}
+	return app.trees[method]
 }
 
 // ListenAndServe Serve with options on addr

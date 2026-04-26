@@ -93,6 +93,25 @@ func TestHttpPostExplicitStatusOverride(t *testing.T) {
 	}
 }
 
+func TestCustomHTTPMethod(t *testing.T) {
+	app := New()
+
+	app.Handle("PURGE", "/cache/:key", func(c *Ctx) (any, error) {
+		return c.Param("key"), nil
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PURGE", "/cache/home", nil)
+	app.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected status code 200, but got %d", rec.Code)
+	}
+	if got := rec.Body.String(); got != `"home"`+"\n" {
+		t.Fatalf("Expected body %q, got %q", `"home"`+"\n", got)
+	}
+}
+
 func TestManualWriteDefaultsToOK(t *testing.T) {
 	app := New()
 
@@ -151,6 +170,46 @@ func TestHttpPathParamWithoutServe(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("Expected status code 200, but got %d", rec.Code)
+	}
+}
+
+func TestHttpPathParamsAcrossRequests(t *testing.T) {
+	app := New()
+
+	app.Get("/users/:userID/books/:bookID", func(c *Ctx) (any, error) {
+		userID, err := c.ParamUint64("userID")
+		if err != nil {
+			return nil, err
+		}
+		bookID, err := c.ParamUint64("bookID")
+		if err != nil {
+			return nil, err
+		}
+		return map[string]uint64{
+			"userID": userID,
+			"bookID": bookID,
+		}, nil
+	})
+
+	tests := []struct {
+		path string
+		body string
+	}{
+		{path: "/users/42/books/100", body: `{"bookID":100,"userID":42}` + "\n"},
+		{path: "/users/7/books/9", body: `{"bookID":9,"userID":7}` + "\n"},
+	}
+
+	for _, tt := range tests {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+		app.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: expected status code 200, got %d", tt.path, rec.Code)
+		}
+		if got := rec.Body.String(); got != tt.body {
+			t.Fatalf("%s: expected body %q, got %q", tt.path, tt.body, got)
+		}
 	}
 }
 

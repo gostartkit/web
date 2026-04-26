@@ -3,7 +3,7 @@ set -eu
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 COUNT="${COUNT:-1}"
-BENCH_EXPR="${BENCH_EXPR:-Benchmark(ServeHTTPStaticJSON|ServeHTTPPathParamJSON|ServeHTTPStaticJSONRawMessage|TryParseJSONBodyFast|PostBytes|DoReqWithClientRawBody|ServeHTTPBinary|ServeHTTPAvro|TreeGetValueParamPooled|TryParseIntSlice|TryParseStringSlice)}"
+BENCH_EXPR="${BENCH_EXPR:-Benchmark(ServeHTTPStaticJSON|ServeHTTPPathParamJSON|ServeHTTPStaticJSONRawMessage|ServeHTTPNoContent|ServeHTTPManualWrite|TryParseJSONBodyFast|PostBytes|DoReqWithClientRawBody|ServeHTTPBinary|ServeHTTPAvro|TreeGetValueParamPooled|CtxParamUint64|CtxWriteBinaryBytes|CtxWriteAvroMarshaler|TryParseInt64|TryParseUint64|TryParseIntSlice|TryParseStringSlice|ParseMediaTypeExactJSON|AcceptMediaTypeEmpty)}"
 TMP_FILE="${TMP_FILE:-$ROOT_DIR/bench/snapshot.txt}"
 
 cd "$ROOT_DIR"

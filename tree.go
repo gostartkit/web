@@ -324,7 +324,7 @@ func (n *node) insertChild(path, fullPath string, callback Next) {
 // If no callback can be found, a TSR (trailing slash redirect) recommendation is
 // made if a callback exists with an extra (without the) trailing slash for the
 // given path.
-func (n *node) getValue(path string, params func() *Params) (callback Next, ps *Params, tsr bool) {
+func (n *node) getValue(path string, app *Application) (callback Next, ps *Params, tsr bool) {
 walk: // Outer loop for walking the tree
 	for {
 		prefix := n.path
@@ -362,9 +362,9 @@ walk: // Outer loop for walking the tree
 					}
 
 					// Save param value
-					if params != nil {
+					if app != nil {
 						if ps == nil {
-							ps = params()
+							ps = app.getParams()
 						}
 						// Expand slice within preallocated capacity
 						i := len(*ps)
@@ -401,9 +401,9 @@ walk: // Outer loop for walking the tree
 
 				case catchAll:
 					// Save param value
-					if params != nil {
+					if app != nil {
 						if ps == nil {
-							ps = params()
+							ps = app.getParams()
 						}
 						// Expand slice within preallocated capacity
 						i := len(*ps)

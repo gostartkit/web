@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
 )
 
@@ -94,6 +93,67 @@ func BenchmarkServeHTTPStaticJSONRawMessage(b *testing.B) {
 	}
 }
 
+func BenchmarkServeHTTPNoContent(b *testing.B) {
+	app := New()
+	app.Get("/v1/empty", func(c *Ctx) (any, error) {
+		return nil, nil
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/empty", nil)
+	w := newBenchResponseWriter()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w.reset()
+		app.ServeHTTP(w, req)
+	}
+}
+
+func BenchmarkServeHTTPManualWrite(b *testing.B) {
+	app := New()
+	payload := []byte(`{"ok":true}`)
+	app.Get("/v1/manual", func(c *Ctx) (any, error) {
+		_, err := c.Write(payload)
+		return nil, err
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/manual", nil)
+	w := newBenchResponseWriter()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w.reset()
+		app.ServeHTTP(w, req)
+	}
+}
+
+func BenchmarkServeHTTPCustomJSONWriter(b *testing.B) {
+	app := New()
+	payload := []byte(`{"ok":true}`)
+	if err := app.RegisterWriter("application/json", func(c *Ctx, v any) error {
+		_, err := c.Write(payload)
+		return err
+	}); err != nil {
+		b.Fatalf("RegisterWriter failed: %v", err)
+	}
+	app.Get("/v1/custom", func(c *Ctx) (any, error) {
+		return payload, nil
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/custom", nil)
+	req.Header.Set("Accept", "application/json")
+	w := newBenchResponseWriter()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w.reset()
+		app.ServeHTTP(w, req)
+	}
+}
+
 func BenchmarkTryParseBodyJSON(b *testing.B) {
 	payload := []byte(`{"id":123,"name":"sam","active":true}`)
 
@@ -156,6 +216,21 @@ func BenchmarkParamsVal(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = ps.Val("userId")
+	}
+}
+
+func BenchmarkCtxParamUint64(b *testing.B) {
+	ps := Params{
+		{Key: "id", Value: "1234567890123"},
+	}
+	c := &Ctx{param: &ps}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := c.ParamUint64("id"); err != nil {
+			b.Fatalf("ParamUint64 failed: %v", err)
+		}
 	}
 }
 
@@ -316,6 +391,66 @@ func BenchmarkCtxWriteBinaryReader(b *testing.B) {
 	}
 }
 
+func BenchmarkCtxWriteJSONRawMessage(b *testing.B) {
+	payload := json.RawMessage(`{"ok":true}`)
+	w := newBenchResponseWriter()
+	c := &Ctx{w: w}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w.reset()
+		if err := c.writeJSON(payload); err != nil {
+			b.Fatalf("writeJSON failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkCtxWriteBinaryBytes(b *testing.B) {
+	payload := []byte(`{"ok":true}`)
+	w := newBenchResponseWriter()
+	c := &Ctx{w: w}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w.reset()
+		if err := c.writeBinary(payload); err != nil {
+			b.Fatalf("writeBinary failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkCtxWriteBinaryString(b *testing.B) {
+	payload := `{"ok":true}`
+	w := newBenchResponseWriter()
+	c := &Ctx{w: w}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w.reset()
+		if err := c.writeBinary(payload); err != nil {
+			b.Fatalf("writeBinary failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkCtxWriteAvroMarshaler(b *testing.B) {
+	payload := avroPayload{raw: []byte{0xAA, 0xBB, 0xCC}}
+	w := newBenchResponseWriter()
+	c := &Ctx{w: w}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w.reset()
+		if err := c.writeAvro(payload); err != nil {
+			b.Fatalf("writeAvro failed: %v", err)
+		}
+	}
+}
+
 func BenchmarkTreeGetValueStatic(b *testing.B) {
 	root := new(node)
 	root.addRoute("/v1/ping", func(c *Ctx) (any, error) { return nil, nil })
@@ -334,16 +469,14 @@ func BenchmarkTreeGetValueStatic(b *testing.B) {
 func BenchmarkTreeGetValueParam(b *testing.B) {
 	root := new(node)
 	root.addRoute("/v1/user/:id", func(c *Ctx) (any, error) { return nil, nil })
-	getParams := func() *Params {
-		ps := make(Params, 0, 1)
-		return &ps
-	}
+	app := New()
+	app.maxParams = 1
 
 	path := "/v1/user/123456"
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cb, ps, tsr := root.getValue(path, getParams)
+		cb, ps, tsr := root.getValue(path, app)
 		if cb == nil || ps == nil || tsr {
 			b.Fatalf("unexpected getValue result: cb=%v psNil=%v tsr=%v", cb != nil, ps == nil, tsr)
 		}
@@ -356,16 +489,14 @@ func BenchmarkTreeGetValueParam(b *testing.B) {
 func BenchmarkTreeGetValueCatchAll(b *testing.B) {
 	root := new(node)
 	root.addRoute("/static/*filepath", func(c *Ctx) (any, error) { return nil, nil })
-	getParams := func() *Params {
-		ps := make(Params, 0, 1)
-		return &ps
-	}
+	app := New()
+	app.maxParams = 1
 
 	path := "/static/css/app.css"
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cb, ps, tsr := root.getValue(path, getParams)
+		cb, ps, tsr := root.getValue(path, app)
 		if cb == nil || ps == nil || tsr {
 			b.Fatalf("unexpected getValue result: cb=%v psNil=%v tsr=%v", cb != nil, ps == nil, tsr)
 		}
@@ -378,71 +509,41 @@ func BenchmarkTreeGetValueCatchAll(b *testing.B) {
 func BenchmarkTreeGetValueParamPooled(b *testing.B) {
 	root := new(node)
 	root.addRoute("/v1/user/:id", func(c *Ctx) (any, error) { return nil, nil })
-
-	var psPool = sync.Pool{
-		New: func() any {
-			ps := make(Params, 0, 1)
-			return &ps
-		},
-	}
-	getParams := func() *Params {
-		ps := psPool.Get().(*Params)
-		*ps = (*ps)[:0]
-		return ps
-	}
-	putParams := func(ps *Params) {
-		if ps != nil {
-			psPool.Put(ps)
-		}
-	}
+	app := New()
+	app.maxParams = 1
 
 	path := "/v1/user/123456"
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cb, ps, tsr := root.getValue(path, getParams)
+		cb, ps, tsr := root.getValue(path, app)
 		if cb == nil || ps == nil || tsr {
 			b.Fatalf("unexpected getValue result: cb=%v psNil=%v tsr=%v", cb != nil, ps == nil, tsr)
 		}
 		if (*ps)[0].Key != "id" || (*ps)[0].Value != "123456" {
 			b.Fatalf("unexpected param: %+v", (*ps)[0])
 		}
-		putParams(ps)
+		app.putParams(ps)
 	}
 }
 
 func BenchmarkTreeGetValueCatchAllPooled(b *testing.B) {
 	root := new(node)
 	root.addRoute("/static/*filepath", func(c *Ctx) (any, error) { return nil, nil })
-
-	var psPool = sync.Pool{
-		New: func() any {
-			ps := make(Params, 0, 1)
-			return &ps
-		},
-	}
-	getParams := func() *Params {
-		ps := psPool.Get().(*Params)
-		*ps = (*ps)[:0]
-		return ps
-	}
-	putParams := func(ps *Params) {
-		if ps != nil {
-			psPool.Put(ps)
-		}
-	}
+	app := New()
+	app.maxParams = 1
 
 	path := "/static/css/app.css"
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cb, ps, tsr := root.getValue(path, getParams)
+		cb, ps, tsr := root.getValue(path, app)
 		if cb == nil || ps == nil || tsr {
 			b.Fatalf("unexpected getValue result: cb=%v psNil=%v tsr=%v", cb != nil, ps == nil, tsr)
 		}
 		if (*ps)[0].Key != "filepath" || (*ps)[0].Value != "/css/app.css" {
 			b.Fatalf("unexpected param: %+v", (*ps)[0])
 		}
-		putParams(ps)
+		app.putParams(ps)
 	}
 }

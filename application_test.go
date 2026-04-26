@@ -35,6 +35,9 @@ func TestHttpGet(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Errorf("Expected status code 200, but got %d", rec.Code)
 	}
+	if got := rec.Header().Get("Content-Type"); got != "application/json" {
+		t.Errorf("Expected Content-Type application/json, but got %q", got)
+	}
 }
 
 func TestHttpPost(t *testing.T) {
@@ -84,6 +87,50 @@ func TestHttpPostExplicitStatusOverride(t *testing.T) {
 
 	if rec.Code != http.StatusCreated {
 		t.Errorf("Expected status code 201, but got %d", rec.Code)
+	}
+	if got := rec.Header().Get("Content-Type"); got != "application/json" {
+		t.Errorf("Expected Content-Type application/json, but got %q", got)
+	}
+}
+
+func TestManualWriteDefaultsToOK(t *testing.T) {
+	app := New()
+
+	app.Get("/manual", func(c *Ctx) (any, error) {
+		_, err := c.Write([]byte("ok"))
+		return nil, err
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/manual", nil)
+	app.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected status code 200, but got %d", rec.Code)
+	}
+	if got := rec.Body.String(); got != "ok" {
+		t.Fatalf("Expected body ok, but got %q", got)
+	}
+}
+
+func TestManualWriteUsesExplicitStatus(t *testing.T) {
+	app := New()
+
+	app.Get("/manual", func(c *Ctx) (any, error) {
+		c.SetStatus(http.StatusAccepted)
+		_, err := c.Write([]byte("ok"))
+		return nil, err
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/manual", nil)
+	app.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("Expected status code 202, but got %d", rec.Code)
+	}
+	if got := rec.Body.String(); got != "ok" {
+		t.Fatalf("Expected body ok, but got %q", got)
 	}
 }
 

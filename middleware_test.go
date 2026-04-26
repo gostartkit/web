@@ -196,6 +196,30 @@ func TestAccessLogMiddlewareUsesExplicitStatusOverride(t *testing.T) {
 	}
 }
 
+func TestAccessLogMiddlewareUsesManualWriteStatus(t *testing.T) {
+	t.Parallel()
+
+	app := New()
+	got := make([]int, 0, 1)
+	app.Use(AccessLog(func(c *Ctx, status int, d time.Duration, err error) {
+		got = append(got, status)
+	}))
+
+	app.Get("/manual", func(c *Ctx) (any, error) {
+		_, err := c.Write([]byte("ok"))
+		return nil, err
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/manual", nil)
+	app.ServeHTTP(rec, req)
+
+	want := []int{http.StatusOK}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected logged statuses: got %v want %v", got, want)
+	}
+}
+
 func TestAccessLogWithOptionsUsesCustomStatusMapperAndClock(t *testing.T) {
 	t.Parallel()
 

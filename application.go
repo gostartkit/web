@@ -243,7 +243,10 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if val != nil {
-				code := statusFromResult(c, val, nil)
+				code := c.statusCode
+				if code == 0 {
+					code = http.StatusOK
+				}
 				if !c.responseCommitted {
 					writeCodeByMedia(w, c.responseMediaType(), code)
 				}
@@ -265,7 +268,10 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					rel.Release()
 				}
 			} else {
-				code := statusFromResult(c, nil, nil)
+				code := c.statusCode
+				if code == 0 {
+					code = http.StatusNoContent
+				}
 				committed := c.responseCommitted
 				app.putParams(params)
 				releaseCtx(c)

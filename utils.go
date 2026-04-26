@@ -616,6 +616,12 @@ func TryInt8(val string) (int8, error) {
 	if val == "" {
 		return 0, nil
 	}
+	if n, ok := parseIntFast64(val); ok {
+		if n < math.MinInt8 || n > math.MaxInt8 {
+			return 0, strconv.ErrRange
+		}
+		return int8(n), nil
+	}
 	n, err := strconv.ParseInt(val, 10, 8)
 	if err != nil {
 		return 0, err
@@ -626,6 +632,12 @@ func TryInt8(val string) (int8, error) {
 func TryUint8(val string) (uint8, error) {
 	if val == "" {
 		return 0, nil
+	}
+	if n, ok := parseUintFast64(val); ok {
+		if n > math.MaxUint8 {
+			return 0, strconv.ErrRange
+		}
+		return uint8(n), nil
 	}
 	n, err := strconv.ParseUint(val, 10, 8)
 	if err != nil {
@@ -638,6 +650,12 @@ func TryInt16(val string) (int16, error) {
 	if val == "" {
 		return 0, nil
 	}
+	if n, ok := parseIntFast64(val); ok {
+		if n < math.MinInt16 || n > math.MaxInt16 {
+			return 0, strconv.ErrRange
+		}
+		return int16(n), nil
+	}
 	n, err := strconv.ParseInt(val, 10, 16)
 	if err != nil {
 		return 0, err
@@ -648,6 +666,12 @@ func TryInt16(val string) (int16, error) {
 func TryUint16(val string) (uint16, error) {
 	if val == "" {
 		return 0, nil
+	}
+	if n, ok := parseUintFast64(val); ok {
+		if n > math.MaxUint16 {
+			return 0, strconv.ErrRange
+		}
+		return uint16(n), nil
 	}
 	n, err := strconv.ParseUint(val, 10, 16)
 	if err != nil {
@@ -660,6 +684,12 @@ func TryInt32(val string) (int32, error) {
 	if val == "" {
 		return 0, nil
 	}
+	if n, ok := parseIntFast64(val); ok {
+		if n < math.MinInt32 || n > math.MaxInt32 {
+			return 0, strconv.ErrRange
+		}
+		return int32(n), nil
+	}
 	n, err := strconv.ParseInt(val, 10, 32)
 	if err != nil {
 		return 0, err
@@ -670,6 +700,12 @@ func TryInt32(val string) (int32, error) {
 func TryUint32(val string) (uint32, error) {
 	if val == "" {
 		return 0, nil
+	}
+	if n, ok := parseUintFast64(val); ok {
+		if n > math.MaxUint32 {
+			return 0, strconv.ErrRange
+		}
+		return uint32(n), nil
 	}
 	n, err := strconv.ParseUint(val, 10, 32)
 	if err != nil {
@@ -682,6 +718,9 @@ func TryInt64(val string) (int64, error) {
 	if val == "" {
 		return 0, nil
 	}
+	if n, ok := parseIntFast64(val); ok {
+		return n, nil
+	}
 	n, err := strconv.ParseInt(val, 10, 64)
 	if err != nil {
 		return 0, err
@@ -692,6 +731,9 @@ func TryInt64(val string) (int64, error) {
 func TryUint64(val string) (uint64, error) {
 	if val == "" {
 		return 0, nil
+	}
+	if n, ok := parseUintFast64(val); ok {
+		return n, nil
 	}
 	n, err := strconv.ParseUint(val, 10, 64)
 	if err != nil {

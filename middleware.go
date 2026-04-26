@@ -199,7 +199,7 @@ func statusFromResult(c *Ctx, val any, err error) int {
 	if err != nil {
 		return errCode(err)
 	}
-	if c != nil && c.statusSet {
+	if c != nil && c.statusCode != 0 {
 		return c.statusCode
 	}
 	if val == nil {

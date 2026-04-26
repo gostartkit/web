@@ -22,6 +22,26 @@ func BenchmarkTryUint(b *testing.B) {
 	}
 }
 
+func BenchmarkTryInt64(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := TryInt64("1234567890123"); err != nil {
+			b.Fatalf("TryInt64 failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkTryUint64(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := TryUint64("1234567890123"); err != nil {
+			b.Fatalf("TryUint64 failed: %v", err)
+		}
+	}
+}
+
 func BenchmarkTryBool(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()

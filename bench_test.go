@@ -527,6 +527,72 @@ func BenchmarkTreeGetValueParamPooled(b *testing.B) {
 	}
 }
 
+func BenchmarkTreeGetValueStaticOverParamSiblingPooled(b *testing.B) {
+	root := new(node)
+	root.addRoute("/organizations/:id/devices/:device_id", func(c *Ctx) (any, error) { return nil, nil })
+	root.addRoute("/organizations/:id/devices/provision", func(c *Ctx) (any, error) { return nil, nil })
+	app := New()
+	app.maxParams = 2
+
+	path := "/organizations/123/devices/provision"
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cb, ps, tsr := root.getValue(path, app)
+		if cb == nil || ps == nil || tsr {
+			b.Fatalf("unexpected getValue result: cb=%v psNil=%v tsr=%v", cb != nil, ps == nil, tsr)
+		}
+		if len(*ps) != 1 || (*ps)[0].Key != "id" || (*ps)[0].Value != "123" {
+			b.Fatalf("unexpected params: %+v", *ps)
+		}
+		app.putParams(ps)
+	}
+}
+
+func BenchmarkTreeGetValueParamWithStaticSiblingPooled(b *testing.B) {
+	root := new(node)
+	root.addRoute("/organizations/:id/devices/:device_id", func(c *Ctx) (any, error) { return nil, nil })
+	root.addRoute("/organizations/:id/devices/provision", func(c *Ctx) (any, error) { return nil, nil })
+	app := New()
+	app.maxParams = 2
+
+	path := "/organizations/123/devices/456"
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cb, ps, tsr := root.getValue(path, app)
+		if cb == nil || ps == nil || tsr {
+			b.Fatalf("unexpected getValue result: cb=%v psNil=%v tsr=%v", cb != nil, ps == nil, tsr)
+		}
+		if len(*ps) != 2 || (*ps)[0].Key != "id" || (*ps)[0].Value != "123" || (*ps)[1].Key != "device_id" || (*ps)[1].Value != "456" {
+			b.Fatalf("unexpected params: %+v", *ps)
+		}
+		app.putParams(ps)
+	}
+}
+
+func BenchmarkTreeGetValueParamAfterStaticPrefixMissPooled(b *testing.B) {
+	root := new(node)
+	root.addRoute("/organizations/:id/devices/:device_id", func(c *Ctx) (any, error) { return nil, nil })
+	root.addRoute("/organizations/:id/devices/config/rollout", func(c *Ctx) (any, error) { return nil, nil })
+	app := New()
+	app.maxParams = 2
+
+	path := "/organizations/123/devices/configured"
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cb, ps, tsr := root.getValue(path, app)
+		if cb == nil || ps == nil || tsr {
+			b.Fatalf("unexpected getValue result: cb=%v psNil=%v tsr=%v", cb != nil, ps == nil, tsr)
+		}
+		if len(*ps) != 2 || (*ps)[0].Key != "id" || (*ps)[0].Value != "123" || (*ps)[1].Key != "device_id" || (*ps)[1].Value != "configured" {
+			b.Fatalf("unexpected params: %+v", *ps)
+		}
+		app.putParams(ps)
+	}
+}
+
 func BenchmarkTreeGetValueCatchAllPooled(b *testing.B) {
 	root := new(node)
 	root.addRoute("/static/*filepath", func(c *Ctx) (any, error) { return nil, nil })

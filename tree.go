@@ -82,6 +82,36 @@ type node struct {
 	next      Next
 }
 
+type skippedNode struct {
+	node      *node
+	path      string
+	paramsLen int
+}
+
+func (n *node) wildcardChild() *node {
+	if !n.wildChild {
+		return nil
+	}
+	return n.children[len(n.children)-1]
+}
+
+func (n *node) addStaticChild(idxc byte) *node {
+	child := &node{}
+	n.indices += string([]byte{idxc})
+
+	if n.wildChild {
+		wildcardIndex := len(n.children) - 1
+		n.children = append(n.children, nil)
+		copy(n.children[wildcardIndex+1:], n.children[wildcardIndex:])
+		n.children[wildcardIndex] = child
+	} else {
+		n.children = append(n.children, child)
+	}
+
+	pos := n.incrementChildPrio(len(n.indices) - 1)
+	return n.children[pos]
+}
+
 // Increments priority of the given child and reorders if necessary
 func (n *node) incrementChildPrio(pos int) int {
 	cs := n.children
@@ -148,9 +178,28 @@ walk:
 		// Make new node a child of this node
 		if i < len(path) {
 			path = path[i:]
+			idxc := path[0]
 
 			if n.wildChild {
-				n = n.children[0]
+				if idxc != ':' && idxc != '*' {
+					// Match static children before the wildcard child so static
+					// siblings stay reachable regardless of registration order.
+					for i := 0; i < len(n.indices); i++ {
+						if n.indices[i] == idxc {
+							i = n.incrementChildPrio(i)
+							n = n.children[i]
+							continue walk
+						}
+					}
+
+					if n.wildcardChild().nType != catchAll {
+						n = n.addStaticChild(idxc)
+						n.insertChild(path, fullPath, callback)
+						return
+					}
+				}
+
+				n = n.wildcardChild()
 				n.priority++
 
 				// Check if the wildcard matches
@@ -160,22 +209,20 @@ walk:
 					// Check for longer wildcard, e.g. :name and :names
 					(len(n.path) >= len(path) || path[len(n.path)] == '/') {
 					continue walk
-				} else {
-					// Wildcard conflict
-					pathSeg := path
-					if n.nType != catchAll {
-						pathSeg = strings.SplitN(pathSeg, "/", 2)[0]
-					}
-					prefix := fullPath[:strings.Index(fullPath, pathSeg)] + n.path
-					panic("'" + pathSeg +
-						"' in new path '" + fullPath +
-						"' conflicts with existing wildcard '" + n.path +
-						"' in existing prefix '" + prefix +
-						"'")
 				}
-			}
 
-			idxc := path[0]
+				// Wildcard conflict
+				pathSeg := path
+				if n.nType != catchAll {
+					pathSeg = strings.SplitN(pathSeg, "/", 2)[0]
+				}
+				prefix := fullPath[:strings.Index(fullPath, pathSeg)] + n.path
+				panic("'" + pathSeg +
+					"' in new path '" + fullPath +
+					"' conflicts with existing wildcard '" + n.path +
+					"' in existing prefix '" + prefix +
+					"'")
+			}
 
 			// '/' after param
 			if n.nType == param && idxc == '/' && len(n.children) == 1 {
@@ -195,12 +242,7 @@ walk:
 
 			// Otherwise insert it
 			if idxc != ':' && idxc != '*' {
-				// []byte for proper unicode char conversion, see #65
-				n.indices += string([]byte{idxc})
-				child := &node{}
-				n.children = append(n.children, child)
-				n.incrementChildPrio(len(n.indices) - 1)
-				n = child
+				n = n.addStaticChild(idxc)
 			}
 			n.insertChild(path, fullPath, callback)
 			return
@@ -235,8 +277,9 @@ func (n *node) insertChild(path, fullPath string, callback Next) {
 		}
 
 		// Check if this node has existing children which would be
-		// unreachable if we insert the wildcard here
-		if len(n.children) > 0 {
+		// unreachable if we insert the wildcard here.
+		// Param children may coexist with existing static children.
+		if len(n.children) > 0 && (wildcard[0] != ':' || n.wildChild) {
 			panic("wildcard segment '" + wildcard +
 				"' conflicts with existing children in path '" + fullPath + "'")
 		}
@@ -254,7 +297,11 @@ func (n *node) insertChild(path, fullPath string, callback Next) {
 				nType: param,
 				path:  wildcard,
 			}
-			n.children = []*node{child}
+			if len(n.children) == 0 {
+				n.children = []*node{child}
+			} else {
+				n.children = append(n.children, child)
+			}
 			n = child
 			n.priority++
 
@@ -325,34 +372,66 @@ func (n *node) insertChild(path, fullPath string, callback Next) {
 // made if a callback exists with an extra (without the) trailing slash for the
 // given path.
 func (n *node) getValue(path string, app *Application) (callback Next, ps *Params, tsr bool) {
+	var skippedNode0 *node
+	var skippedPath0 string
+	var skippedParamsLen0 int
+	var skippedMore []skippedNode
+	skippedLen := 0
+	forceWildcard := false
+
 walk: // Outer loop for walking the tree
 	for {
 		prefix := n.path
 		if len(path) > len(prefix) {
 			if strings.HasPrefix(path, prefix) {
+				search := path
 				path = path[len(prefix):]
+
+				idxc := path[0]
+				if !forceWildcard {
+					for i := 0; i < len(n.indices); i++ {
+						if n.indices[i] == idxc {
+							if n.wildChild {
+								paramsLen := 0
+								if ps != nil {
+									paramsLen = len(*ps)
+								}
+								if skippedLen == 0 {
+									skippedNode0 = n
+									skippedPath0 = search
+									skippedParamsLen0 = paramsLen
+								} else {
+									skippedMore = append(skippedMore, skippedNode{
+										node:      n,
+										path:      search,
+										paramsLen: paramsLen,
+									})
+								}
+								skippedLen++
+							}
+							n = n.children[i]
+							continue walk
+						}
+					}
+				}
+				forceWildcard = false
 
 				// If this node does not have a wildcard (param or catchAll)
 				// child, we can just look up the next child node and continue
 				// to walk down the tree
 				if !n.wildChild {
-					idxc := path[0]
-					for i := 0; i < len(n.indices); i++ {
-						if n.indices[i] == idxc {
-							n = n.children[i]
-							continue walk
-						}
-					}
-
 					// Nothing found.
 					// We can recommend to redirect to the same URL without a
 					// trailing slash if a leaf exists for that path.
+					if skippedLen > 0 {
+						goto backtrack
+					}
 					tsr = (path == "/" && n.next != nil)
 					return
 				}
 
 				// Callback wildcard child
-				n = n.children[0]
+				n = n.wildcardChild()
 				switch n.nType {
 				case param:
 					// Find param end (either '/' or path end)
@@ -384,6 +463,9 @@ walk: // Outer loop for walking the tree
 						}
 
 						// ... but we can't
+						if skippedLen > 0 {
+							goto backtrack
+						}
 						tsr = (len(path) == end+1)
 						return
 					}
@@ -397,6 +479,9 @@ walk: // Outer loop for walking the tree
 						tsr = (n.path == "/" && n.next != nil) || (n.path == "" && n.indices == "/")
 					}
 
+					if skippedLen > 0 {
+						goto backtrack
+					}
 					return
 
 				case catchAll:
@@ -451,14 +536,42 @@ walk: // Outer loop for walking the tree
 					return
 				}
 			}
+			if skippedLen > 0 {
+				goto backtrack
+			}
 			return
 		}
 
 		// Nothing found. We can recommend to redirect to the same URL with an
 		// extra trailing slash if a leaf exists for that path
+		if skippedLen > 0 {
+			goto backtrack
+		}
 		tsr = (path == "/") ||
 			(len(prefix) == len(path)+1 && prefix[len(path)] == '/' &&
 				path == prefix[:len(prefix)-1] && n.next != nil)
 		return
 	}
+
+backtrack:
+	skippedLen--
+	if skippedLen == 0 {
+		n = skippedNode0
+		path = skippedPath0
+		if ps != nil {
+			*ps = (*ps)[:skippedParamsLen0]
+		}
+	} else {
+		last := len(skippedMore) - 1
+		skippedNode := skippedMore[last]
+		skippedMore = skippedMore[:last]
+		n = skippedNode.node
+		path = skippedNode.path
+		if ps != nil {
+			*ps = (*ps)[:skippedNode.paramsLen]
+		}
+	}
+	forceWildcard = true
+	tsr = false
+	goto walk
 }

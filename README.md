@@ -184,6 +184,29 @@ func main() {
   - `application/octet-stream`
   - `application/x-avro`
 
+### Routing Behavior
+
+- Static, param, and catch-all segments can coexist at the same tree level.
+- Match priority is fixed and does not depend on registration order:
+  - `static > param > catch-all`
+- Catch-all routes are still only allowed at the end of the path.
+- Invalid wildcard combinations remain rejected at registration time.
+
+This makes common REST route sets work without handler-level catch-all dispatch:
+
+```go
+app.Get("/organizations/:id/devices/bulk/disable", bulkDisable)
+app.Get("/organizations/:id/devices/provision", provision)
+app.Get("/organizations/:id/devices/config/rollout", configRollout)
+app.Get("/organizations/:id/devices/:device_id", showDevice)
+```
+
+With the routes above:
+
+- `GET /organizations/1/devices/provision` matches the static route.
+- `GET /organizations/1/devices/42` matches the param route.
+- Registering `:device_id` before or after `provision` produces the same result.
+
 ### Modern Framework Features
 
 - Middleware and route groups are registration-time features:

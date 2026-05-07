@@ -184,6 +184,29 @@ func main() {
   - `application/octet-stream`
   - `application/x-avro`
 
+### 路由行为
+
+- 同一层路由树允许静态子段、参数子段和末尾 catch-all 共存。
+- 命中优先级固定，且不依赖注册顺序：
+  - `static > param > catch-all`
+- catch-all 仍然只能出现在路径末尾。
+- 非法 wildcard 组合在注册时仍会被拒绝。
+
+这样就可以直接表达常见 REST 路由集，而不需要在 handler 里做 catch-all 分发：
+
+```go
+app.Get("/organizations/:id/devices/bulk/disable", bulkDisable)
+app.Get("/organizations/:id/devices/provision", provision)
+app.Get("/organizations/:id/devices/config/rollout", configRollout)
+app.Get("/organizations/:id/devices/:device_id", showDevice)
+```
+
+对于上面的路由：
+
+- `GET /organizations/1/devices/provision` 会命中静态路由。
+- `GET /organizations/1/devices/42` 会命中参数路由。
+- 无论先注册 `:device_id` 还是先注册 `provision`，结果都一致。
+
 ### 现代框架能力
 
 - 中间件和路由分组在“注册期”完成，不在请求期动态拼装：

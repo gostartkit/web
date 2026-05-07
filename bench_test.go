@@ -459,7 +459,7 @@ func BenchmarkTreeGetValueStatic(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cb, ps, tsr := root.getValue(path, nil)
+		cb, ps, tsr := root.getValueFast(path, nil)
 		if cb == nil || ps != nil || tsr {
 			b.Fatalf("unexpected getValue result: cb=%v ps=%v tsr=%v", cb != nil, ps, tsr)
 		}
@@ -476,7 +476,7 @@ func BenchmarkTreeGetValueParam(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cb, ps, tsr := root.getValue(path, app)
+		cb, ps, tsr := root.getValueFast(path, app)
 		if cb == nil || ps == nil || tsr {
 			b.Fatalf("unexpected getValue result: cb=%v psNil=%v tsr=%v", cb != nil, ps == nil, tsr)
 		}
@@ -496,7 +496,7 @@ func BenchmarkTreeGetValueCatchAll(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cb, ps, tsr := root.getValue(path, app)
+		cb, ps, tsr := root.getValueFast(path, app)
 		if cb == nil || ps == nil || tsr {
 			b.Fatalf("unexpected getValue result: cb=%v psNil=%v tsr=%v", cb != nil, ps == nil, tsr)
 		}
@@ -516,7 +516,7 @@ func BenchmarkTreeGetValueParamPooled(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cb, ps, tsr := root.getValue(path, app)
+		cb, ps, tsr := root.getValueFast(path, app)
 		if cb == nil || ps == nil || tsr {
 			b.Fatalf("unexpected getValue result: cb=%v psNil=%v tsr=%v", cb != nil, ps == nil, tsr)
 		}
@@ -531,6 +531,7 @@ func BenchmarkTreeGetValueStaticOverParamSiblingPooled(b *testing.B) {
 	root := new(node)
 	root.addRoute("/organizations/:id/devices/:device_id", func(c *Ctx) (any, error) { return nil, nil })
 	root.addRoute("/organizations/:id/devices/provision", func(c *Ctx) (any, error) { return nil, nil })
+	frozen := root.freeze()
 	app := New()
 	app.maxParams = 2
 
@@ -538,7 +539,7 @@ func BenchmarkTreeGetValueStaticOverParamSiblingPooled(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cb, ps, tsr := root.getValue(path, app)
+		cb, ps, tsr := frozen.getValue(path, app)
 		if cb == nil || ps == nil || tsr {
 			b.Fatalf("unexpected getValue result: cb=%v psNil=%v tsr=%v", cb != nil, ps == nil, tsr)
 		}
@@ -553,6 +554,7 @@ func BenchmarkTreeGetValueParamWithStaticSiblingPooled(b *testing.B) {
 	root := new(node)
 	root.addRoute("/organizations/:id/devices/:device_id", func(c *Ctx) (any, error) { return nil, nil })
 	root.addRoute("/organizations/:id/devices/provision", func(c *Ctx) (any, error) { return nil, nil })
+	frozen := root.freeze()
 	app := New()
 	app.maxParams = 2
 
@@ -560,7 +562,7 @@ func BenchmarkTreeGetValueParamWithStaticSiblingPooled(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cb, ps, tsr := root.getValue(path, app)
+		cb, ps, tsr := frozen.getValue(path, app)
 		if cb == nil || ps == nil || tsr {
 			b.Fatalf("unexpected getValue result: cb=%v psNil=%v tsr=%v", cb != nil, ps == nil, tsr)
 		}
@@ -575,6 +577,7 @@ func BenchmarkTreeGetValueParamAfterStaticPrefixMissPooled(b *testing.B) {
 	root := new(node)
 	root.addRoute("/organizations/:id/devices/:device_id", func(c *Ctx) (any, error) { return nil, nil })
 	root.addRoute("/organizations/:id/devices/config/rollout", func(c *Ctx) (any, error) { return nil, nil })
+	frozen := root.freeze()
 	app := New()
 	app.maxParams = 2
 
@@ -582,7 +585,7 @@ func BenchmarkTreeGetValueParamAfterStaticPrefixMissPooled(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cb, ps, tsr := root.getValue(path, app)
+		cb, ps, tsr := frozen.getValue(path, app)
 		if cb == nil || ps == nil || tsr {
 			b.Fatalf("unexpected getValue result: cb=%v psNil=%v tsr=%v", cb != nil, ps == nil, tsr)
 		}
@@ -603,7 +606,7 @@ func BenchmarkTreeGetValueCatchAllPooled(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cb, ps, tsr := root.getValue(path, app)
+		cb, ps, tsr := root.getValueFast(path, app)
 		if cb == nil || ps == nil || tsr {
 			b.Fatalf("unexpected getValue result: cb=%v psNil=%v tsr=%v", cb != nil, ps == nil, tsr)
 		}

@@ -213,6 +213,35 @@ func TestHttpPathParamsAcrossRequests(t *testing.T) {
 	}
 }
 
+func TestHttpPathParamsMoreThanThree(t *testing.T) {
+	app := New()
+
+	app.Get("/a/:p1/b/:p2/c/:p3/d/:p4", func(c *Ctx) (any, error) {
+		return c.Param("p1") + "," + c.Param("p2") + "," + c.Param("p3") + "," + c.Param("p4"), nil
+	})
+
+	tests := []struct {
+		path string
+		body string
+	}{
+		{path: "/a/one/b/two/c/three/d/four", body: `"one,two,three,four"` + "\n"},
+		{path: "/a/red/b/blue/c/green/d/gold", body: `"red,blue,green,gold"` + "\n"},
+	}
+
+	for _, tt := range tests {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+		app.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: expected status code 200, got %d", tt.path, rec.Code)
+		}
+		if got := rec.Body.String(); got != tt.body {
+			t.Fatalf("%s: expected body %q, got %q", tt.path, tt.body, got)
+		}
+	}
+}
+
 func TestErrorHandling(t *testing.T) {
 	app := New()
 

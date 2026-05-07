@@ -46,6 +46,20 @@ func createCtx(app *Application, w http.ResponseWriter, r *http.Request, params 
 	return c
 }
 
+func createCtxWithRouteMatch(app *Application, w http.ResponseWriter, r *http.Request, match *routeMatch) *Ctx {
+	c := _ctxPool.Get().(*Ctx)
+	c.app = app
+	c.w = w
+	c.r = r
+	c.routeParamNames = match.paramNames
+	c.routeParamCount = match.paramCount
+	c.routeParamValue0 = match.paramValue0
+	c.routeParamValue1 = match.paramValue1
+	c.routeParamValue2 = match.paramValue2
+	c.routeParamExtraValues = match.paramExtraValues
+	return c
+}
+
 // releaseCtx puts the context object back into the pool for reuse.
 func releaseCtx(c *Ctx) {
 	if c != nil {
@@ -60,9 +74,12 @@ type Ctx struct {
 	w                      http.ResponseWriter
 	r                      *http.Request
 	param                  *Params
+	routeParamNames        []string
+	routeParamExtraValues  *[]string
 	query                  url.Values
 	userId                 uint64
 	formDataState          uint8
+	routeParamCount        uint16
 	statusCode             int
 	responseCommitted      bool
 	acceptType             mediaType
@@ -71,6 +88,9 @@ type Ctx struct {
 	contentTypeValueCached bool
 	contentType            mediaType
 	contentTypeCached      bool
+	routeParamValue0       string
+	routeParamValue1       string
+	routeParamValue2       string
 }
 
 // Init initializes the context with user ID and user rights.
@@ -145,6 +165,50 @@ func (c *Ctx) RequestID() string {
 
 // Param retrieves a parameter value by name from the Params.
 func (c *Ctx) Param(name string) string {
+	if c.routeParamCount != 0 {
+		names := c.routeParamNames
+		switch c.routeParamCount {
+		case 1:
+			if names[0] == name {
+				return c.routeParamValue0
+			}
+			return ""
+		case 2:
+			if names[1] == name {
+				return c.routeParamValue1
+			}
+			if names[0] == name {
+				return c.routeParamValue0
+			}
+			return ""
+		case 3:
+			if names[2] == name {
+				return c.routeParamValue2
+			}
+			if names[1] == name {
+				return c.routeParamValue1
+			}
+			if names[0] == name {
+				return c.routeParamValue0
+			}
+			return ""
+		}
+		for i := len(names) - 1; i >= 0; i-- {
+			if names[i] == name {
+				switch i {
+				case 0:
+					return c.routeParamValue0
+				case 1:
+					return c.routeParamValue1
+				case 2:
+					return c.routeParamValue2
+				default:
+					return (*c.routeParamExtraValues)[i-3]
+				}
+			}
+		}
+		return ""
+	}
 	if c.param == nil {
 		return ""
 	}

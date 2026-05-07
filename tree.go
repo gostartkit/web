@@ -82,10 +82,88 @@ type node struct {
 	next      Next
 }
 
+type frozenNode struct {
+	path           string
+	nType          nodeType
+	staticIndices  string
+	staticChildren []*frozenNode
+	paramChild     *frozenNode
+	catchAllChild  *frozenNode
+	nextChild      *frozenNode
+	route          *frozenRoute
+}
+
+type frozenRoute struct {
+	paramNames []string
+	next       Next
+}
+
 type skippedNode struct {
 	node      *node
 	path      string
 	paramsLen int
+}
+
+type frozenSkippedNode struct {
+	node      *frozenNode
+	path      string
+	paramsLen int
+}
+
+type routeMatch struct {
+	callback         Next
+	paramNames       []string
+	paramCount       uint16
+	paramValue0      string
+	paramValue1      string
+	paramValue2      string
+	paramExtraValues *[]string
+	tsr              bool
+}
+
+func (m *routeMatch) addParamValue(app *Application, value string) {
+	switch m.paramCount {
+	case 0:
+		m.paramValue0 = value
+	case 1:
+		m.paramValue1 = value
+	case 2:
+		m.paramValue2 = value
+	default:
+		if app != nil {
+			if m.paramExtraValues == nil {
+				m.paramExtraValues = app.getParamValues()
+			}
+			i := int(m.paramCount) - 3
+			*m.paramExtraValues = (*m.paramExtraValues)[:i+1]
+			(*m.paramExtraValues)[i] = value
+		}
+	}
+	m.paramCount++
+}
+
+func (m *routeMatch) truncateParamValues(paramsLen int) {
+	m.paramCount = uint16(paramsLen)
+	if m.paramExtraValues != nil {
+		extraLen := paramsLen - 3
+		if extraLen < 0 {
+			extraLen = 0
+		}
+		*m.paramExtraValues = (*m.paramExtraValues)[:extraLen]
+	}
+}
+
+func (m *routeMatch) paramValueAt(i int) string {
+	switch i {
+	case 0:
+		return m.paramValue0
+	case 1:
+		return m.paramValue1
+	case 2:
+		return m.paramValue2
+	default:
+		return (*m.paramExtraValues)[i-3]
+	}
 }
 
 func (n *node) wildcardChild() *node {
@@ -110,6 +188,453 @@ func (n *node) addStaticChild(idxc byte) *node {
 
 	pos := n.incrementChildPrio(len(n.indices) - 1)
 	return n.children[pos]
+}
+
+func isCatchAllPlaceholder(n *node) bool {
+	return n != nil &&
+		n.nType == catchAll &&
+		n.path == "" &&
+		n.wildChild &&
+		len(n.children) == 1 &&
+		n.children[0] != nil &&
+		n.children[0].nType == catchAll
+}
+
+func (n *node) hasStaticParamSibling() bool {
+	if n == nil {
+		return false
+	}
+	if n.wildChild && len(n.indices) > 0 {
+		if child := n.wildcardChild(); child != nil && child.nType == param {
+			return true
+		}
+	}
+	for i := 0; i < len(n.children); i++ {
+		if n.children[i].hasStaticParamSibling() {
+			return true
+		}
+	}
+	return false
+}
+
+func (n *node) freeze() *frozenNode {
+	return n.freezeWithParams(nil)
+}
+
+func cloneStrings(src []string) []string {
+	if len(src) == 0 {
+		return nil
+	}
+	dst := make([]string, len(src))
+	copy(dst, src)
+	return dst
+}
+
+func (n *node) freezeWithParams(paramNames []string) *frozenNode {
+	if n == nil {
+		return nil
+	}
+
+	currentParamNames := paramNames
+	switch n.nType {
+	case param:
+		currentParamNames = append(cloneStrings(paramNames), n.path[1:])
+	case catchAll:
+		if len(n.path) > 2 {
+			currentParamNames = append(cloneStrings(paramNames), n.path[2:])
+		}
+	}
+
+	f := &frozenNode{
+		path:  n.path,
+		nType: n.nType,
+	}
+	if n.next != nil {
+		f.route = &frozenRoute{
+			paramNames: cloneStrings(currentParamNames),
+			next:       n.next,
+		}
+	}
+
+	if n.nType == param {
+		if len(n.children) > 0 {
+			f.nextChild = n.children[0].freezeWithParams(currentParamNames)
+		}
+		return f
+	}
+
+	for i := 0; i < len(n.indices); i++ {
+		child := n.children[i]
+		if isCatchAllPlaceholder(child) && child.children[0] != nil {
+			f.catchAllChild = child.children[0].freezeWithParams(currentParamNames)
+			continue
+		}
+		f.staticIndices += n.indices[i : i+1]
+		f.staticChildren = append(f.staticChildren, child.freezeWithParams(currentParamNames))
+	}
+
+	if n.wildChild {
+		child := n.wildcardChild()
+		switch child.nType {
+		case param:
+			f.paramChild = child.freezeWithParams(currentParamNames)
+		case catchAll:
+			f.catchAllChild = child.freezeWithParams(currentParamNames)
+		}
+	}
+
+	return f
+}
+
+func (n *frozenNode) staticChild(idxc byte) *frozenNode {
+	switch len(n.staticIndices) {
+	case 0:
+		return nil
+	case 1:
+		if n.staticIndices[0] == idxc {
+			return n.staticChildren[0]
+		}
+		return nil
+	case 2:
+		if n.staticIndices[0] == idxc {
+			return n.staticChildren[0]
+		}
+		if n.staticIndices[1] == idxc {
+			return n.staticChildren[1]
+		}
+		return nil
+	case 3:
+		if n.staticIndices[0] == idxc {
+			return n.staticChildren[0]
+		}
+		if n.staticIndices[1] == idxc {
+			return n.staticChildren[1]
+		}
+		if n.staticIndices[2] == idxc {
+			return n.staticChildren[2]
+		}
+		return nil
+	}
+	for i := 0; i < len(n.staticIndices); i++ {
+		if n.staticIndices[i] == idxc {
+			return n.staticChildren[i]
+		}
+	}
+	return nil
+}
+
+func (n *frozenNode) lookup(path string, app *Application, match *routeMatch) {
+	var skippedNode0 *frozenNode
+	var skippedPath0 string
+	var skippedParamsLen0 int
+	var skippedMore []frozenSkippedNode
+	skippedLen := 0
+	forceWildcard := false
+
+walk:
+	for {
+		prefix := n.path
+		if len(path) > len(prefix) {
+			if path[:len(prefix)] == prefix {
+				search := path
+				path = path[len(prefix):]
+
+				idxc := path[0]
+				if !forceWildcard {
+					var child *frozenNode
+					switch len(n.staticIndices) {
+					case 1:
+						if n.staticIndices[0] == idxc {
+							child = n.staticChildren[0]
+						}
+					case 2:
+						if n.staticIndices[0] == idxc {
+							child = n.staticChildren[0]
+						} else if n.staticIndices[1] == idxc {
+							child = n.staticChildren[1]
+						}
+					case 3:
+						if n.staticIndices[0] == idxc {
+							child = n.staticChildren[0]
+						} else if n.staticIndices[1] == idxc {
+							child = n.staticChildren[1]
+						} else if n.staticIndices[2] == idxc {
+							child = n.staticChildren[2]
+						}
+					default:
+						for i := 0; i < len(n.staticIndices); i++ {
+							if n.staticIndices[i] == idxc {
+								child = n.staticChildren[i]
+								break
+							}
+						}
+					}
+					if child != nil {
+						if n.paramChild != nil {
+							paramsLen := int(match.paramCount)
+							if skippedLen == 0 {
+								skippedNode0 = n
+								skippedPath0 = search
+								skippedParamsLen0 = paramsLen
+							} else {
+								skippedMore = append(skippedMore, frozenSkippedNode{
+									node:      n,
+									path:      search,
+									paramsLen: paramsLen,
+								})
+							}
+							skippedLen++
+						}
+						n = child
+						continue walk
+					}
+				}
+				forceWildcard = false
+
+				if n.paramChild != nil {
+					n = n.paramChild
+
+					end := strings.IndexByte(path, '/')
+					if end < 0 {
+						end = len(path)
+					}
+
+					match.addParamValue(app, path[:end])
+
+					if end < len(path) {
+						if n.nextChild != nil {
+							path = path[end:]
+							n = n.nextChild
+							continue walk
+						}
+						if skippedLen > 0 {
+							goto backtrack
+						}
+						match.tsr = (len(path) == end+1)
+						return
+					}
+
+					if n.route != nil {
+						match.callback = n.route.next
+						match.paramNames = n.route.paramNames
+						return
+					}
+					if n.nextChild != nil {
+						match.tsr = (n.nextChild.path == "/" && n.nextChild.route != nil) ||
+							(n.nextChild.path == "" && n.nextChild.staticChild('/') != nil)
+					}
+					if skippedLen > 0 {
+						goto backtrack
+					}
+					return
+				}
+
+				if n.catchAllChild != nil {
+					n = n.catchAllChild
+					match.addParamValue(app, path)
+					match.paramNames = n.route.paramNames
+					match.callback = n.route.next
+					return
+				}
+
+				if skippedLen > 0 {
+					goto backtrack
+				}
+				match.tsr = (path == "/" && n.route != nil)
+				return
+			}
+		} else if path == prefix {
+			if n.route != nil {
+				match.callback = n.route.next
+				match.paramNames = n.route.paramNames
+				return
+			}
+
+			if path == "/" && (n.paramChild != nil || n.catchAllChild != nil) && n.nType != root {
+				match.tsr = true
+				return
+			}
+
+			if path == "/" && n.nType == static {
+				match.tsr = true
+				return
+			}
+
+			if child := n.staticChild('/'); child != nil {
+				match.tsr = (len(child.path) == 1 && child.route != nil) || child.catchAllChild != nil
+				return
+			}
+			if n.catchAllChild != nil {
+				match.tsr = true
+				return
+			}
+			if skippedLen > 0 {
+				goto backtrack
+			}
+			return
+		}
+
+		if skippedLen > 0 {
+			goto backtrack
+		}
+		match.tsr = (path == "/") ||
+			(len(prefix) == len(path)+1 && prefix[len(path)] == '/' &&
+				path == prefix[:len(prefix)-1] && n.route != nil)
+		return
+	}
+
+backtrack:
+	skippedLen--
+	if skippedLen == 0 {
+		n = skippedNode0
+		path = skippedPath0
+		match.truncateParamValues(skippedParamsLen0)
+	} else {
+		last := len(skippedMore) - 1
+		skippedNode := skippedMore[last]
+		skippedMore = skippedMore[:last]
+		n = skippedNode.node
+		path = skippedNode.path
+		match.truncateParamValues(skippedNode.paramsLen)
+	}
+	forceWildcard = true
+	match.tsr = false
+	goto walk
+}
+
+func (n *frozenNode) getValue(path string, app *Application) (callback Next, ps *Params, tsr bool) {
+	var match routeMatch
+	n.lookup(path, app, &match)
+	callback = match.callback
+	tsr = match.tsr
+	if callback == nil || app == nil || match.paramCount == 0 {
+		return
+	}
+
+	ps = app.getParams()
+	*ps = (*ps)[:match.paramCount]
+	for i := 0; i < int(match.paramCount); i++ {
+		(*ps)[i] = Param{
+			Key:   match.paramNames[i],
+			Value: match.paramValueAt(i),
+		}
+	}
+	app.putParamValues(match.paramExtraValues)
+	return
+}
+
+func (n *node) getValueFast(path string, app *Application) (callback Next, ps *Params, tsr bool) {
+walk:
+	for {
+		prefix := n.path
+		if len(path) > len(prefix) {
+			if strings.HasPrefix(path, prefix) {
+				path = path[len(prefix):]
+
+				if !n.wildChild {
+					idxc := path[0]
+					for i := 0; i < len(n.indices); i++ {
+						if n.indices[i] == idxc {
+							n = n.children[i]
+							continue walk
+						}
+					}
+
+					tsr = (path == "/" && n.next != nil)
+					return
+				}
+
+				n = n.children[0]
+				switch n.nType {
+				case param:
+					end := strings.IndexByte(path, '/')
+					if end < 0 {
+						end = len(path)
+					}
+
+					if app != nil {
+						if ps == nil {
+							ps = app.getParams()
+						}
+						i := len(*ps)
+						*ps = (*ps)[:i+1]
+						(*ps)[i] = Param{
+							Key:   n.path[1:],
+							Value: path[:end],
+						}
+					}
+
+					if end < len(path) {
+						if len(n.children) > 0 {
+							path = path[end:]
+							n = n.children[0]
+							continue walk
+						}
+
+						tsr = (len(path) == end+1)
+						return
+					}
+
+					if callback = n.next; callback != nil {
+						return
+					} else if len(n.children) == 1 {
+						n = n.children[0]
+						tsr = (n.path == "/" && n.next != nil) || (n.path == "" && n.indices == "/")
+					}
+
+					return
+
+				case catchAll:
+					if app != nil {
+						if ps == nil {
+							ps = app.getParams()
+						}
+						i := len(*ps)
+						*ps = (*ps)[:i+1]
+						(*ps)[i] = Param{
+							Key:   n.path[2:],
+							Value: path,
+						}
+					}
+
+					callback = n.next
+					return
+
+				default:
+					panic("invalid node type")
+				}
+			}
+		} else if path == prefix {
+			if callback = n.next; callback != nil {
+				return
+			}
+
+			if path == "/" && n.wildChild && n.nType != root {
+				tsr = true
+				return
+			}
+
+			if path == "/" && n.nType == static {
+				tsr = true
+				return
+			}
+
+			for i := 0; i < len(n.indices); i++ {
+				if n.indices[i] == '/' {
+					n = n.children[i]
+					tsr = (len(n.path) == 1 && n.next != nil) ||
+						(n.nType == catchAll && n.children[0].next != nil)
+					return
+				}
+			}
+			return
+		}
+
+		tsr = (path == "/") ||
+			(len(prefix) == len(path)+1 && prefix[len(path)] == '/' &&
+				path == prefix[:len(prefix)-1] && n.next != nil)
+		return
+	}
 }
 
 // Increments priority of the given child and reorders if necessary
@@ -383,7 +908,7 @@ walk: // Outer loop for walking the tree
 	for {
 		prefix := n.path
 		if len(path) > len(prefix) {
-			if strings.HasPrefix(path, prefix) {
+			if path[:len(prefix)] == prefix {
 				search := path
 				path = path[len(prefix):]
 

@@ -40,22 +40,25 @@ func methodRootIndex(method string) int {
 
 // Application is type of a web.Application
 type Application struct {
-	srv           *http.Server
-	trees         map[string]*node
-	methodRoots   [methodRootSlots]*node
-	info          *log.Logger
-	err           *log.Logger
-	cors          Cors
-	panic         Panic
-	errorHandler  ErrorHandler
-	middleware    Chain
-	readers       [mediaTypeSlots]Reader
-	writers       [mediaTypeSlots]Writer
-	hasReaders    bool
-	hasWriters    bool
-	paramsPool    sync.Pool
-	maxParams     uint16
-	globalAllowed []string
+	srv             *http.Server
+	trees           map[string]*node
+	methodRoots     [methodRootSlots]*node
+	frozenTrees     map[string]*frozenNode
+	frozenRoots     [methodRootSlots]*frozenNode
+	info            *log.Logger
+	err             *log.Logger
+	cors            Cors
+	panic           Panic
+	errorHandler    ErrorHandler
+	middleware      Chain
+	readers         [mediaTypeSlots]Reader
+	writers         [mediaTypeSlots]Writer
+	hasReaders      bool
+	hasWriters      bool
+	paramsPool      sync.Pool
+	paramValuesPool sync.Pool
+	maxParams       uint16
+	globalAllowed   []string
 
 	NotFound         http.Handler
 	MethodNotAllowed http.Handler
@@ -71,6 +74,14 @@ func New() *Application {
 		}
 		ps := make(Params, 0, n)
 		return &ps
+	}
+	app.paramValuesPool.New = func() any {
+		n := app.maxParams
+		if n == 0 {
+			n = 1
+		}
+		values := make([]string, 0, n)
+		return &values
 	}
 	return app
 }
@@ -209,6 +220,16 @@ func (app *Application) addRoute(method string, path string, next Next) {
 	}
 
 	root.addRoute(path, next)
+	if root.hasStaticParamSibling() {
+		frozenRoot := root.freeze()
+		if app.frozenTrees == nil {
+			app.frozenTrees = make(map[string]*frozenNode)
+		}
+		app.frozenTrees[method] = frozenRoot
+		if idx := methodRootIndex(method); idx >= 0 {
+			app.frozenRoots[idx] = frozenRoot
+		}
+	}
 
 	if pc := countParams(path); pc > app.maxParams {
 		app.maxParams = pc
@@ -251,72 +272,140 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	infoLogger := app.info
 	errLogger := app.err
 
-	if root := app.rootForMethod(r.Method); root != nil {
+	if root, frozenRoot := app.rootsForMethod(r.Method); root != nil {
+		if frozenRoot == nil {
+			if next, params, _ := root.getValueFast(rel, app); next != nil {
+				c := createCtx(app, w, r, params)
+				val, err := next(c)
+				userID := c.UserId()
 
-		if next, params, _ := root.getValue(rel, app); next != nil {
+				if err != nil {
+					code, writeErr := app.handleError(c, err)
+					app.putParams(params)
+					releaseCtx(c)
+					if writeErr != nil && errLogger != nil {
+						errLogger.Printf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, writeErr)
+					}
+					if errLogger != nil {
+						errLogger.Printf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, err)
+					}
 
-			c := createCtx(app, w, r, params)
-			val, err := next(c)
-			userID := c.UserId()
-
-			if err != nil {
-				code, writeErr := app.handleError(c, err)
-				app.putParams(params)
-				releaseCtx(c)
-				if writeErr != nil && errLogger != nil {
-					errLogger.Printf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, writeErr)
+					return
 				}
-				if errLogger != nil {
-					errLogger.Printf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, err)
+
+				if val != nil {
+					code := c.statusCode
+					if code == 0 {
+						code = http.StatusOK
+					}
+					mt := c.responseMediaType()
+					if !c.responseCommitted {
+						writeCodeByMedia(w, mt, code)
+					}
+					err := c.writeMedia(mt, val)
+					app.putParams(params)
+					releaseCtx(c)
+					if err != nil {
+						if errLogger != nil {
+							errLogger.Printf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, err)
+						}
+						return
+					}
+
+					if infoLogger != nil {
+						infoLogger.Printf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, userID, r.Method, rel, code)
+					}
+
+					if rel, ok := val.(IRelease); ok {
+						rel.Release()
+					}
+				} else {
+					code := c.statusCode
+					if code == 0 {
+						code = http.StatusNoContent
+					}
+					committed := c.responseCommitted
+					app.putParams(params)
+					releaseCtx(c)
+					if !committed {
+						w.WriteHeader(code)
+					}
+
+					if infoLogger != nil {
+						infoLogger.Printf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, userID, r.Method, rel, code)
+					}
 				}
 
 				return
 			}
+		} else {
+			var match routeMatch
+			frozenRoot.lookup(rel, app, &match)
+			if match.callback != nil {
 
-			if val != nil {
-				code := c.statusCode
-				if code == 0 {
-					code = http.StatusOK
-				}
-				mt := c.responseMediaType()
-				if !c.responseCommitted {
-					writeCodeByMedia(w, mt, code)
-				}
-				err := c.writeMedia(mt, val)
-				app.putParams(params)
-				releaseCtx(c)
+				c := createCtxWithRouteMatch(app, w, r, &match)
+				val, err := match.callback(c)
+				userID := c.UserId()
+
 				if err != nil {
-					if errLogger != nil {
-						errLogger.Printf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, err)
+					code, writeErr := app.handleError(c, err)
+					app.putParamValues(c.routeParamExtraValues)
+					releaseCtx(c)
+					if writeErr != nil && errLogger != nil {
+						errLogger.Printf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, writeErr)
 					}
+					if errLogger != nil {
+						errLogger.Printf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, err)
+					}
+
 					return
 				}
 
-				if infoLogger != nil {
-					infoLogger.Printf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, userID, r.Method, rel, code)
+				if val != nil {
+					code := c.statusCode
+					if code == 0 {
+						code = http.StatusOK
+					}
+					mt := c.responseMediaType()
+					if !c.responseCommitted {
+						writeCodeByMedia(w, mt, code)
+					}
+					err := c.writeMedia(mt, val)
+					app.putParamValues(c.routeParamExtraValues)
+					releaseCtx(c)
+					if err != nil {
+						if errLogger != nil {
+							errLogger.Printf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, err)
+						}
+						return
+					}
+
+					if infoLogger != nil {
+						infoLogger.Printf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, userID, r.Method, rel, code)
+					}
+
+					if rel, ok := val.(IRelease); ok {
+						rel.Release()
+					}
+				} else {
+					code := c.statusCode
+					if code == 0 {
+						code = http.StatusNoContent
+					}
+					committed := c.responseCommitted
+					app.putParamValues(c.routeParamExtraValues)
+					releaseCtx(c)
+					if !committed {
+						w.WriteHeader(code)
+					}
+
+					if infoLogger != nil {
+						infoLogger.Printf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, userID, r.Method, rel, code)
+					}
 				}
 
-				if rel, ok := val.(IRelease); ok {
-					rel.Release()
-				}
-			} else {
-				code := c.statusCode
-				if code == 0 {
-					code = http.StatusNoContent
-				}
-				committed := c.responseCommitted
-				app.putParams(params)
-				releaseCtx(c)
-				if !committed {
-					w.WriteHeader(code)
-				}
-
-				if infoLogger != nil {
-					infoLogger.Printf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, userID, r.Method, rel, code)
-				}
+				return
 			}
-
-			return
 		}
 	}
 
@@ -481,7 +570,12 @@ func (app *Application) allowed(path, reqMethod string) []string {
 				continue
 			}
 
-			cb, _, _ := app.trees[method].getValue(path, nil)
+			var cb Next
+			if frozenRoot := app.frozenTrees[method]; frozenRoot != nil {
+				cb, _, _ = frozenRoot.getValue(path, nil)
+			} else {
+				cb, _, _ = app.trees[method].getValueFast(path, nil)
+			}
 			if cb != nil {
 				// Add request method to list of allowed methods
 				allowed = append(allowed, method)
@@ -499,11 +593,11 @@ func (app *Application) allowed(path, reqMethod string) []string {
 	return allowed
 }
 
-func (app *Application) rootForMethod(method string) *node {
+func (app *Application) rootsForMethod(method string) (*node, *frozenNode) {
 	if idx := methodRootIndex(method); idx >= 0 {
-		return app.methodRoots[idx]
+		return app.methodRoots[idx], app.frozenRoots[idx]
 	}
-	return app.trees[method]
+	return app.trees[method], app.frozenTrees[method]
 }
 
 // ListenAndServe Serve with options on addr
@@ -605,6 +699,22 @@ func (app *Application) getParams() *Params {
 func (app *Application) putParams(ps *Params) {
 	if ps != nil {
 		app.paramsPool.Put(ps)
+	}
+}
+
+func (app *Application) getParamValues() *[]string {
+	values := app.paramValuesPool.Get().(*[]string)
+	if uint16(cap(*values)) < app.maxParams {
+		*values = make([]string, 0, app.maxParams)
+	} else {
+		*values = (*values)[:0]
+	}
+	return values
+}
+
+func (app *Application) putParamValues(values *[]string) {
+	if values != nil {
+		app.paramValuesPool.Put(values)
 	}
 }
 

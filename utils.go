@@ -9,11 +9,84 @@ import (
 	"strings"
 )
 
-func reuseOrMakeSlice[T any](dst []T, size int) []T {
-	if cap(dst) >= size {
+func reuseOrMakeCommaSlice[T any](dst []T, val string) []T {
+	if cap(dst) > 0 {
 		return dst[:0]
 	}
-	return make([]T, 0, size)
+	return make([]T, 0, strings.Count(val, ",")+1)
+}
+
+func parseIntCSVFast(val string, dst []int) ([]int, error) {
+	arr := reuseOrMakeCommaSlice(dst, val)
+	maxAbs := uint64(math.MaxInt64)
+	negMaxAbs := uint64(1) << 63
+	if strconv.IntSize == 32 {
+		maxAbs = math.MaxInt32
+		negMaxAbs = uint64(1) << 31
+	}
+
+	for i := 0; i < len(val); {
+		start := i
+		neg := false
+		switch val[i] {
+		case '-':
+			neg = true
+			i++
+		case '+':
+			i++
+		}
+
+		limit := maxAbs
+		if neg {
+			limit = negMaxAbs
+		}
+
+		digitsStart := i
+		var n uint64
+		for i < len(val) && val[i] != ',' {
+			c := val[i]
+			if c < '0' || c > '9' {
+				end := i
+				for end < len(val) && val[end] != ',' {
+					end++
+				}
+				_, err := strconv.ParseInt(val[start:end], 10, strconv.IntSize)
+				return arr, err
+			}
+			d := uint64(c - '0')
+			if n > (limit-d)/10 {
+				return arr, strconv.ErrRange
+			}
+			n = n*10 + d
+			i++
+		}
+
+		if i == digitsStart {
+			_, err := strconv.ParseInt(val[start:i], 10, strconv.IntSize)
+			return arr, err
+		}
+
+		if neg {
+			if strconv.IntSize == 64 && n == negMaxAbs {
+				arr = append(arr, int(n))
+			} else {
+				arr = append(arr, int(-int64(n)))
+			}
+		} else {
+			arr = append(arr, int(n))
+		}
+
+		if i == len(val) {
+			break
+		}
+		i++
+		if i == len(val) {
+			_, err := strconv.ParseInt("", 10, strconv.IntSize)
+			return arr, err
+		}
+	}
+
+	return arr, nil
 }
 
 func parseUintFast64(s string) (uint64, bool) {
@@ -22,6 +95,17 @@ func parseUintFast64(s string) (uint64, bool) {
 	}
 
 	var n uint64
+	if len(s) < 20 {
+		for i := 0; i < len(s); i++ {
+			c := s[i]
+			if c < '0' || c > '9' {
+				return 0, false
+			}
+			n = n*10 + uint64(c-'0')
+		}
+		return n, true
+	}
+
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		if c < '0' || c > '9' {
@@ -269,7 +353,7 @@ func TryParse(val string, v any) error {
 		*dest = n
 		return nil
 	case *[]string:
-		parts := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
+		parts := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -283,35 +367,14 @@ func TryParse(val string, v any) error {
 		*dest = parts
 		return nil
 	case *[]int:
-		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
-		s := val
-		for {
-			i := strings.IndexByte(s, ',')
-			part := s
-			if i >= 0 {
-				part = s[:i]
-			}
-			if n, ok := parseIntFast64(part); ok {
-				if strconv.IntSize == 32 && (n < math.MinInt32 || n > math.MaxInt32) {
-					return strconv.ErrRange
-				}
-				arr = append(arr, int(n))
-			} else {
-				n, err := strconv.ParseInt(part, 10, strconv.IntSize)
-				if err != nil {
-					return err
-				}
-				arr = append(arr, int(n))
-			}
-			if i < 0 {
-				break
-			}
-			s = s[i+1:]
+		arr, err := parseIntCSVFast(val, *dest)
+		if err != nil {
+			return err
 		}
 		*dest = arr
 		return nil
 	case *[]int8:
-		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
+		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -339,7 +402,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]int16:
-		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
+		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -367,7 +430,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]int32:
-		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
+		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -395,7 +458,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]int64:
-		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
+		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -420,7 +483,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]uint:
-		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
+		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -448,7 +511,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]uint8:
-		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
+		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -476,7 +539,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]uint16:
-		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
+		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -504,7 +567,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]uint32:
-		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
+		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -532,7 +595,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]uint64:
-		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
+		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -557,7 +620,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]float32:
-		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
+		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -578,7 +641,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]float64:
-		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
+		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')
@@ -599,7 +662,7 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]bool:
-		arr := reuseOrMakeSlice(*dest, strings.Count(val, ",")+1)
+		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
 			i := strings.IndexByte(s, ',')

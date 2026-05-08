@@ -141,3 +141,46 @@ func TestTryParseIntegerScalarFastPaths(t *testing.T) {
 		}
 	})
 }
+
+func TestTryParseSliceFastPaths(t *testing.T) {
+	t.Parallel()
+
+	t.Run("int slice reuses destination", func(t *testing.T) {
+		out := make([]int, 0, 4)
+		if err := TryParse("1,-2,+3,4", &out); err != nil {
+			t.Fatalf("TryParse int slice: %v", err)
+		}
+		if got, want := len(out), 4; got != want {
+			t.Fatalf("len=%d want %d", got, want)
+		}
+		want := []int{1, -2, 3, 4}
+		for i := range want {
+			if out[i] != want[i] {
+				t.Fatalf("out[%d]=%d want %d", i, out[i], want[i])
+			}
+		}
+	})
+
+	t.Run("int slice rejects malformed token", func(t *testing.T) {
+		var out []int
+		if err := TryParse("1,,2", &out); err == nil {
+			t.Fatalf("expected malformed int slice error")
+		}
+		if err := TryParse("1,", &out); err == nil {
+			t.Fatalf("expected trailing comma error")
+		}
+	})
+
+	t.Run("string slice reuses destination", func(t *testing.T) {
+		out := make([]string, 0, 3)
+		if err := TryParse("alpha,beta,gamma", &out); err != nil {
+			t.Fatalf("TryParse string slice: %v", err)
+		}
+		want := []string{"alpha", "beta", "gamma"}
+		for i := range want {
+			if out[i] != want[i] {
+				t.Fatalf("out[%d]=%q want %q", i, out[i], want[i])
+			}
+		}
+	})
+}

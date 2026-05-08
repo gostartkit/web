@@ -17,6 +17,9 @@ printf '\nComparison vs %s\n\n' "$BASELINE_FILE"
 awk -v show_missing="$SHOW_MISSING" '
 function pct(curr, base) {
 	if (base == 0) {
+		if (curr == 0) {
+			return "+0.00%"
+		}
 		return "n/a"
 	}
 	return sprintf("%+.2f%%", ((curr - base) / base) * 100)

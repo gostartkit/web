@@ -362,11 +362,11 @@ app.SetErrorHandler(web.JSONErrorHandler(true))
 }
 ```
 
-如果是重定向，不要只返回一个状态错误，直接使用 `web.Redirect(...)`：
+如果是重定向，优先使用 `c.Redirect(...)`：
 
 ```go
 app.Get("/old-home", func(c *web.Ctx) (any, error) {
-	return web.Redirect("/new-home", http.StatusMovedPermanently)
+	return nil, c.Redirect(http.StatusMovedPermanently, "/new-home")
 })
 ```
 

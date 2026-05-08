@@ -367,11 +367,11 @@ That produces a body like:
 }
 ```
 
-For redirects, return `web.Redirect(...)`:
+For redirects, prefer `c.Redirect(...)`:
 
 ```go
 app.Get("/old-home", func(c *web.Ctx) (any, error) {
-	return web.Redirect("/new-home", http.StatusMovedPermanently)
+	return nil, c.Redirect(http.StatusMovedPermanently, "/new-home")
 })
 ```
 

@@ -157,7 +157,9 @@ func NewErr(code int, msg string) error {
 //
 // cb is invoked by the framework error path with the original ResponseWriter and
 // Request. This is useful for redirects or compatibility responses that need to
-// bypass the normal content negotiation writer.
+// bypass the normal content negotiation writer. Custom response errors bypass
+// Application error handlers so that already-defined response semantics are
+// preserved.
 func NewErrFn(code int, msg string, cb Fn) error {
 	return &errFn{
 		cb: cb,

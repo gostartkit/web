@@ -178,6 +178,10 @@ func parseBoolFast(s string) (bool, bool) {
 //
 // The returned error carries code and writes through http.Redirect on the
 // framework error path.
+//
+// Deprecated: prefer c.Redirect(statusCode, url) from a handler:
+//
+//	return nil, c.Redirect(http.StatusFound, "/login")
 func Redirect(url string, code int) (any, error) {
 	return nil, NewErrFn(code, "REDIRECT", func(w http.ResponseWriter, r *http.Request) error {
 		http.Redirect(w, r, url, code)

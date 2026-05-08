@@ -1,9 +1,12 @@
 package web
 
 import (
+	"bytes"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -354,6 +357,124 @@ func TestRedirectHandling(t *testing.T) {
 	}
 	if rec.Header().Get("Location") != url {
 		t.Errorf("Expected Location header '%s', but got %s", url, rec.Header().Get("Location"))
+	}
+}
+
+func TestCtxRedirectHandling(t *testing.T) {
+	app := New()
+
+	rel := "/redirect-ctx/"
+	url := "/new-location-ctx/"
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, rel, nil)
+
+	app.Get(rel, func(c *Ctx) (any, error) {
+		return nil, c.Redirect(http.StatusFound, url)
+	})
+
+	app.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusFound {
+		t.Errorf("Expected status code 302, but got %d", rec.Code)
+	}
+	if rec.Header().Get("Location") != url {
+		t.Errorf("Expected Location header '%s', but got %s", url, rec.Header().Get("Location"))
+	}
+}
+
+func TestDeprecatedRedirectAliasBypassesCustomErrorHandler(t *testing.T) {
+	app := New()
+	app.SetErrorHandler(JSONErrorHandler(true))
+
+	rel := "/redirect-legacy/"
+	url := "/new-location-legacy/"
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, rel, nil)
+
+	app.Get(rel, func(c *Ctx) (any, error) {
+		return Redirect(url, http.StatusMovedPermanently)
+	})
+
+	app.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusMovedPermanently {
+		t.Errorf("Expected status code 301, but got %d", rec.Code)
+	}
+	if rec.Header().Get("Location") != url {
+		t.Errorf("Expected Location header '%s', but got %s", url, rec.Header().Get("Location"))
+	}
+	if got := rec.Header().Get("Content-Type"); got == "application/json" {
+		t.Errorf("Expected deprecated redirect alias to bypass JSON error handler, got content type %q", got)
+	}
+}
+
+func TestApplicationInfoLoggerUsesLogfmt(t *testing.T) {
+	var buf bytes.Buffer
+
+	app := New()
+	app.SetInfoLogger(log.New(&buf, "", 0))
+	app.Get("/log", func(c *Ctx) (any, error) {
+		c.Init(42)
+		return map[string]bool{"ok": true}, nil
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/log", nil)
+	req.RemoteAddr = "127.0.0.1:1234"
+	req.Host = "api.example.test"
+	app.ServeHTTP(rec, req)
+
+	got := strings.TrimSpace(buf.String())
+	want := `level="info" event="request" remote_addr="127.0.0.1:1234" host="api.example.test" user_id=42 method="GET" path="/log" status=200`
+	if got != want {
+		t.Fatalf("unexpected info log:\n got: %s\nwant: %s", got, want)
+	}
+}
+
+func TestApplicationErrLoggerUsesLogfmt(t *testing.T) {
+	var buf bytes.Buffer
+
+	app := New()
+	app.SetErrLogger(log.New(&buf, "", 0))
+	app.Get("/err-log", func(c *Ctx) (any, error) {
+		c.Init(7)
+		return nil, ErrNotFound
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/err-log", nil)
+	req.RemoteAddr = "127.0.0.1:5678"
+	req.Host = "api.example.test"
+	app.ServeHTTP(rec, req)
+
+	got := strings.TrimSpace(buf.String())
+	want := `level="error" event="request" remote_addr="127.0.0.1:5678" host="api.example.test" user_id=7 method="GET" path="/err-log" status=404 error="NOTFOUND"`
+	if got != want {
+		t.Fatalf("unexpected error log:\n got: %s\nwant: %s", got, want)
+	}
+}
+
+func TestApplicationPanicLoggerUsesLogfmt(t *testing.T) {
+	var buf bytes.Buffer
+
+	app := New()
+	app.SetErrLogger(log.New(&buf, "", 0))
+	app.Get("/panic-log", func(c *Ctx) (any, error) {
+		panic("boom")
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/panic-log", nil)
+	req.RemoteAddr = "127.0.0.1:9999"
+	req.Host = "api.example.test"
+	app.ServeHTTP(rec, req)
+
+	got := strings.TrimSpace(buf.String())
+	want := `level="error" event="panic" remote_addr="127.0.0.1:9999" host="api.example.test" method="GET" path="/panic-log" error="boom"`
+	if got != want {
+		t.Fatalf("unexpected panic log:\n got: %s\nwant: %s", got, want)
 	}
 }
 

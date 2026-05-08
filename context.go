@@ -926,6 +926,21 @@ func (c *Ctx) String(statusCode int, body string) error {
 	return err
 }
 
+// Redirect writes an HTTP redirect immediately.
+//
+// A zero status defaults to 302 Found. Redirect sets the Location header and
+// writes using the standard library redirect helper. In new code, prefer this
+// method over returning the deprecated package-level Redirect helper.
+func (c *Ctx) Redirect(statusCode int, url string) error {
+	if statusCode == 0 {
+		statusCode = http.StatusFound
+	}
+	http.Redirect(c.w, c.r, url, statusCode)
+	c.statusCode = statusCode
+	c.responseCommitted = true
+	return nil
+}
+
 // Blob writes raw bytes immediately with the provided content type.
 //
 // A zero status defaults to 200 OK. Blob is useful for pre-encoded bytes in hot

@@ -3,10 +3,12 @@ package web
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -108,7 +110,8 @@ func New(options ...Option) *Application {
 // WithInfoLogger configures the informational logger used by the application.
 //
 // The logger is used for successful framework-managed route completions. Passing
-// nil disables informational logging.
+// nil disables informational logging. Framework-emitted request logs use logfmt
+// key/value fields.
 func WithInfoLogger(logger *log.Logger) Option {
 	return func(app *Application) {
 		app.info = logger
@@ -118,7 +121,8 @@ func WithInfoLogger(logger *log.Logger) Option {
 // WithErrLogger configures the error logger used by the application.
 //
 // The logger is used for route errors, write errors, and recovered panics handled
-// by Application.recv. Passing nil disables error logging.
+// by Application.recv. Passing nil disables error logging. Framework-emitted
+// error logs use logfmt key/value fields.
 func WithErrLogger(logger *log.Logger) Option {
 	return func(app *Application) {
 		app.err = logger
@@ -188,6 +192,7 @@ func WithMethodNotAllowed(handler http.Handler) Option {
 // SetInfoLogger sets the informational logger used after successful requests.
 //
 // This setter is equivalent to constructing the application with WithInfoLogger.
+// Framework-emitted request logs use logfmt key/value fields.
 func (app *Application) SetInfoLogger(logger *log.Logger) {
 	app.info = logger
 }
@@ -195,6 +200,7 @@ func (app *Application) SetInfoLogger(logger *log.Logger) {
 // SetErrLogger sets the logger used for route, write, and panic errors.
 //
 // This setter is equivalent to constructing the application with WithErrLogger.
+// Framework-emitted error logs use logfmt key/value fields.
 func (app *Application) SetErrLogger(logger *log.Logger) {
 	app.err = logger
 }
@@ -474,10 +480,10 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					app.putParams(params)
 					releaseCtx(c)
 					if writeErr != nil && errLogger != nil {
-						errLogger.Printf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, writeErr)
+						errLogger.Print(formatRequestLog("error", "write_error", r, userID, rel, code, writeErr))
 					}
 					if errLogger != nil {
-						errLogger.Printf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, err)
+						errLogger.Print(formatRequestLog("error", "request", r, userID, rel, code, err))
 					}
 
 					return
@@ -497,13 +503,13 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					releaseCtx(c)
 					if err != nil {
 						if errLogger != nil {
-							errLogger.Printf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, err)
+							errLogger.Print(formatRequestLog("error", "write_error", r, userID, rel, code, err))
 						}
 						return
 					}
 
 					if infoLogger != nil {
-						infoLogger.Printf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, userID, r.Method, rel, code)
+						infoLogger.Print(formatRequestLog("info", "request", r, userID, rel, code, nil))
 					}
 
 					if rel, ok := val.(IRelease); ok {
@@ -522,7 +528,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					}
 
 					if infoLogger != nil {
-						infoLogger.Printf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, userID, r.Method, rel, code)
+						infoLogger.Print(formatRequestLog("info", "request", r, userID, rel, code, nil))
 					}
 				}
 
@@ -542,10 +548,10 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					app.putParamValues(c.routeParamExtraValues)
 					releaseCtx(c)
 					if writeErr != nil && errLogger != nil {
-						errLogger.Printf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, writeErr)
+						errLogger.Print(formatRequestLog("error", "write_error", r, userID, rel, code, writeErr))
 					}
 					if errLogger != nil {
-						errLogger.Printf("%s %s %d %s %s %d %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, err)
+						errLogger.Print(formatRequestLog("error", "request", r, userID, rel, code, err))
 					}
 
 					return
@@ -565,13 +571,13 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					releaseCtx(c)
 					if err != nil {
 						if errLogger != nil {
-							errLogger.Printf("%s %s %d %s %s %d write error: %v", r.RemoteAddr, r.Host, userID, r.Method, rel, code, err)
+							errLogger.Print(formatRequestLog("error", "write_error", r, userID, rel, code, err))
 						}
 						return
 					}
 
 					if infoLogger != nil {
-						infoLogger.Printf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, userID, r.Method, rel, code)
+						infoLogger.Print(formatRequestLog("info", "request", r, userID, rel, code, nil))
 					}
 
 					if rel, ok := val.(IRelease); ok {
@@ -590,7 +596,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					}
 
 					if infoLogger != nil {
-						infoLogger.Printf("%s %s %d %s %s %d", r.RemoteAddr, r.Host, userID, r.Method, rel, code)
+						infoLogger.Print(formatRequestLog("info", "request", r, userID, rel, code, nil))
 					}
 				}
 
@@ -628,6 +634,15 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *Application) handleError(c *Ctx, err error) (int, error) {
+	if e, ok := err.(*errFn); ok {
+		code := e.code
+		if cbErr := e.cb(c.w, c.r); cbErr == nil {
+			return code, nil
+		} else {
+			err = cbErr
+		}
+	}
+
 	if app.errorHandler != nil {
 		if nextErr := app.errorHandler(c, err); nextErr == nil {
 			return errCode(err), nil
@@ -637,15 +652,6 @@ func (app *Application) handleError(c *Ctx, err error) (int, error) {
 	}
 
 	code := errCode(err)
-	if e, ok := err.(*errFn); ok {
-		if cbErr := e.cb(c.w, c.r); cbErr == nil {
-			return code, nil
-		} else {
-			err = cbErr
-			code = errCode(err)
-		}
-	}
-
 	mt := c.responseMediaType()
 	writeCodeByMedia(c.w, mt, code)
 	return code, c.writeMedia(mt, err.Error())
@@ -974,7 +980,68 @@ func (app *Application) recv(w http.ResponseWriter, r *http.Request) {
 		if app.panic != nil {
 			app.panic(w, r, rcv)
 		} else {
-			app.Errf("%s %s %s %s rcv: %v", r.RemoteAddr, r.Host, r.Method, r.URL.Path, rcv)
+			app.Errf("%s", formatPanicLog(r, rcv))
 		}
 	}
+}
+
+func formatRequestLog(level string, event string, r *http.Request, userID uint64, path string, status int, err error) string {
+	var b strings.Builder
+	b.Grow(160)
+	appendLogfmtString(&b, "level", level)
+	appendLogfmtString(&b, "event", event)
+	appendLogfmtString(&b, "remote_addr", r.RemoteAddr)
+	appendLogfmtString(&b, "host", r.Host)
+	appendLogfmtUint(&b, "user_id", userID)
+	appendLogfmtString(&b, "method", r.Method)
+	appendLogfmtString(&b, "path", path)
+	appendLogfmtInt(&b, "status", status)
+	if err != nil {
+		appendLogfmtString(&b, "error", err.Error())
+	}
+	return b.String()
+}
+
+func formatPanicLog(r *http.Request, recovered any) string {
+	var b strings.Builder
+	b.Grow(128)
+	appendLogfmtString(&b, "level", "error")
+	appendLogfmtString(&b, "event", "panic")
+	appendLogfmtString(&b, "remote_addr", r.RemoteAddr)
+	appendLogfmtString(&b, "host", r.Host)
+	appendLogfmtString(&b, "method", r.Method)
+	appendLogfmtString(&b, "path", r.URL.Path)
+	appendLogfmtString(&b, "error", toString(recovered))
+	return b.String()
+}
+
+func appendLogfmtString(b *strings.Builder, key string, value string) {
+	if b.Len() > 0 {
+		b.WriteByte(' ')
+	}
+	b.WriteString(key)
+	b.WriteByte('=')
+	b.WriteString(strconv.Quote(value))
+}
+
+func appendLogfmtInt(b *strings.Builder, key string, value int) {
+	if b.Len() > 0 {
+		b.WriteByte(' ')
+	}
+	b.WriteString(key)
+	b.WriteByte('=')
+	b.WriteString(strconv.Itoa(value))
+}
+
+func appendLogfmtUint(b *strings.Builder, key string, value uint64) {
+	if b.Len() > 0 {
+		b.WriteByte(' ')
+	}
+	b.WriteString(key)
+	b.WriteByte('=')
+	b.WriteString(strconv.FormatUint(value, 10))
+}
+
+func toString(v any) string {
+	return fmt.Sprint(v)
 }

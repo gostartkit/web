@@ -15,6 +15,8 @@ English Version: [README.md](./README.md)
 | `BenchmarkServeHTTPPathParamJSON` | `182.9 ns/op` | `24 B/op`, `2 alloc/op` |
 | `BenchmarkServeHTTPNoContent` | `19.8 ns/op` | `0 B/op`, `0 alloc/op` |
 | `BenchmarkServeHTTPManualWrite` | `21.4 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkServeHTTPStandardHandler` | `22.9 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkServeHTTPBlob` | `69.9 ns/op` | `16 B/op`, `1 alloc/op` |
 | `BenchmarkServeHTTPStaticJSONRawMessage` | `109.2 ns/op` | `40 B/op`, `2 alloc/op` |
 | `BenchmarkTryParseJSONBodyFast` | `1392.6 ns/op` | `5599 B/op`, `20 alloc/op` |
 | `BenchmarkServeHTTPBinary` | `113.0 ns/op` | `40 B/op`, `2 alloc/op` |
@@ -34,6 +36,8 @@ English Version: [README.md](./README.md)
 - `Memory` 来自 Go benchmark 的 `B/op` 和 `allocs/op`，该快照使用 `-benchmem` 采集。
 - 静态 JSON 响应路径已经压到单次分配。
 - 无内容响应和手写响应路径保持 `0 alloc`。
+- 标准 `net/http` handler 可以以 `0 alloc` 的请求期开销挂载。
+- `Ctx.Blob` 为预编码字节响应提供显式快速路径。
 - 当参数被池化时，参数路由和通配路由变为 `0 alloc`，这已经是 `Application` 的运行方式。
 - 预编码 JSON (`json.RawMessage`) 有独立的快速写出路径。
 - `TryParseJSONBodyFast` 是 JSON 请求体的显式快路径，适用于不要求拒绝未知字段的场景。
@@ -96,6 +100,8 @@ COUNT=3 ./bench/update_snapshot_readme.sh
 ### 性能指南
 
 - 对于二进制/Avro 响应，首选 `[]byte` 或 `web.AvroMarshaler`。
+- 对于需要立即写出的预编码字节响应，优先使用 `c.Blob(...)`。
+- 集成已有 `net/http` handler 时使用 `HandleHTTP`/`GetHTTP`/`PostHTTP`。
 - 如果请求体已经编码完成，优先使用 `PostBytes/PutBytes/PatchBytes/DoBytes`。
 - 如果需要自定义超时、连接池或 transport，优先使用 `*WithClient` 系列 helper。
 - 在热路径中调用 `TryParse(..., &slice)` 时，重用目标切片。
@@ -127,11 +133,13 @@ func main() {
 
 ### API 索引
 
-- `web.New() *Application`
+- `web.New(options ...Option) *Application`
 - 路由注册：
   - `Get`, `Post`, `Put`, `Patch`, `Delete`, `Head`, `Options`, `Handle`
+  - `GetHTTP`, `PostHTTP`, `PutHTTP`, `PatchHTTP`, `DeleteHTTP`, `HeadHTTP`, `OptionsHTTP`, `HandleHTTP`
 - 框架组合：
   - `Use`, `Group`, `SetErrorHandler`, `RegisterReader`, `RegisterWriter`
+  - options: `WithMiddleware`, `WithErrorHandler`, `WithNotFound`, `WithMethodNotAllowed`
 - 服务器生命周期：
   - `ListenAndServe`, `ListenAndServeTLS`, `Shutdown`
 - 辅助函数：
@@ -139,15 +147,17 @@ func main() {
 - 上下文 (`*Ctx`) 常用方法：
   - 请求：`Method`, `Path`, `Query`, `Param`, `Body`, `ContentType`, `BearerToken`, `RequestID`
   - 解析：`TryParseBody`, `TryParseJSONBodyFast`, `TryParseParam`, `TryParseQuery`, `TryParseForm`
-  - 响应：`SetHeader`, `SetCookie`, `AllowCredentials`, 通过 `Accept` 进行内容协商
+  - 响应：`SetHeader`, `SetCookie`, `AllowCredentials`, `JSON`, `String`, `Blob`, `NoContent`, 通过 `Accept` 进行内容协商
 
 ### API 快速参考 (CN)
 
 | 领域 | API | 描述 |
 |---|---|---|
 | 应用程序 | `New()` | 创建应用程序实例 |
+| 应用程序 | `New(WithMiddleware(...), WithErrorHandler(...))` | 使用构造期 options 创建应用程序 |
 | 应用程序 | `Get/Post/Put/Patch/Delete/Head/Options(path, handler)` | 注册路由处理器 |
 | 应用程序 | `Handle(method, path, handler)` | 为任意 HTTP 方法注册路由 |
+| 应用程序 | `GetHTTP/PostHTTP/.../HandleHTTP(path, http.Handler)` | 挂载标准 `net/http` handler |
 | 应用程序 | `Use(middleware...)` | 为后续注册的路由附加应用级中间件 |
 | 应用程序 | `Group(prefix, middleware...)` | 创建带共享前缀和中间件的路由分组 |
 | 应用程序 | `SetErrorHandler(handler)` | 安装自定义路由错误处理器 |
@@ -162,6 +172,7 @@ func main() {
 | 上下文 | `TryParseJSONBodyFast(v)` | 使用 pooled buffer + `json.Unmarshal` 快速解析 JSON 请求体 |
 | 上下文 | `TryParseParam/Query/Form(name, &v)` | 将字符串值解析为类型化值 |
 | 上下文 | `SetHeader`, `SetCookie`, `SetContentType`, `SetStatus` | 写入响应头并覆写默认成功状态码 |
+| 上下文 | `JSON`, `String`, `Blob`, `NoContent` | 用于显式写出的即时响应 helper |
 | 上下文 | `Request()`, `ResponseWriter()`, `Context()` | 访问原始 HTTP 对象 |
 | 中间件 | `RequestID`, `Recover`, `RecoverWithOptions`, `Timeout`, `AccessLog`, `AccessLogWithOptions` | 内建的显式启用中间件 |
 | 客户端 | `Get/Post/Put/Patch/Delete/Do` | 使用 `http.DefaultClient` 的 HTTP 辅助函数 |
@@ -229,11 +240,14 @@ app.Get("/organizations/:id/devices/:device_id", showDevice)
   - `AccessLogWithOptions`
 - 结构化 API 错误通过 `SetErrorHandler(JSONErrorHandler(...))` 显式启用
 - `Reader/Writer` 覆写按媒体类型注册；未注册时不会影响默认热路径
+- 构造期 options 让应用初始化更声明式，同时不增加请求期成本。
+- 已有 `net/http` handler 可以通过 `HandleHTTP`/`GetHTTP` 直接挂载。
 
 ```go
-app := web.New()
-app.Use(web.RequestID("", nil), web.Recover(nil))
-app.SetErrorHandler(web.JSONErrorHandler(true))
+app := web.New(
+	web.WithMiddleware(web.RequestID("", nil), web.Recover(nil)),
+	web.WithErrorHandler(web.JSONErrorHandler(true)),
+)
 
 api := app.Group("/api", web.Timeout(2*time.Second))
 api.Get("/users/:id", func(c *web.Ctx) (any, error) {
@@ -241,6 +255,13 @@ api.Get("/users/:id", func(c *web.Ctx) (any, error) {
 		"id":         c.Param("id"),
 		"request_id": c.RequestID(),
 	}, nil
+})
+
+api.GetHTTP("/metrics", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
+}))
+api.Get("/avatar/:id", func(c *web.Ctx) (any, error) {
+	return nil, c.Blob(http.StatusOK, "image/png", []byte{0x89, 'P', 'N', 'G'})
 })
 ```
 

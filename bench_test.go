@@ -129,6 +129,42 @@ func BenchmarkServeHTTPManualWrite(b *testing.B) {
 	}
 }
 
+func BenchmarkServeHTTPStandardHandler(b *testing.B) {
+	app := New()
+	payload := []byte(`{"ok":true}`)
+	app.GetHTTP("/v1/std", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(payload)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/std", nil)
+	w := newBenchResponseWriter()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w.reset()
+		app.ServeHTTP(w, req)
+	}
+}
+
+func BenchmarkServeHTTPBlob(b *testing.B) {
+	app := New()
+	payload := []byte(`{"ok":true}`)
+	app.Get("/v1/blob", func(c *Ctx) (any, error) {
+		return nil, c.Blob(http.StatusOK, "application/octet-stream", payload)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/blob", nil)
+	w := newBenchResponseWriter()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w.reset()
+		app.ServeHTTP(w, req)
+	}
+}
+
 func BenchmarkServeHTTPCustomJSONWriter(b *testing.B) {
 	app := New()
 	payload := []byte(`{"ok":true}`)

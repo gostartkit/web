@@ -112,6 +112,81 @@ func TestCustomHTTPMethod(t *testing.T) {
 	}
 }
 
+func TestApplicationOptionsAndHTTPHandler(t *testing.T) {
+	middlewareCalled := false
+	app := New(
+		WithMiddleware(func(next Next) Next {
+			return func(c *Ctx) (any, error) {
+				middlewareCalled = true
+				return next(c)
+			}
+		}),
+		WithNotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "custom not found", http.StatusNotFound)
+		})),
+		WithMethodNotAllowed(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "custom method", http.StatusMethodNotAllowed)
+		})),
+	)
+
+	app.GetHTTP("/std/:id", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Handler", "std")
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte(r.URL.Path))
+	}))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/std/42", nil)
+	app.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("Expected status code 202, but got %d", rec.Code)
+	}
+	if got := rec.Header().Get("X-Handler"); got != "std" {
+		t.Fatalf("Expected standard handler header, got %q", got)
+	}
+	if got := rec.Body.String(); got != "/std/42" {
+		t.Fatalf("Expected standard handler body, got %q", got)
+	}
+	if !middlewareCalled {
+		t.Fatalf("Expected option middleware to run")
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/std/42", nil)
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("Expected method-not-allowed handler, got %d", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/missing", nil)
+	app.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("Expected not-found handler, got %d", rec.Code)
+	}
+}
+
+func TestRouteGroupHTTPHandler(t *testing.T) {
+	app := New()
+	api := app.Group("/api")
+
+	api.GetHTTP("/ping", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("pong"))
+	}))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/ping", nil)
+	app.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected status code 200, but got %d", rec.Code)
+	}
+	if got := rec.Body.String(); got != "pong" {
+		t.Fatalf("Expected body pong, got %q", got)
+	}
+}
+
 func TestManualWriteDefaultsToOK(t *testing.T) {
 	app := New()
 

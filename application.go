@@ -64,8 +64,8 @@ type Application struct {
 	MethodNotAllowed http.Handler
 }
 
-// New return *web.Application
-func New() *Application {
+// New returns a configured *web.Application.
+func New(options ...Option) *Application {
 	app := &Application{}
 	app.paramsPool.New = func() any {
 		n := app.maxParams
@@ -83,7 +83,68 @@ func New() *Application {
 		values := make([]string, 0, n)
 		return &values
 	}
+	for _, option := range options {
+		if option != nil {
+			option(app)
+		}
+	}
 	return app
+}
+
+// WithInfoLogger configures the informational logger used by the application.
+func WithInfoLogger(logger *log.Logger) Option {
+	return func(app *Application) {
+		app.info = logger
+	}
+}
+
+// WithErrLogger configures the error logger used by the application.
+func WithErrLogger(logger *log.Logger) Option {
+	return func(app *Application) {
+		app.err = logger
+	}
+}
+
+// WithCORS configures the CORS hook used for automatic OPTIONS responses.
+func WithCORS(cors Cors) Option {
+	return func(app *Application) {
+		app.cors = cors
+	}
+}
+
+// WithPanic configures the panic hook used by the recovery boundary in ServeHTTP.
+func WithPanic(panic Panic) Option {
+	return func(app *Application) {
+		app.panic = panic
+	}
+}
+
+// WithErrorHandler configures the application-level route error handler.
+func WithErrorHandler(handler ErrorHandler) Option {
+	return func(app *Application) {
+		app.errorHandler = handler
+	}
+}
+
+// WithMiddleware appends application middleware for subsequently registered routes.
+func WithMiddleware(middleware ...Middleware) Option {
+	return func(app *Application) {
+		app.Use(middleware...)
+	}
+}
+
+// WithNotFound configures the handler used when no route matches.
+func WithNotFound(handler http.Handler) Option {
+	return func(app *Application) {
+		app.NotFound = handler
+	}
+}
+
+// WithMethodNotAllowed configures the handler used when a path exists for other methods.
+func WithMethodNotAllowed(handler http.Handler) Option {
+	return func(app *Application) {
+		app.MethodNotAllowed = handler
+	}
 }
 
 // SetInfoLogger set info logger
@@ -155,9 +216,30 @@ func (app *Application) Handle(method string, path string, next Next, middleware
 	app.addRoute(method, path, wrapNext(next, app.middleware, Chain(middleware)))
 }
 
+// HTTPHandler adapts a standard net/http handler into a web route handler.
+func HTTPHandler(handler http.Handler) Next {
+	if handler == nil {
+		return nil
+	}
+	return func(c *Ctx) (any, error) {
+		handler.ServeHTTP(c, c.r)
+		return nil, nil
+	}
+}
+
+// HandleHTTP registers a standard net/http handler for an arbitrary HTTP method.
+func (app *Application) HandleHTTP(method string, path string, handler http.Handler, middleware ...Middleware) {
+	app.Handle(method, path, HTTPHandler(handler), middleware...)
+}
+
 // Get method
 func (app *Application) Get(path string, next Next) {
 	app.Handle(http.MethodGet, path, next)
+}
+
+// GetHTTP registers a standard net/http handler for GET.
+func (app *Application) GetHTTP(path string, handler http.Handler) {
+	app.HandleHTTP(http.MethodGet, path, handler)
 }
 
 // Head method
@@ -165,9 +247,19 @@ func (app *Application) Head(path string, cb Next) {
 	app.Handle(http.MethodHead, path, cb)
 }
 
+// HeadHTTP registers a standard net/http handler for HEAD.
+func (app *Application) HeadHTTP(path string, handler http.Handler) {
+	app.HandleHTTP(http.MethodHead, path, handler)
+}
+
 // Post method
 func (app *Application) Post(path string, next Next) {
 	app.Handle(http.MethodPost, path, next)
+}
+
+// PostHTTP registers a standard net/http handler for POST.
+func (app *Application) PostHTTP(path string, handler http.Handler) {
+	app.HandleHTTP(http.MethodPost, path, handler)
 }
 
 // Put method
@@ -175,9 +267,19 @@ func (app *Application) Put(path string, next Next) {
 	app.Handle(http.MethodPut, path, next)
 }
 
+// PutHTTP registers a standard net/http handler for PUT.
+func (app *Application) PutHTTP(path string, handler http.Handler) {
+	app.HandleHTTP(http.MethodPut, path, handler)
+}
+
 // Patch method
 func (app *Application) Patch(path string, next Next) {
 	app.Handle(http.MethodPatch, path, next)
+}
+
+// PatchHTTP registers a standard net/http handler for PATCH.
+func (app *Application) PatchHTTP(path string, handler http.Handler) {
+	app.HandleHTTP(http.MethodPatch, path, handler)
 }
 
 // Delete method
@@ -185,9 +287,19 @@ func (app *Application) Delete(path string, next Next) {
 	app.Handle(http.MethodDelete, path, next)
 }
 
+// DeleteHTTP registers a standard net/http handler for DELETE.
+func (app *Application) DeleteHTTP(path string, handler http.Handler) {
+	app.HandleHTTP(http.MethodDelete, path, handler)
+}
+
 // Options method
 func (app *Application) Options(path string, next Next) {
 	app.Handle(http.MethodOptions, path, next)
+}
+
+// OptionsHTTP registers a standard net/http handler for OPTIONS.
+func (app *Application) OptionsHTTP(path string, handler http.Handler) {
+	app.HandleHTTP(http.MethodOptions, path, handler)
 }
 
 func (app *Application) addRoute(method string, path string, next Next) {
@@ -511,9 +623,19 @@ func (g *RouteGroup) Handle(method string, path string, next Next, middleware ..
 	g.app.addRoute(method, joinPaths(g.prefix, path), wrapNext(next, g.app.middleware, g.middleware, Chain(middleware)))
 }
 
+// HandleHTTP registers a standard net/http handler on the group.
+func (g *RouteGroup) HandleHTTP(method string, path string, handler http.Handler, middleware ...Middleware) {
+	g.Handle(method, path, HTTPHandler(handler), middleware...)
+}
+
 // Get registers a GET route on the group.
 func (g *RouteGroup) Get(path string, next Next) {
 	g.Handle(http.MethodGet, path, next)
+}
+
+// GetHTTP registers a standard net/http handler for GET on the group.
+func (g *RouteGroup) GetHTTP(path string, handler http.Handler) {
+	g.HandleHTTP(http.MethodGet, path, handler)
 }
 
 // Head registers a HEAD route on the group.
@@ -521,9 +643,19 @@ func (g *RouteGroup) Head(path string, next Next) {
 	g.Handle(http.MethodHead, path, next)
 }
 
+// HeadHTTP registers a standard net/http handler for HEAD on the group.
+func (g *RouteGroup) HeadHTTP(path string, handler http.Handler) {
+	g.HandleHTTP(http.MethodHead, path, handler)
+}
+
 // Post registers a POST route on the group.
 func (g *RouteGroup) Post(path string, next Next) {
 	g.Handle(http.MethodPost, path, next)
+}
+
+// PostHTTP registers a standard net/http handler for POST on the group.
+func (g *RouteGroup) PostHTTP(path string, handler http.Handler) {
+	g.HandleHTTP(http.MethodPost, path, handler)
 }
 
 // Put registers a PUT route on the group.
@@ -531,9 +663,19 @@ func (g *RouteGroup) Put(path string, next Next) {
 	g.Handle(http.MethodPut, path, next)
 }
 
+// PutHTTP registers a standard net/http handler for PUT on the group.
+func (g *RouteGroup) PutHTTP(path string, handler http.Handler) {
+	g.HandleHTTP(http.MethodPut, path, handler)
+}
+
 // Patch registers a PATCH route on the group.
 func (g *RouteGroup) Patch(path string, next Next) {
 	g.Handle(http.MethodPatch, path, next)
+}
+
+// PatchHTTP registers a standard net/http handler for PATCH on the group.
+func (g *RouteGroup) PatchHTTP(path string, handler http.Handler) {
+	g.HandleHTTP(http.MethodPatch, path, handler)
 }
 
 // Delete registers a DELETE route on the group.
@@ -541,9 +683,19 @@ func (g *RouteGroup) Delete(path string, next Next) {
 	g.Handle(http.MethodDelete, path, next)
 }
 
+// DeleteHTTP registers a standard net/http handler for DELETE on the group.
+func (g *RouteGroup) DeleteHTTP(path string, handler http.Handler) {
+	g.HandleHTTP(http.MethodDelete, path, handler)
+}
+
 // Options registers an OPTIONS route on the group.
 func (g *RouteGroup) Options(path string, next Next) {
 	g.Handle(http.MethodOptions, path, next)
+}
+
+// OptionsHTTP registers a standard net/http handler for OPTIONS on the group.
+func (g *RouteGroup) OptionsHTTP(path string, handler http.Handler) {
+	g.HandleHTTP(http.MethodOptions, path, handler)
 }
 
 func (app *Application) allowed(path, reqMethod string) []string {

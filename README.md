@@ -15,6 +15,8 @@ Current benchmark snapshot on `darwin/arm64` (`Apple M2`):
 | `BenchmarkServeHTTPPathParamJSON` | `182.9 ns/op` | `24 B/op`, `2 alloc/op` |
 | `BenchmarkServeHTTPNoContent` | `19.8 ns/op` | `0 B/op`, `0 alloc/op` |
 | `BenchmarkServeHTTPManualWrite` | `21.4 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkServeHTTPStandardHandler` | `22.9 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkServeHTTPBlob` | `69.9 ns/op` | `16 B/op`, `1 alloc/op` |
 | `BenchmarkServeHTTPStaticJSONRawMessage` | `109.2 ns/op` | `40 B/op`, `2 alloc/op` |
 | `BenchmarkTryParseJSONBodyFast` | `1392.6 ns/op` | `5599 B/op`, `20 alloc/op` |
 | `BenchmarkServeHTTPBinary` | `113.0 ns/op` | `40 B/op`, `2 alloc/op` |
@@ -34,6 +36,8 @@ Notes:
 - `Memory` reports Go benchmark `B/op` and `allocs/op`; the snapshot was collected with `-benchmem`.
 - Static JSON responses are down to a single allocation on the request path.
 - No-content and manual-write response paths stay at `0 alloc`.
+- Standard `net/http` handlers can be mounted with `0 alloc` request overhead.
+- `Ctx.Blob` provides an explicit fast path for pre-encoded byte responses.
 - Param and catch-all routing become `0 alloc` when params are pooled, which is already how `Application` runs.
 - Pre-encoded JSON (`json.RawMessage`) has a dedicated write fast path.
 - `TryParseJSONBodyFast` is the opt-in fast path for JSON request bodies when unknown-field rejection is not required.
@@ -96,6 +100,8 @@ Files:
 ### Performance Guidelines
 
 - Prefer `[]byte` or `web.AvroMarshaler` for binary/avro responses.
+- Prefer `c.Blob(...)` for pre-encoded byte responses that should write immediately.
+- Use `HandleHTTP`/`GetHTTP`/`PostHTTP` when integrating existing `net/http` handlers.
 - Prefer `PostBytes/PutBytes/PatchBytes/DoBytes` when the request body is already encoded.
 - Prefer `*WithClient` helpers when you need tuned timeouts, connection pooling, or a custom transport.
 - Reuse destination slices when calling `TryParse(..., &slice)` in hot paths.
@@ -127,11 +133,13 @@ func main() {
 
 ### API Index
 
-- `web.New() *Application`
+- `web.New(options ...Option) *Application`
 - route registration:
   - `Get`, `Post`, `Put`, `Patch`, `Delete`, `Head`, `Options`, `Handle`
+  - `GetHTTP`, `PostHTTP`, `PutHTTP`, `PatchHTTP`, `DeleteHTTP`, `HeadHTTP`, `OptionsHTTP`, `HandleHTTP`
 - framework composition:
   - `Use`, `Group`, `SetErrorHandler`, `RegisterReader`, `RegisterWriter`
+  - options: `WithMiddleware`, `WithErrorHandler`, `WithNotFound`, `WithMethodNotAllowed`
 - server lifecycle:
   - `ListenAndServe`, `ListenAndServeTLS`, `Shutdown`
 - helpers:
@@ -139,15 +147,17 @@ func main() {
 - context (`*Ctx`) common methods:
   - request: `Method`, `Path`, `Query`, `Param`, `Body`, `ContentType`, `BearerToken`, `RequestID`
   - parse: `TryParseBody`, `TryParseJSONBodyFast`, `TryParseParam`, `TryParseQuery`, `TryParseForm`
-  - response: `SetHeader`, `SetCookie`, `AllowCredentials`, content negotiation via `Accept`
+  - response: `SetHeader`, `SetCookie`, `AllowCredentials`, `JSON`, `String`, `Blob`, `NoContent`, content negotiation via `Accept`
 
 ### API Quick Reference (EN)
 
 | Area | API | Description |
 |---|---|---|
 | Application | `New()` | Create app instance |
+| Application | `New(WithMiddleware(...), WithErrorHandler(...))` | Create an app with construction-time options |
 | Application | `Get/Post/Put/Patch/Delete/Head/Options(path, handler)` | Register route handler |
 | Application | `Handle(method, path, handler)` | Register route handler for an arbitrary HTTP method |
+| Application | `GetHTTP/PostHTTP/.../HandleHTTP(path, http.Handler)` | Mount standard `net/http` handlers |
 | Application | `Use(middleware...)` | Apply app-level middleware to subsequently registered routes |
 | Application | `Group(prefix, middleware...)` | Create route groups with shared prefix and middleware |
 | Application | `SetErrorHandler(handler)` | Install a custom route error handler |
@@ -162,6 +172,7 @@ func main() {
 | Context | `TryParseJSONBodyFast(v)` | Fast JSON body parse using pooled buffer + `json.Unmarshal` |
 | Context | `TryParseParam/Query/Form(name, &v)` | Parse string values into typed value |
 | Context | `SetHeader`, `SetCookie`, `SetContentType`, `SetStatus` | Write response headers and override the default success status |
+| Context | `JSON`, `String`, `Blob`, `NoContent` | Immediate response helpers for explicit writes |
 | Context | `Request()`, `ResponseWriter()`, `Context()` | Access raw HTTP objects |
 | Middleware | `RequestID`, `Recover`, `RecoverWithOptions`, `Timeout`, `AccessLog`, `AccessLogWithOptions` | Built-in opt-in middleware helpers |
 | Client | `Get/Post/Put/Patch/Delete/Do` | HTTP client helpers using `http.DefaultClient` |
@@ -229,11 +240,14 @@ With the routes above:
   - `AccessLogWithOptions`
 - Structured API errors are opt-in via `SetErrorHandler(JSONErrorHandler(...))`
 - Reader/writer overrides are media-type specific and do not affect the default hot path unless registered
+- Construction-time options let setup stay declarative without changing request-time cost.
+- Existing `net/http` handlers can be mounted directly with `HandleHTTP`/`GetHTTP`.
 
 ```go
-app := web.New()
-app.Use(web.RequestID("", nil), web.Recover(nil))
-app.SetErrorHandler(web.JSONErrorHandler(true))
+app := web.New(
+	web.WithMiddleware(web.RequestID("", nil), web.Recover(nil)),
+	web.WithErrorHandler(web.JSONErrorHandler(true)),
+)
 
 api := app.Group("/api", web.Timeout(2*time.Second))
 api.Get("/users/:id", func(c *web.Ctx) (any, error) {
@@ -241,6 +255,13 @@ api.Get("/users/:id", func(c *web.Ctx) (any, error) {
 		"id":         c.Param("id"),
 		"request_id": c.RequestID(),
 	}, nil
+})
+
+api.GetHTTP("/metrics", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
+}))
+api.Get("/avatar/:id", func(c *web.Ctx) (any, error) {
+	return nil, c.Blob(http.StatusOK, "image/png", []byte{0x89, 'P', 'N', 'G'})
 })
 ```
 

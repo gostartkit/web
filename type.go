@@ -10,6 +10,9 @@ type IRelease interface {
 // Next
 type Next func(c *Ctx) (any, error)
 
+// Option configures an Application at construction time.
+type Option func(*Application)
+
 // Cors
 type Cors func(set func(key string, value string), origin string, allow []string)
 

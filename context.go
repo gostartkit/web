@@ -756,6 +756,56 @@ func (c *Ctx) SetHeader(key string, value string) {
 	c.w.Header().Set(key, value)
 }
 
+// NoContent writes a response status without a body. A zero status defaults to 204.
+func (c *Ctx) NoContent(statusCode int) error {
+	if statusCode == 0 {
+		statusCode = http.StatusNoContent
+	}
+	c.WriteHeader(statusCode)
+	return nil
+}
+
+// JSON writes a JSON response immediately. A zero status defaults to 200.
+func (c *Ctx) JSON(statusCode int, val any) error {
+	if statusCode == 0 {
+		statusCode = http.StatusOK
+	}
+	if !c.responseCommitted {
+		writeCodeByMedia(c.w, mediaJSON, statusCode)
+		c.statusCode = statusCode
+		c.responseCommitted = true
+	}
+	return c.writeMedia(mediaJSON, val)
+}
+
+// String writes a text response immediately. A zero status defaults to 200.
+func (c *Ctx) String(statusCode int, body string) error {
+	if statusCode == 0 {
+		statusCode = http.StatusOK
+	}
+	if !c.responseCommitted {
+		c.SetContentType("text/plain; charset=utf-8")
+		c.WriteHeader(statusCode)
+	}
+	_, err := io.WriteString(c.w, body)
+	return err
+}
+
+// Blob writes raw bytes with the provided content type. A zero status defaults to 200.
+func (c *Ctx) Blob(statusCode int, contentType string, body []byte) error {
+	if statusCode == 0 {
+		statusCode = http.StatusOK
+	}
+	if !c.responseCommitted {
+		if contentType != "" {
+			c.SetContentType(contentType)
+		}
+		c.WriteHeader(statusCode)
+	}
+	_, err := c.w.Write(body)
+	return err
+}
+
 // write write data base on accept header
 func (c *Ctx) write(val any) error {
 	return c.writeMedia(c.responseMediaType(), val)

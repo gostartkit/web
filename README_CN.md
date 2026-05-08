@@ -11,35 +11,42 @@ English Version: [README.md](./README.md)
 <!-- BENCHMARK_SNAPSHOT:BEGIN -->
 | Benchmark | Result | Memory |
 |---|---:|---:|
-| `BenchmarkServeHTTPStaticJSON` | `152.4 ns/op` | `16 B/op`, `1 alloc/op` |
-| `BenchmarkServeHTTPPathParamJSON` | `196.3 ns/op` | `24 B/op`, `2 alloc/op` |
-| `BenchmarkServeHTTPStaticJSONRawMessage` | `119.9 ns/op` | `40 B/op`, `2 alloc/op` |
-| `BenchmarkTryParseJSONBodyFast` | `1417.0 ns/op` | `5600 B/op`, `20 alloc/op` |
-| `BenchmarkPostBytes` | `38264.0 ns/op` | `6165 B/op`, `74 alloc/op` |
-| `BenchmarkDoReqWithClientRawBody` | `189.4 ns/op` | `328 B/op`, `7 alloc/op` |
-| `BenchmarkServeHTTPBinary` | `125.2 ns/op` | `40 B/op`, `2 alloc/op` |
-| `BenchmarkServeHTTPAvro` | `124.7 ns/op` | `40 B/op`, `2 alloc/op` |
-| `BenchmarkTreeGetValueParamPooled` | `14.2 ns/op` | `0 B/op`, `0 alloc/op` |
-| `BenchmarkTryParseIntSlice` | `121.2 ns/op` | `0 B/op`, `0 alloc/op` |
-| `BenchmarkTryParseStringSlice` | `34.9 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkServeHTTPStaticJSON` | `138.7 ns/op` | `16 B/op`, `1 alloc/op` |
+| `BenchmarkServeHTTPPathParamJSON` | `182.9 ns/op` | `24 B/op`, `2 alloc/op` |
+| `BenchmarkServeHTTPNoContent` | `19.8 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkServeHTTPManualWrite` | `21.4 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkServeHTTPStaticJSONRawMessage` | `109.2 ns/op` | `40 B/op`, `2 alloc/op` |
+| `BenchmarkTryParseJSONBodyFast` | `1392.6 ns/op` | `5599 B/op`, `20 alloc/op` |
+| `BenchmarkServeHTTPBinary` | `113.0 ns/op` | `40 B/op`, `2 alloc/op` |
+| `BenchmarkServeHTTPAvro` | `113.1 ns/op` | `40 B/op`, `2 alloc/op` |
+| `BenchmarkTreeGetValueParamPooled` | `14.7 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkCtxParamUint64` | `10.8 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkTryParseInt64` | `10.6 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkTryParseUint64` | `10.0 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkTryParseIntSlice` | `32.7 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkTryParseStringSlice` | `23.0 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkParseMediaTypeExactJSON` | `1.9 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkAcceptMediaTypeEmpty` | `2.0 ns/op` | `0 B/op`, `0 alloc/op` |
 <!-- BENCHMARK_SNAPSHOT:END -->
 
 备注：
 
+- `Memory` 来自 Go benchmark 的 `B/op` 和 `allocs/op`，该快照使用 `-benchmem` 采集。
 - 静态 JSON 响应路径已经压到单次分配。
+- 无内容响应和手写响应路径保持 `0 alloc`。
 - 当参数被池化时，参数路由和通配路由变为 `0 alloc`，这已经是 `Application` 的运行方式。
 - 预编码 JSON (`json.RawMessage`) 有独立的快速写出路径。
 - `TryParseJSONBodyFast` 是 JSON 请求体的显式快路径，适用于不要求拒绝未知字段的场景。
 - 客户端响应解码通过 `*web.RawBody` 提供显式的原始字节快速路径。
 - 二进制和 Avro 响应具有直接的快速路径。
-- 切片解析热路径避免了中间 `strings.Split`，现在可以做到 `0 alloc`。
+- 整数和切片解析热路径避免了额外扫描和中间切片，同时保持 `0 alloc`。
 
 ### 基准测试流程
 
 运行当前的基准测试套件：
 
 ```bash
-go test -run '^$' -bench 'Benchmark(ServeHTTP|TreeGetValue|TryParse|TryInt|TryUint|TryBool|Post(JSON|Bytes)|DoReqWithClient(Struct|RawBody)|CtxWriteBinaryReader)' -benchmem ./...
+go test -run '^$' -bench 'Benchmark(ServeHTTP|TreeGetValue|TryParse|TryInt|TryUint|TryBool|Post(JSON|Bytes)|DoReqWithClient(Struct|RawBody)|Ctx|ParamsVal|ParseMediaType|AcceptMediaType)' -benchmem ./...
 ```
 
 将当前结果与提交的基准线进行比较：

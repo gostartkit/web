@@ -11,35 +11,42 @@ Current benchmark snapshot on `darwin/arm64` (`Apple M2`):
 <!-- BENCHMARK_SNAPSHOT:BEGIN -->
 | Benchmark | Result | Memory |
 |---|---:|---:|
-| `BenchmarkServeHTTPStaticJSON` | `152.4 ns/op` | `16 B/op`, `1 alloc/op` |
-| `BenchmarkServeHTTPPathParamJSON` | `196.3 ns/op` | `24 B/op`, `2 alloc/op` |
-| `BenchmarkServeHTTPStaticJSONRawMessage` | `119.9 ns/op` | `40 B/op`, `2 alloc/op` |
-| `BenchmarkTryParseJSONBodyFast` | `1417.0 ns/op` | `5600 B/op`, `20 alloc/op` |
-| `BenchmarkPostBytes` | `38264.0 ns/op` | `6165 B/op`, `74 alloc/op` |
-| `BenchmarkDoReqWithClientRawBody` | `189.4 ns/op` | `328 B/op`, `7 alloc/op` |
-| `BenchmarkServeHTTPBinary` | `125.2 ns/op` | `40 B/op`, `2 alloc/op` |
-| `BenchmarkServeHTTPAvro` | `124.7 ns/op` | `40 B/op`, `2 alloc/op` |
-| `BenchmarkTreeGetValueParamPooled` | `14.2 ns/op` | `0 B/op`, `0 alloc/op` |
-| `BenchmarkTryParseIntSlice` | `121.2 ns/op` | `0 B/op`, `0 alloc/op` |
-| `BenchmarkTryParseStringSlice` | `34.9 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkServeHTTPStaticJSON` | `138.7 ns/op` | `16 B/op`, `1 alloc/op` |
+| `BenchmarkServeHTTPPathParamJSON` | `182.9 ns/op` | `24 B/op`, `2 alloc/op` |
+| `BenchmarkServeHTTPNoContent` | `19.8 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkServeHTTPManualWrite` | `21.4 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkServeHTTPStaticJSONRawMessage` | `109.2 ns/op` | `40 B/op`, `2 alloc/op` |
+| `BenchmarkTryParseJSONBodyFast` | `1392.6 ns/op` | `5599 B/op`, `20 alloc/op` |
+| `BenchmarkServeHTTPBinary` | `113.0 ns/op` | `40 B/op`, `2 alloc/op` |
+| `BenchmarkServeHTTPAvro` | `113.1 ns/op` | `40 B/op`, `2 alloc/op` |
+| `BenchmarkTreeGetValueParamPooled` | `14.7 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkCtxParamUint64` | `10.8 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkTryParseInt64` | `10.6 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkTryParseUint64` | `10.0 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkTryParseIntSlice` | `32.7 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkTryParseStringSlice` | `23.0 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkParseMediaTypeExactJSON` | `1.9 ns/op` | `0 B/op`, `0 alloc/op` |
+| `BenchmarkAcceptMediaTypeEmpty` | `2.0 ns/op` | `0 B/op`, `0 alloc/op` |
 <!-- BENCHMARK_SNAPSHOT:END -->
 
 Notes:
 
+- `Memory` reports Go benchmark `B/op` and `allocs/op`; the snapshot was collected with `-benchmem`.
 - Static JSON responses are down to a single allocation on the request path.
+- No-content and manual-write response paths stay at `0 alloc`.
 - Param and catch-all routing become `0 alloc` when params are pooled, which is already how `Application` runs.
 - Pre-encoded JSON (`json.RawMessage`) has a dedicated write fast path.
 - `TryParseJSONBodyFast` is the opt-in fast path for JSON request bodies when unknown-field rejection is not required.
 - Client response decoding has an explicit raw-body fast path via `*web.RawBody`.
 - Binary and avro responses have direct fast paths.
-- Slice parsing hot paths avoid `strings.Split` and now run with `0 alloc`.
+- Integer and slice parsing hot paths avoid extra scans and intermediate slices while remaining `0 alloc`.
 
 ### Benchmark Workflow
 
 Run the current benchmark suite:
 
 ```bash
-go test -run '^$' -bench 'Benchmark(ServeHTTP|TreeGetValue|TryParse|TryInt|TryUint|TryBool|Post(JSON|Bytes)|DoReqWithClient(Struct|RawBody)|CtxWriteBinaryReader)' -benchmem ./...
+go test -run '^$' -bench 'Benchmark(ServeHTTP|TreeGetValue|TryParse|TryInt|TryUint|TryBool|Post(JSON|Bytes)|DoReqWithClient(Struct|RawBody)|Ctx|ParamsVal|ParseMediaType|AcceptMediaType)' -benchmem ./...
 ```
 
 Compare current results against the committed baseline:

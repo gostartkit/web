@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -66,6 +67,80 @@ type AccessLogOptions struct {
 	StatusMapper func(c *Ctx, val any, err error) int
 }
 
+// CORSOptions configures CORS headers for both automatic OPTIONS responses and route middleware.
+//
+// Use NewCORS with Application.SetCORS or WithCORS for the framework's automatic
+// OPTIONS handling. Use CORSMiddleware when matched routes should also emit CORS
+// headers on normal responses.
+type CORSOptions struct {
+	// AllowOrigins lists the allowed origins. A literal "*" allows any origin.
+	// When AllowCredentials is true and "*" is configured, the request Origin is
+	// echoed back instead because wildcard credentials are not valid CORS.
+	AllowOrigins []string
+
+	// AllowOriginFunc optionally accepts or rejects an origin dynamically.
+	// It is checked after AllowOrigins.
+	AllowOriginFunc func(origin string) bool
+
+	// AllowMethods overrides the Access-Control-Allow-Methods header. When empty,
+	// NewCORS uses the framework's known route methods and CORSMiddleware echoes
+	// the requested preflight method when available.
+	AllowMethods []string
+
+	// AllowHeaders sets Access-Control-Allow-Headers for preflight responses.
+	// When empty, CORSMiddleware echoes Access-Control-Request-Headers.
+	AllowHeaders []string
+
+	// ExposeHeaders sets Access-Control-Expose-Headers on non-preflight responses.
+	ExposeHeaders []string
+
+	// AllowCredentials sets Access-Control-Allow-Credentials to true.
+	AllowCredentials bool
+
+	// MaxAge controls the Access-Control-Max-Age header on preflight responses.
+	MaxAge time.Duration
+
+	// PassthroughOptions controls whether CORSMiddleware continues into the next
+	// handler for preflight requests. By default preflight requests are completed
+	// by the middleware with 204 No Content.
+	PassthroughOptions bool
+}
+
+// SecurityHeadersOptions configures SecurityHeadersWithOptions.
+//
+// When UseDefaults is true, unset fields fall back to the middleware defaults:
+// X-Content-Type-Options=nosniff, X-Frame-Options=DENY, and
+// Referrer-Policy=no-referrer.
+type SecurityHeadersOptions struct {
+	// UseDefaults applies the standard default header set when individual values
+	// are left empty.
+	UseDefaults bool
+
+	// ContentTypeOptions sets X-Content-Type-Options.
+	ContentTypeOptions string
+
+	// FrameOptions sets X-Frame-Options.
+	FrameOptions string
+
+	// ReferrerPolicy sets Referrer-Policy.
+	ReferrerPolicy string
+
+	// ContentSecurityPolicy sets Content-Security-Policy.
+	ContentSecurityPolicy string
+
+	// StrictTransportSecurity sets Strict-Transport-Security.
+	StrictTransportSecurity string
+
+	// CrossOriginOpenerPolicy sets Cross-Origin-Opener-Policy.
+	CrossOriginOpenerPolicy string
+
+	// CrossOriginResourcePolicy sets Cross-Origin-Resource-Policy.
+	CrossOriginResourcePolicy string
+
+	// PermissionsPolicy sets Permissions-Policy.
+	PermissionsPolicy string
+}
+
 // RequestIDFromContext returns the request ID stored by RequestID middleware.
 //
 // It is useful from lower-level code that only receives context.Context. The
@@ -103,6 +178,80 @@ func RequestID(header string, nextID func() string) Middleware {
 				c.SetHeader(header, id)
 				c.r = c.r.WithContext(context.WithValue(c.r.Context(), requestIDContextKey{}, id))
 			}
+			return next(c)
+		}
+	}
+}
+
+// NewCORS returns an Application CORS hook for automatic OPTIONS responses.
+//
+// Install it with WithCORS or SetCORS when the framework's built-in automatic
+// OPTIONS handling should emit standard CORS headers. For matched GET/POST/etc.
+// responses, combine this with CORSMiddleware when those routes should also emit
+// the same origin/credentials/expose headers.
+func NewCORS(opts CORSOptions) Cors {
+	return func(set func(key string, value string), origin string, allow []string) {
+		if origin == "" {
+			return
+		}
+
+		header := http.Header{}
+		allowedOrigin, varyOrigin, ok := resolveCORSOrigin(origin, opts)
+		if !ok {
+			return
+		}
+
+		if varyOrigin {
+			addVaryHeader(header, "Origin")
+		}
+		header.Set("Access-Control-Allow-Origin", allowedOrigin)
+		if opts.AllowCredentials {
+			header.Set("Access-Control-Allow-Credentials", "true")
+		}
+
+		methods := opts.AllowMethods
+		if len(methods) == 0 {
+			methods = allow
+		}
+		if len(methods) > 0 {
+			header.Set("Access-Control-Allow-Methods", strings.Join(methods, ", "))
+		}
+		if len(opts.AllowHeaders) > 0 {
+			header.Set("Access-Control-Allow-Headers", strings.Join(opts.AllowHeaders, ", "))
+		}
+		if opts.MaxAge > 0 {
+			header.Set("Access-Control-Max-Age", strconv.FormatInt(int64(opts.MaxAge/time.Second), 10))
+		}
+
+		for key, values := range header {
+			for _, value := range values {
+				set(key, value)
+			}
+		}
+	}
+}
+
+// CORSMiddleware emits CORS headers for matched route responses.
+//
+// This middleware handles normal requests and explicit preflight routes. For the
+// framework's automatic OPTIONS path, install NewCORS through SetCORS or
+// WithCORS because automatic OPTIONS responses bypass route middleware.
+func CORSMiddleware(opts CORSOptions) Middleware {
+	return func(next Next) Next {
+		return func(c *Ctx) (any, error) {
+			origin := c.Origin()
+			if origin == "" {
+				return next(c)
+			}
+
+			if !applyCORSResponseHeaders(c.ResponseWriter().Header(), c.Request(), opts) {
+				return next(c)
+			}
+
+			if c.Method() == http.MethodOptions && c.GetHeader("Access-Control-Request-Method") != "" && !opts.PassthroughOptions {
+				return nil, nil
+			}
+
 			return next(c)
 		}
 	}
@@ -193,6 +342,88 @@ func Timeout(d time.Duration) Middleware {
 	}
 }
 
+// MaxBodyBytes limits the size of request bodies read by downstream handlers.
+//
+// It wraps the request body with http.MaxBytesReader. A limit <= 0 disables the
+// middleware. When the body exceeds the limit, downstream readers return a
+// standard MaxBytes error that the framework maps to a 400 response unless a
+// custom error handler overrides it.
+func MaxBodyBytes(limit int64) Middleware {
+	if limit <= 0 {
+		return func(next Next) Next { return next }
+	}
+
+	return func(next Next) Next {
+		return func(c *Ctx) (any, error) {
+			if c.r.Body != nil {
+				c.r.Body = http.MaxBytesReader(c.w, c.r.Body, limit)
+			}
+			return next(c)
+		}
+	}
+}
+
+// SecurityHeaders applies a small set of common security response headers.
+//
+// The default headers are:
+//   - X-Content-Type-Options: nosniff
+//   - X-Frame-Options: DENY
+//   - Referrer-Policy: no-referrer
+//
+// Use SecurityHeadersWithOptions when additional or custom policies are needed.
+func SecurityHeaders() Middleware {
+	return SecurityHeadersWithOptions(SecurityHeadersOptions{UseDefaults: true})
+}
+
+// SecurityHeadersWithOptions applies configurable security response headers.
+//
+// It is intentionally lightweight and only sets headers configured by opts plus
+// the defaults when opts.UseDefaults is true.
+func SecurityHeadersWithOptions(opts SecurityHeadersOptions) Middleware {
+	if opts.UseDefaults {
+		if opts.ContentTypeOptions == "" {
+			opts.ContentTypeOptions = "nosniff"
+		}
+		if opts.FrameOptions == "" {
+			opts.FrameOptions = "DENY"
+		}
+		if opts.ReferrerPolicy == "" {
+			opts.ReferrerPolicy = "no-referrer"
+		}
+	}
+
+	return func(next Next) Next {
+		return func(c *Ctx) (any, error) {
+			header := c.ResponseWriter().Header()
+			if opts.ContentTypeOptions != "" {
+				header.Set("X-Content-Type-Options", opts.ContentTypeOptions)
+			}
+			if opts.FrameOptions != "" {
+				header.Set("X-Frame-Options", opts.FrameOptions)
+			}
+			if opts.ReferrerPolicy != "" {
+				header.Set("Referrer-Policy", opts.ReferrerPolicy)
+			}
+			if opts.ContentSecurityPolicy != "" {
+				header.Set("Content-Security-Policy", opts.ContentSecurityPolicy)
+			}
+			if opts.StrictTransportSecurity != "" {
+				header.Set("Strict-Transport-Security", opts.StrictTransportSecurity)
+			}
+			if opts.CrossOriginOpenerPolicy != "" {
+				header.Set("Cross-Origin-Opener-Policy", opts.CrossOriginOpenerPolicy)
+			}
+			if opts.CrossOriginResourcePolicy != "" {
+				header.Set("Cross-Origin-Resource-Policy", opts.CrossOriginResourcePolicy)
+			}
+			if opts.PermissionsPolicy != "" {
+				header.Set("Permissions-Policy", opts.PermissionsPolicy)
+			}
+			return next(c)
+		}
+	}
+}
+
 // AccessLog calls fn after request handling with an inferred status, duration, and error.
 //
 // It is intentionally lightweight: if fn is nil, the middleware is a no-op.
@@ -254,4 +485,85 @@ func statusFromResult(c *Ctx, val any, err error) int {
 		return http.StatusNoContent
 	}
 	return http.StatusOK
+}
+
+func resolveCORSOrigin(origin string, opts CORSOptions) (allowed string, varyOrigin bool, ok bool) {
+	if origin == "" {
+		return "", false, false
+	}
+
+	allowAny := len(opts.AllowOrigins) == 0 && opts.AllowOriginFunc == nil
+	for _, candidate := range opts.AllowOrigins {
+		if candidate == "*" {
+			allowAny = true
+			break
+		}
+		if candidate == origin {
+			return origin, true, true
+		}
+	}
+
+	if opts.AllowOriginFunc != nil && opts.AllowOriginFunc(origin) {
+		return origin, true, true
+	}
+
+	if !allowAny {
+		return "", false, false
+	}
+	if opts.AllowCredentials {
+		return origin, true, true
+	}
+	return "*", false, true
+}
+
+func applyCORSResponseHeaders(header http.Header, req *http.Request, opts CORSOptions) bool {
+	allowedOrigin, varyOrigin, ok := resolveCORSOrigin(req.Header.Get("Origin"), opts)
+	if !ok {
+		return false
+	}
+
+	if varyOrigin {
+		addVaryHeader(header, "Origin")
+	}
+	header.Set("Access-Control-Allow-Origin", allowedOrigin)
+	if opts.AllowCredentials {
+		header.Set("Access-Control-Allow-Credentials", "true")
+	}
+	if len(opts.ExposeHeaders) > 0 && req.Method != http.MethodOptions {
+		header.Set("Access-Control-Expose-Headers", strings.Join(opts.ExposeHeaders, ", "))
+	}
+
+	if req.Method == http.MethodOptions && req.Header.Get("Access-Control-Request-Method") != "" {
+		if len(opts.AllowMethods) > 0 {
+			header.Set("Access-Control-Allow-Methods", strings.Join(opts.AllowMethods, ", "))
+		} else if method := req.Header.Get("Access-Control-Request-Method"); method != "" {
+			addVaryHeader(header, "Access-Control-Request-Method")
+			header.Set("Access-Control-Allow-Methods", method)
+		}
+
+		if len(opts.AllowHeaders) > 0 {
+			header.Set("Access-Control-Allow-Headers", strings.Join(opts.AllowHeaders, ", "))
+		} else if headers := req.Header.Get("Access-Control-Request-Headers"); headers != "" {
+			addVaryHeader(header, "Access-Control-Request-Headers")
+			header.Set("Access-Control-Allow-Headers", headers)
+		}
+
+		if opts.MaxAge > 0 {
+			header.Set("Access-Control-Max-Age", strconv.FormatInt(int64(opts.MaxAge/time.Second), 10))
+		}
+	}
+
+	return true
+}
+
+func addVaryHeader(header http.Header, value string) {
+	existing := header.Values("Vary")
+	for _, raw := range existing {
+		for _, item := range strings.Split(raw, ",") {
+			if strings.TrimSpace(item) == value {
+				return
+			}
+		}
+	}
+	header.Add("Vary", value)
 }

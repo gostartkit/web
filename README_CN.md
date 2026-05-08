@@ -324,6 +324,15 @@ api.Get("/users/:id", func(c *web.Ctx) (any, error) {
 - 子分组 middleware
 - 路由级 middleware
 
+几种很常用的内建 middleware 可以直接这样组合：
+
+- `web.RequestID("", nil)` 给上下文和响应头补 request id
+- `web.Recover(nil)` 把 panic 转成框架错误响应
+- `web.Timeout(2 * time.Second)` 给请求加协作式超时
+- `web.MaxBodyBytes(1 << 20)` 把请求体限制在 1 MiB
+- `web.SecurityHeaders()` 添加一组默认安全响应头
+- `web.CORSMiddleware(...)` 给命中的业务路由写出 CORS 头
+
 #### 7. 错误处理
 
 你可以直接返回框架内置错误：
@@ -371,7 +380,38 @@ app.ServeFiles("/static/*filepath", http.Dir("./public"))
 
 例如 `/static/app.css`、`/static/js/app.js` 这样的请求，会自动转发到底层文件系统，并去掉 `/static` 这一层前缀。
 
-#### 9. 发起 HTTP 请求
+#### 9. 添加 CORS 和安全头
+
+如果你的 API 要给浏览器前端调用，比较常见的组合是：
+
+```go
+app := web.New(
+	web.WithCORS(web.NewCORS(web.CORSOptions{
+		AllowOrigins:     []string{"https://app.example.com"},
+		AllowHeaders:     []string{"Authorization", "Content-Type"},
+		AllowCredentials: true,
+		MaxAge:           10 * time.Minute,
+	})),
+)
+
+app.Use(
+	web.CORSMiddleware(web.CORSOptions{
+		AllowOrigins:     []string{"https://app.example.com"},
+		ExposeHeaders:    []string{"X-Request-Id"},
+		AllowCredentials: true,
+	}),
+	web.SecurityHeaders(),
+)
+```
+
+通常这两个要一起看：
+
+- `NewCORS(...)` 负责框架自动生成的 `OPTIONS` 响应
+- `CORSMiddleware(...)` 负责命中的 `GET` / `POST` / `PUT` / `PATCH` / `DELETE` 业务响应
+
+如果你只想补常见安全头，直接上 `web.SecurityHeaders()` 就够了。需要更细的 CSP、HSTS 等策略时，再用 `SecurityHeadersWithOptions(...)`。
+
+#### 10. 发起 HTTP 请求
 
 这个包还带了一套轻量的客户端 helper。
 
@@ -446,11 +486,11 @@ if err := web.DoReqWithClient(http.DefaultClient, req, &raw, nil); err != nil {
   - `GetHTTP`, `PostHTTP`, `PutHTTP`, `PatchHTTP`, `DeleteHTTP`, `HeadHTTP`, `OptionsHTTP`, `HandleHTTP`
 - 框架组合：
   - `Use`, `Group`, `SetErrorHandler`, `RegisterReader`, `RegisterWriter`
-  - options: `WithMiddleware`, `WithErrorHandler`, `WithNotFound`, `WithMethodNotAllowed`
+  - options: `WithMiddleware`, `WithErrorHandler`, `WithNotFound`, `WithMethodNotAllowed`, `WithCORS`
 - 服务器生命周期：
   - `ListenAndServe`, `ListenAndServeTLS`, `Shutdown`
 - 辅助函数：
-  - `ServeFiles`, `Redirect`, `TryParse(...)`, `TryXxx(...)`, `JSONErrorHandler`
+  - `ServeFiles`, `Redirect`, `TryParse(...)`, `TryXxx(...)`, `JSONErrorHandler`, `NewCORS`
 - 上下文 (`*Ctx`) 常用方法：
   - 请求：`Method`, `Path`, `Query`, `Param`, `Body`, `ContentType`, `BearerToken`, `RequestID`
   - 解析：`TryParseBody`, `TryParseJSONBodyFast`, `TryParseParam`, `TryParseQuery`, `TryParseForm`
@@ -468,6 +508,7 @@ if err := web.DoReqWithClient(http.DefaultClient, req, &raw, nil); err != nil {
 | 应用程序 | `Use(middleware...)` | 为后续注册的路由附加应用级中间件 |
 | 应用程序 | `Group(prefix, middleware...)` | 创建带共享前缀和中间件的路由分组 |
 | 应用程序 | `SetErrorHandler(handler)` | 安装自定义路由错误处理器 |
+| 应用程序 | `SetCORS(cors)` | 为自动 `OPTIONS` 响应安装 CORS hook |
 | 应用程序 | `RegisterReader(contentType, reader)` | 为指定媒体类型覆写请求解码 |
 | 应用程序 | `RegisterWriter(contentType, writer)` | 为指定媒体类型覆写响应编码 |
 | 应用程序 | `ServeFiles("/static/*filepath", fs)` | 使用通配路径提供静态文件服务 |
@@ -481,7 +522,11 @@ if err := web.DoReqWithClient(http.DefaultClient, req, &raw, nil); err != nil {
 | 上下文 | `SetHeader`, `SetCookie`, `SetContentType`, `SetStatus` | 写入响应头并覆写默认成功状态码 |
 | 上下文 | `JSON`, `String`, `Blob`, `NoContent` | 用于显式写出的即时响应 helper |
 | 上下文 | `Request()`, `ResponseWriter()`, `Context()` | 访问原始 HTTP 对象 |
-| 中间件 | `RequestID`, `Recover`, `RecoverWithOptions`, `Timeout`, `AccessLog`, `AccessLogWithOptions` | 内建的显式启用中间件 |
+| 中间件 | `RequestID`, `Recover`, `RecoverWithOptions`, `Timeout`, `AccessLog`, `AccessLogWithOptions` | 核心内建中间件 |
+| 中间件 | `MaxBodyBytes(limit)` | 限制请求体大小 |
+| 中间件 | `SecurityHeaders()` / `SecurityHeadersWithOptions(...)` | 添加常见安全响应头 |
+| 中间件 | `CORSMiddleware(CORSOptions)` | 为命中的业务路由写出 CORS 头 |
+| CORS helper | `NewCORS(CORSOptions)` | 为自动 `OPTIONS` 处理创建 CORS hook |
 | 客户端 | `Get/Post/Put/Patch/Delete/Do` | 使用 `http.DefaultClient` 的 HTTP 辅助函数 |
 | 客户端 | `GetWithClient/PostWithClient/PutWithClient/PatchWithClient/DeleteWithClient/DoWithClient` | 显式传入 `*http.Client` 的 HTTP 辅助函数 |
 | 客户端 | `DoReq/DoReqWithClient` | 执行已构造请求，并解码 JSON 或 `RawBody` 响应体 |
@@ -545,7 +590,12 @@ app.Get("/organizations/:id/devices/:device_id", showDevice)
   - `Timeout`
   - `AccessLog`
   - `AccessLogWithOptions`
+  - `MaxBodyBytes`
+  - `SecurityHeaders`
+  - `SecurityHeadersWithOptions`
+  - `CORSMiddleware`
 - 结构化 API 错误通过 `SetErrorHandler(JSONErrorHandler(...))` 显式启用
+- 自动 `OPTIONS` 的 CORS 响应通过 `SetCORS(NewCORS(...))` 显式启用
 - `Reader/Writer` 覆写按媒体类型注册；未注册时不会影响默认热路径
 - 构造期 options 让应用初始化更声明式，同时不增加请求期成本。
 - 已有 `net/http` handler 可以通过 `HandleHTTP`/`GetHTTP` 直接挂载。

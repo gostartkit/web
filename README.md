@@ -329,6 +329,15 @@ The middleware order is:
 - child group middleware
 - route middleware
 
+Common built-in middleware you can mix in:
+
+- `web.RequestID("", nil)` adds a request ID to context and response headers
+- `web.Recover(nil)` converts panics into framework errors
+- `web.Timeout(2 * time.Second)` adds a cooperative deadline
+- `web.MaxBodyBytes(1 << 20)` limits request bodies to 1 MiB
+- `web.SecurityHeaders()` adds a default set of security response headers
+- `web.CORSMiddleware(...)` emits CORS headers for matched routes
+
 #### 7. Handle errors clearly
 
 You can return the built-in framework errors directly:
@@ -378,7 +387,40 @@ app.ServeFiles("/static/*filepath", http.Dir("./public"))
 Requests such as `/static/app.css` or `/static/js/app.js` are forwarded to the
 underlying file system with the `/static` prefix stripped.
 
-#### 9. Make outbound HTTP requests
+#### 9. Add CORS and security headers
+
+For browser-facing APIs, a common setup looks like this:
+
+```go
+app := web.New(
+	web.WithCORS(web.NewCORS(web.CORSOptions{
+		AllowOrigins:     []string{"https://app.example.com"},
+		AllowHeaders:     []string{"Authorization", "Content-Type"},
+		AllowCredentials: true,
+		MaxAge:           10 * time.Minute,
+	})),
+)
+
+app.Use(
+	web.CORSMiddleware(web.CORSOptions{
+		AllowOrigins:     []string{"https://app.example.com"},
+		ExposeHeaders:    []string{"X-Request-Id"},
+		AllowCredentials: true,
+	}),
+	web.SecurityHeaders(),
+)
+```
+
+Use both pieces together when you want:
+
+- `NewCORS(...)` to cover the framework's automatic `OPTIONS` responses
+- `CORSMiddleware(...)` to cover matched `GET` / `POST` / `PUT` / `PATCH` / `DELETE` responses
+
+If you only need security headers, `web.SecurityHeaders()` is the shortest path.
+Use `SecurityHeadersWithOptions(...)` when you need custom CSP, HSTS, or related
+policies.
+
+#### 10. Make outbound HTTP requests
 
 The package also includes lightweight client helpers.
 
@@ -454,11 +496,11 @@ if err := web.DoReqWithClient(http.DefaultClient, req, &raw, nil); err != nil {
   - `GetHTTP`, `PostHTTP`, `PutHTTP`, `PatchHTTP`, `DeleteHTTP`, `HeadHTTP`, `OptionsHTTP`, `HandleHTTP`
 - framework composition:
   - `Use`, `Group`, `SetErrorHandler`, `RegisterReader`, `RegisterWriter`
-  - options: `WithMiddleware`, `WithErrorHandler`, `WithNotFound`, `WithMethodNotAllowed`
+  - options: `WithMiddleware`, `WithErrorHandler`, `WithNotFound`, `WithMethodNotAllowed`, `WithCORS`
 - server lifecycle:
   - `ListenAndServe`, `ListenAndServeTLS`, `Shutdown`
 - helpers:
-  - `ServeFiles`, `Redirect`, `TryParse(...)`, `TryXxx(...)`, `JSONErrorHandler`
+  - `ServeFiles`, `Redirect`, `TryParse(...)`, `TryXxx(...)`, `JSONErrorHandler`, `NewCORS`
 - context (`*Ctx`) common methods:
   - request: `Method`, `Path`, `Query`, `Param`, `Body`, `ContentType`, `BearerToken`, `RequestID`
   - parse: `TryParseBody`, `TryParseJSONBodyFast`, `TryParseParam`, `TryParseQuery`, `TryParseForm`
@@ -476,6 +518,7 @@ if err := web.DoReqWithClient(http.DefaultClient, req, &raw, nil); err != nil {
 | Application | `Use(middleware...)` | Apply app-level middleware to subsequently registered routes |
 | Application | `Group(prefix, middleware...)` | Create route groups with shared prefix and middleware |
 | Application | `SetErrorHandler(handler)` | Install a custom route error handler |
+| Application | `SetCORS(cors)` | Install a CORS hook for automatic `OPTIONS` responses |
 | Application | `RegisterReader(contentType, reader)` | Override request decoding for a media type |
 | Application | `RegisterWriter(contentType, writer)` | Override response encoding for a media type |
 | Application | `ServeFiles("/static/*filepath", fs)` | Serve static files with catch-all path |
@@ -489,7 +532,11 @@ if err := web.DoReqWithClient(http.DefaultClient, req, &raw, nil); err != nil {
 | Context | `SetHeader`, `SetCookie`, `SetContentType`, `SetStatus` | Write response headers and override the default success status |
 | Context | `JSON`, `String`, `Blob`, `NoContent` | Immediate response helpers for explicit writes |
 | Context | `Request()`, `ResponseWriter()`, `Context()` | Access raw HTTP objects |
-| Middleware | `RequestID`, `Recover`, `RecoverWithOptions`, `Timeout`, `AccessLog`, `AccessLogWithOptions` | Built-in opt-in middleware helpers |
+| Middleware | `RequestID`, `Recover`, `RecoverWithOptions`, `Timeout`, `AccessLog`, `AccessLogWithOptions` | Core built-in opt-in middleware helpers |
+| Middleware | `MaxBodyBytes(limit)` | Limit request body size |
+| Middleware | `SecurityHeaders()` / `SecurityHeadersWithOptions(...)` | Add common security response headers |
+| Middleware | `CORSMiddleware(CORSOptions)` | Emit CORS headers on matched route responses |
+| CORS helper | `NewCORS(CORSOptions)` | Create a CORS hook for automatic `OPTIONS` handling |
 | Client | `Get/Post/Put/Patch/Delete/Do` | HTTP client helpers using `http.DefaultClient` |
 | Client | `GetWithClient/PostWithClient/PutWithClient/PatchWithClient/DeleteWithClient/DoWithClient` | HTTP helpers with explicit `*http.Client` |
 | Client | `DoReq/DoReqWithClient` | Execute prepared requests and decode JSON or `RawBody` responses |
@@ -553,7 +600,12 @@ With the routes above:
   - `Timeout`
   - `AccessLog`
   - `AccessLogWithOptions`
+  - `MaxBodyBytes`
+  - `SecurityHeaders`
+  - `SecurityHeadersWithOptions`
+  - `CORSMiddleware`
 - Structured API errors are opt-in via `SetErrorHandler(JSONErrorHandler(...))`
+- Automatic `OPTIONS` CORS responses are opt-in via `SetCORS(NewCORS(...))`
 - Reader/writer overrides are media-type specific and do not affect the default hot path unless registered
 - Construction-time options let setup stay declarative without changing request-time cost.
 - Existing `net/http` handlers can be mounted directly with `HandleHTTP`/`GetHTTP`.

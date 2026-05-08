@@ -478,7 +478,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					code, writeErr := app.handleError(c, err)
 					app.putParams(params)
-					releaseCtx(c)
+					releaseBaseCtx(c)
 					if writeErr != nil && errLogger != nil {
 						errLogger.Print(formatRequestLog("error", "write_error", r, userID, rel, code, writeErr))
 					}
@@ -500,7 +500,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					}
 					err := c.writeMedia(mt, val)
 					app.putParams(params)
-					releaseCtx(c)
+					releaseBaseCtx(c)
 					if err != nil {
 						if errLogger != nil {
 							errLogger.Print(formatRequestLog("error", "write_error", r, userID, rel, code, err))
@@ -522,7 +522,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					}
 					committed := c.responseCommitted
 					app.putParams(params)
-					releaseCtx(c)
+					releaseBaseCtx(c)
 					if !committed {
 						w.WriteHeader(code)
 					}
@@ -545,7 +545,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 				if err != nil {
 					code, writeErr := app.handleError(c, err)
-					app.putParamValues(c.routeParamExtraValues)
+					app.putParamValues(match.params.extraValues)
 					releaseCtx(c)
 					if writeErr != nil && errLogger != nil {
 						errLogger.Print(formatRequestLog("error", "write_error", r, userID, rel, code, writeErr))
@@ -567,7 +567,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						writeCodeByMedia(w, mt, code)
 					}
 					err := c.writeMedia(mt, val)
-					app.putParamValues(c.routeParamExtraValues)
+					app.putParamValues(match.params.extraValues)
 					releaseCtx(c)
 					if err != nil {
 						if errLogger != nil {
@@ -589,7 +589,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						code = http.StatusNoContent
 					}
 					committed := c.responseCommitted
-					app.putParamValues(c.routeParamExtraValues)
+					app.putParamValues(match.params.extraValues)
 					releaseCtx(c)
 					if !committed {
 						w.WriteHeader(code)

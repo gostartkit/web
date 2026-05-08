@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"unsafe"
 )
 
 type benchResponseWriter struct {
@@ -64,6 +65,56 @@ func BenchmarkServeHTTPPathParamJSON(b *testing.B) {
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/user/123456", nil)
 	req.Header.Set("Accept", "application/json")
+	w := newBenchResponseWriter()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w.reset()
+		app.ServeHTTP(w, req)
+	}
+}
+
+func BenchmarkServeHTTPStaticOverParamSiblingJSON(b *testing.B) {
+	app := New()
+	type out struct {
+		ID string `json:"id"`
+	}
+	app.Get("/organizations/:id/devices/:device_id", func(c *Ctx) (any, error) {
+		return out{ID: c.Param("device_id")}, nil
+	})
+	app.Get("/organizations/:id/devices/provision", func(c *Ctx) (any, error) {
+		return out{ID: c.Param("id")}, nil
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/organizations/123/devices/provision", nil)
+	req.Header.Set("Accept", "application/json")
+	w := newBenchResponseWriter()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w.reset()
+		app.ServeHTTP(w, req)
+	}
+}
+
+func BenchmarkServeHTTPStaticOverParamSiblingNoContent(b *testing.B) {
+	app := New()
+	app.Get("/organizations/:id/devices/:device_id", func(c *Ctx) (any, error) {
+		if c.Param("device_id") == "" {
+			b.Fatal("missing device_id")
+		}
+		return nil, nil
+	})
+	app.Get("/organizations/:id/devices/provision", func(c *Ctx) (any, error) {
+		if c.Param("id") == "" {
+			b.Fatal("missing id")
+		}
+		return nil, nil
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/organizations/123/devices/provision", nil)
 	w := newBenchResponseWriter()
 
 	b.ReportAllocs()
@@ -255,11 +306,66 @@ func BenchmarkParamsVal(b *testing.B) {
 	}
 }
 
+func BenchmarkCtxCreateRelease(b *testing.B) {
+	app := New()
+	req := httptest.NewRequest(http.MethodGet, "/v1/ping", nil)
+	w := newBenchResponseWriter()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		c := createCtx(app, w, req, nil)
+		releaseCtx(c)
+	}
+	b.ReportMetric(float64(unsafe.Sizeof(Ctx{})), "bytes/ctx")
+}
+
+func BenchmarkCtxCreateReleaseRouteMatch(b *testing.B) {
+	app := New()
+	req := httptest.NewRequest(http.MethodGet, "/v1/user/123456", nil)
+	w := newBenchResponseWriter()
+	match := routeMatch{
+		params: routeParams{
+			names:  []string{"id"},
+			count:  1,
+			value0: "123456",
+		},
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		c := createCtxWithRouteMatch(app, w, req, &match)
+		releaseCtx(c)
+	}
+	b.ReportMetric(float64(unsafe.Sizeof(Ctx{})), "bytes/ctx")
+}
+
 func BenchmarkCtxParamUint64(b *testing.B) {
 	ps := Params{
 		{Key: "id", Value: "1234567890123"},
 	}
 	c := &Ctx{param: &ps}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := c.ParamUint64("id"); err != nil {
+			b.Fatalf("ParamUint64 failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkCtxParamUint64RouteMatch(b *testing.B) {
+	rc := &pooledRouteCtx{
+		params: routeParams{
+			names:  []string{"id"},
+			count:  1,
+			value0: "1234567890123",
+		},
+	}
+	c := &rc.Ctx
+	c.routeCtx = rc
 
 	b.ReportAllocs()
 	b.ResetTimer()

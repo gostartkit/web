@@ -110,60 +110,64 @@ type frozenSkippedNode struct {
 	paramsLen int
 }
 
-type routeMatch struct {
-	callback         Next
-	paramNames       []string
-	paramCount       uint16
-	paramValue0      string
-	paramValue1      string
-	paramValue2      string
-	paramExtraValues *[]string
-	tsr              bool
+type routeParams struct {
+	names       []string
+	extraValues *[]string
+	count       uint16
+	value0      string
+	value1      string
+	value2      string
 }
 
-func (m *routeMatch) addParamValue(app *Application, value string) {
-	switch m.paramCount {
+func (p *routeParams) addValue(app *Application, value string) {
+	switch p.count {
 	case 0:
-		m.paramValue0 = value
+		p.value0 = value
 	case 1:
-		m.paramValue1 = value
+		p.value1 = value
 	case 2:
-		m.paramValue2 = value
+		p.value2 = value
 	default:
 		if app != nil {
-			if m.paramExtraValues == nil {
-				m.paramExtraValues = app.getParamValues()
+			if p.extraValues == nil {
+				p.extraValues = app.getParamValues()
 			}
-			i := int(m.paramCount) - 3
-			*m.paramExtraValues = (*m.paramExtraValues)[:i+1]
-			(*m.paramExtraValues)[i] = value
+			i := int(p.count) - 3
+			*p.extraValues = (*p.extraValues)[:i+1]
+			(*p.extraValues)[i] = value
 		}
 	}
-	m.paramCount++
+	p.count++
 }
 
-func (m *routeMatch) truncateParamValues(paramsLen int) {
-	m.paramCount = uint16(paramsLen)
-	if m.paramExtraValues != nil {
+func (p *routeParams) truncate(paramsLen int) {
+	p.count = uint16(paramsLen)
+	if p.extraValues != nil {
 		extraLen := paramsLen - 3
 		if extraLen < 0 {
 			extraLen = 0
 		}
-		*m.paramExtraValues = (*m.paramExtraValues)[:extraLen]
+		*p.extraValues = (*p.extraValues)[:extraLen]
 	}
 }
 
-func (m *routeMatch) paramValueAt(i int) string {
+func (p *routeParams) valueAt(i int) string {
 	switch i {
 	case 0:
-		return m.paramValue0
+		return p.value0
 	case 1:
-		return m.paramValue1
+		return p.value1
 	case 2:
-		return m.paramValue2
+		return p.value2
 	default:
-		return (*m.paramExtraValues)[i-3]
+		return (*p.extraValues)[i-3]
 	}
+}
+
+type routeMatch struct {
+	callback Next
+	params   routeParams
+	tsr      bool
 }
 
 func (n *node) wildcardChild() *node {
@@ -371,7 +375,7 @@ walk:
 					}
 					if child != nil {
 						if n.paramChild != nil {
-							paramsLen := int(match.paramCount)
+							paramsLen := int(match.params.count)
 							if skippedLen == 0 {
 								skippedNode0 = n
 								skippedPath0 = search
@@ -399,7 +403,7 @@ walk:
 						end = len(path)
 					}
 
-					match.addParamValue(app, path[:end])
+					match.params.addValue(app, path[:end])
 
 					if end < len(path) {
 						if n.nextChild != nil {
@@ -416,7 +420,7 @@ walk:
 
 					if n.route != nil {
 						match.callback = n.route.next
-						match.paramNames = n.route.paramNames
+						match.params.names = n.route.paramNames
 						return
 					}
 					if n.nextChild != nil {
@@ -431,8 +435,8 @@ walk:
 
 				if n.catchAllChild != nil {
 					n = n.catchAllChild
-					match.addParamValue(app, path)
-					match.paramNames = n.route.paramNames
+					match.params.addValue(app, path)
+					match.params.names = n.route.paramNames
 					match.callback = n.route.next
 					return
 				}
@@ -446,7 +450,7 @@ walk:
 		} else if path == prefix {
 			if n.route != nil {
 				match.callback = n.route.next
-				match.paramNames = n.route.paramNames
+				match.params.names = n.route.paramNames
 				return
 			}
 
@@ -488,14 +492,14 @@ backtrack:
 	if skippedLen == 0 {
 		n = skippedNode0
 		path = skippedPath0
-		match.truncateParamValues(skippedParamsLen0)
+		match.params.truncate(skippedParamsLen0)
 	} else {
 		last := len(skippedMore) - 1
 		skippedNode := skippedMore[last]
 		skippedMore = skippedMore[:last]
 		n = skippedNode.node
 		path = skippedNode.path
-		match.truncateParamValues(skippedNode.paramsLen)
+		match.params.truncate(skippedNode.paramsLen)
 	}
 	forceWildcard = true
 	match.tsr = false
@@ -507,19 +511,19 @@ func (n *frozenNode) getValue(path string, app *Application) (callback Next, ps 
 	n.lookup(path, app, &match)
 	callback = match.callback
 	tsr = match.tsr
-	if callback == nil || app == nil || match.paramCount == 0 {
+	if callback == nil || app == nil || match.params.count == 0 {
 		return
 	}
 
 	ps = app.getParams()
-	*ps = (*ps)[:match.paramCount]
-	for i := 0; i < int(match.paramCount); i++ {
+	*ps = (*ps)[:match.params.count]
+	for i := 0; i < int(match.params.count); i++ {
 		(*ps)[i] = Param{
-			Key:   match.paramNames[i],
-			Value: match.paramValueAt(i),
+			Key:   match.params.names[i],
+			Value: match.params.valueAt(i),
 		}
 	}
-	app.putParamValues(match.paramExtraValues)
+	app.putParamValues(match.params.extraValues)
 	return
 }
 

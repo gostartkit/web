@@ -23,6 +23,11 @@ var (
 			c := &Ctx{}
 			return c
 		}}
+	_routeCtxPool = sync.Pool{
+		New: func() any {
+			return new(pooledRouteCtx)
+		},
+	}
 	_bodyReadBufferPool = sync.Pool{
 		New: func() any {
 			return new(bytes.Buffer)
@@ -47,25 +52,40 @@ func createCtx(app *Application, w http.ResponseWriter, r *http.Request, params 
 }
 
 func createCtxWithRouteMatch(app *Application, w http.ResponseWriter, r *http.Request, match *routeMatch) *Ctx {
-	c := _ctxPool.Get().(*Ctx)
+	if match.params.count == 0 {
+		return createCtx(app, w, r, nil)
+	}
+	rc := _routeCtxPool.Get().(*pooledRouteCtx)
+	c := &rc.Ctx
 	c.app = app
 	c.w = w
 	c.r = r
-	c.routeParamNames = match.paramNames
-	c.routeParamCount = match.paramCount
-	c.routeParamValue0 = match.paramValue0
-	c.routeParamValue1 = match.paramValue1
-	c.routeParamValue2 = match.paramValue2
-	c.routeParamExtraValues = match.paramExtraValues
+	rc.params = match.params
+	c.routeCtx = rc
 	return c
 }
 
 // releaseCtx puts the context object back into the pool for reuse.
 func releaseCtx(c *Ctx) {
 	if c != nil {
-		*c = Ctx{}
-		_ctxPool.Put(c)
+		if c.routeCtx != nil {
+			releaseRouteCtx(c)
+			return
+		}
+		releaseBaseCtx(c)
 	}
+}
+
+func releaseBaseCtx(c *Ctx) {
+	*c = Ctx{}
+	_ctxPool.Put(c)
+}
+
+func releaseRouteCtx(c *Ctx) {
+	routeCtx := c.routeCtx
+	*c = Ctx{}
+	routeCtx.params = routeParams{}
+	_routeCtxPool.Put(routeCtx)
 }
 
 // Ctx represents one HTTP request/response exchange.
@@ -78,23 +98,23 @@ type Ctx struct {
 	w                      http.ResponseWriter
 	r                      *http.Request
 	param                  *Params
-	routeParamNames        []string
-	routeParamExtraValues  *[]string
+	routeCtx               *pooledRouteCtx
 	query                  url.Values
+	contentTypeValue       string
 	userId                 uint64
-	formDataState          uint8
-	routeParamCount        uint16
 	statusCode             int
+	formDataState          uint8
 	responseCommitted      bool
 	acceptType             mediaType
 	acceptTypeCached       bool
-	contentTypeValue       string
 	contentTypeValueCached bool
 	contentType            mediaType
 	contentTypeCached      bool
-	routeParamValue0       string
-	routeParamValue1       string
-	routeParamValue2       string
+}
+
+type pooledRouteCtx struct {
+	Ctx
+	params routeParams
 }
 
 // Init stores the authenticated user ID on the request context.
@@ -208,31 +228,32 @@ func (c *Ctx) RequestID() string {
 // present, Param returns an empty string. For numeric parameters, prefer typed
 // helpers such as ParamUint64 to avoid repeated manual parsing.
 func (c *Ctx) Param(name string) string {
-	if c.routeParamCount != 0 {
-		names := c.routeParamNames
-		switch c.routeParamCount {
+	if rc := c.routeCtx; rc != nil {
+		rp := &rc.params
+		names := rp.names
+		switch rp.count {
 		case 1:
 			if names[0] == name {
-				return c.routeParamValue0
+				return rp.value0
 			}
 			return ""
 		case 2:
 			if names[1] == name {
-				return c.routeParamValue1
+				return rp.value1
 			}
 			if names[0] == name {
-				return c.routeParamValue0
+				return rp.value0
 			}
 			return ""
 		case 3:
 			if names[2] == name {
-				return c.routeParamValue2
+				return rp.value2
 			}
 			if names[1] == name {
-				return c.routeParamValue1
+				return rp.value1
 			}
 			if names[0] == name {
-				return c.routeParamValue0
+				return rp.value0
 			}
 			return ""
 		}
@@ -240,13 +261,13 @@ func (c *Ctx) Param(name string) string {
 			if names[i] == name {
 				switch i {
 				case 0:
-					return c.routeParamValue0
+					return rp.value0
 				case 1:
-					return c.routeParamValue1
+					return rp.value1
 				case 2:
-					return c.routeParamValue2
+					return rp.value2
 				default:
-					return (*c.routeParamExtraValues)[i-3]
+					return (*rp.extraValues)[i-3]
 				}
 			}
 		}

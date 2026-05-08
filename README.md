@@ -131,6 +131,321 @@ func main() {
 }
 ```
 
+### Usage Guide
+
+This section focuses on the most common way to use the framework. If you only
+need to get an API online quickly, start here.
+
+#### 1. Create an application
+
+Use `web.New()` for the default setup. If you already know you want middleware
+or structured errors, pass options at construction time.
+
+```go
+app := web.New(
+	web.WithMiddleware(
+		web.RequestID("", nil),
+		web.Recover(nil),
+	),
+	web.WithErrorHandler(web.JSONErrorHandler(true)),
+)
+```
+
+Use the option-based form when you want startup code to stay declarative. Use
+`app.Use(...)` when middleware is added later or conditionally.
+
+#### 2. Register routes
+
+Handlers use the signature:
+
+```go
+func(c *web.Ctx) (any, error)
+```
+
+The simplest handler returns a value and lets the framework encode it.
+
+```go
+app.Get("/health", func(c *web.Ctx) (any, error) {
+	return map[string]string{"status": "ok"}, nil
+})
+```
+
+You can also register other HTTP methods:
+
+```go
+app.Post("/users", createUser)
+app.Put("/users/:id", updateUser)
+app.Delete("/users/:id", deleteUser)
+app.Handle("PURGE", "/cache/:key", purgeCache)
+```
+
+If you already have standard `net/http` handlers, mount them directly:
+
+```go
+app.GetHTTP("/metrics", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
+}))
+```
+
+#### 3. Read path, query, and form values
+
+Use `Param`, `Query`, and `Form` for string access. Use typed helpers when you
+want parsing and validation in one step.
+
+```go
+app.Get("/users/:id", func(c *web.Ctx) (any, error) {
+	id, err := c.ParamUint64("id")
+	if err != nil {
+		return nil, web.ErrBadRequest
+	}
+
+	verbose := c.Query("verbose") == "1"
+
+	return map[string]any{
+		"id":      id,
+		"verbose": verbose,
+	}, nil
+})
+```
+
+For form requests:
+
+```go
+app.Post("/login", func(c *web.Ctx) (any, error) {
+	email := c.Form("email")
+	password := c.Form("password")
+
+	if email == "" || password == "" {
+		return nil, web.ErrBadRequest
+	}
+
+	return map[string]bool{"ok": true}, nil
+})
+```
+
+#### 4. Parse request bodies
+
+Use `TryParseBody` when the request `Content-Type` should control decoding. It
+supports the built-in JSON, GOB, and XML readers.
+
+```go
+type CreateUserRequest struct {
+	Name string `json:"name"`
+	Age  int    `json:"age"`
+}
+
+app.Post("/users", func(c *web.Ctx) (any, error) {
+	var req CreateUserRequest
+	if err := c.TryParseBody(&req); err != nil {
+		return nil, err
+	}
+
+	return map[string]any{
+		"name": req.Name,
+		"age":  req.Age,
+	}, nil
+})
+```
+
+Use `TryParseJSONBodyFast` when you know the body is JSON and want the faster
+path based on pooled buffers and `json.Unmarshal`.
+
+```go
+app.Post("/events", func(c *web.Ctx) (any, error) {
+	var req struct {
+		Type string `json:"type"`
+	}
+
+	if err := c.TryParseJSONBodyFast(&req); err != nil {
+		return nil, err
+	}
+
+	return map[string]string{"accepted": req.Type}, nil
+})
+```
+
+Choose `TryParseBody` when strict JSON unknown-field rejection matters. Choose
+`TryParseJSONBodyFast` when raw speed matters more.
+
+#### 5. Return responses
+
+The default response behavior is intentionally simple:
+
+- `return nil, nil` writes `204 No Content`
+- `return value, nil` writes `200 OK`
+- `c.SetStatus(code)` overrides the default success status
+- `return nil, err` writes an error response
+
+Example with explicit success status:
+
+```go
+app.Post("/users", func(c *web.Ctx) (any, error) {
+	c.SetStatus(http.StatusCreated)
+	return map[string]string{"result": "created"}, nil
+})
+```
+
+If you want to write the response immediately, use the explicit helpers:
+
+```go
+app.Get("/ping", func(c *web.Ctx) (any, error) {
+	return nil, c.String(http.StatusOK, "pong")
+})
+
+app.Get("/config.json", func(c *web.Ctx) (any, error) {
+	return nil, c.JSON(http.StatusOK, map[string]bool{"ok": true})
+})
+
+app.Get("/logo", func(c *web.Ctx) (any, error) {
+	return nil, c.Blob(http.StatusOK, "image/png", pngBytes)
+})
+```
+
+For framework-style handlers, returning values is usually the more idiomatic
+choice. The immediate helpers are best when you need exact response control.
+
+#### 6. Group routes and share middleware
+
+Use groups to keep prefixes and middleware close to the routes that need them.
+
+```go
+api := app.Group("/api", web.Timeout(2*time.Second))
+api.Use(web.AccessLog(func(c *web.Ctx, status int, d time.Duration, err error) {
+	log.Printf("%s %s -> %d (%s)", c.Method(), c.Path(), status, d)
+}))
+
+api.Get("/users/:id", func(c *web.Ctx) (any, error) {
+	return map[string]string{
+		"id":         c.Param("id"),
+		"request_id": c.RequestID(),
+	}, nil
+})
+```
+
+The middleware order is:
+
+- application middleware
+- parent group middleware
+- child group middleware
+- route middleware
+
+#### 7. Handle errors clearly
+
+You can return the built-in framework errors directly:
+
+```go
+app.Get("/private", func(c *web.Ctx) (any, error) {
+	if c.BearerToken() == "" {
+		return nil, web.ErrUnauthorized
+	}
+	return map[string]bool{"ok": true}, nil
+})
+```
+
+To standardize API error output, install `JSONErrorHandler`:
+
+```go
+app.SetErrorHandler(web.JSONErrorHandler(true))
+```
+
+That produces a body like:
+
+```json
+{
+  "code": 401,
+  "message": "UNAUTHORIZED",
+  "request_id": "abc123"
+}
+```
+
+For redirects, return `web.Redirect(...)`:
+
+```go
+app.Get("/old-home", func(c *web.Ctx) (any, error) {
+	return web.Redirect("/new-home", http.StatusMovedPermanently)
+})
+```
+
+#### 8. Serve static files
+
+Use `ServeFiles` when part of your application should expose files from a
+directory.
+
+```go
+app.ServeFiles("/static/*filepath", http.Dir("./public"))
+```
+
+Requests such as `/static/app.css` or `/static/js/app.js` are forwarded to the
+underlying file system with the `/static` prefix stripped.
+
+#### 9. Make outbound HTTP requests
+
+The package also includes lightweight client helpers.
+
+Simple JSON GET:
+
+```go
+var resp struct {
+	Name string `json:"name"`
+}
+
+if err := web.Get(context.Background(), "https://api.example.com/user/1", "", &resp); err != nil {
+	return err
+}
+```
+
+JSON POST:
+
+```go
+payload := map[string]string{"name": "alice"}
+
+var resp struct {
+	ID uint64 `json:"id"`
+}
+
+if err := web.Post(context.Background(), "https://api.example.com/users", token, payload, &resp); err != nil {
+	return err
+}
+```
+
+Pre-encoded request body:
+
+```go
+body := []byte(`{"name":"alice"}`)
+if err := web.PostBytes(context.Background(), "https://api.example.com/users", token, body, &resp); err != nil {
+	return err
+}
+```
+
+Retrying requests:
+
+```go
+if err := web.TryGet(context.Background(), "https://api.example.com/user/1", token, &resp, 3); err != nil {
+	return err
+}
+```
+
+Use `*WithClient` helpers when you need a custom timeout, transport, or
+connection pool:
+
+```go
+client := &http.Client{Timeout: 2 * time.Second}
+if err := web.GetWithClient(client, context.Background(), "https://api.example.com/user/1", token, &resp); err != nil {
+	return err
+}
+```
+
+If you want the raw response bytes instead of JSON decoding:
+
+```go
+req, _ := http.NewRequest(http.MethodGet, "https://example.com/data", nil)
+
+var raw web.RawBody
+if err := web.DoReqWithClient(http.DefaultClient, req, &raw, nil); err != nil {
+	return err
+}
+```
+
 ### API Index
 
 - `web.New(options ...Option) *Application`

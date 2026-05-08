@@ -25,92 +25,111 @@ func httpClientOrDefault(client *http.Client) *http.Client {
 	return http.DefaultClient
 }
 
-// Get http get
+// Get sends an HTTP GET request using http.DefaultClient.
+//
+// accessToken, when non-empty, is sent as a Bearer token. v receives the decoded
+// response body; pass *RawBody to copy raw bytes instead of JSON decoding.
 func Get(ctx context.Context, url string, accessToken string, v any, before ...func(r *http.Request)) error {
 	return DoWithClient(nil, ctx, http.MethodGet, url, accessToken, nil, v, before...)
 }
 
-// GetWithClient http get with explicit client
+// GetWithClient sends an HTTP GET request using client.
+//
+// When client is nil, http.DefaultClient is used. before callbacks can customize
+// the request before it is sent.
 func GetWithClient(client *http.Client, ctx context.Context, url string, accessToken string, v any, before ...func(r *http.Request)) error {
 	return DoWithClient(client, ctx, http.MethodGet, url, accessToken, nil, v, before...)
 }
 
-// Post http post
+// Post sends an HTTP POST request with data encoded as JSON.
+//
+// The request body is encoded with json.Encoder and defaults to JSON
+// Content-Type/Accept headers unless before callbacks are supplied.
 func Post(ctx context.Context, url string, accessToken string, data any, v any, before ...func(r *http.Request)) error {
 	return doWithJSONBody(nil, ctx, http.MethodPost, url, accessToken, data, v, before...)
 }
 
-// PostWithClient http post with explicit client
+// PostWithClient sends an HTTP POST request with a JSON body using client.
+//
+// Use this when you need custom timeouts, transports, or connection pooling.
 func PostWithClient(client *http.Client, ctx context.Context, url string, accessToken string, data any, v any, before ...func(r *http.Request)) error {
 	return doWithJSONBody(client, ctx, http.MethodPost, url, accessToken, data, v, before...)
 }
 
-// PostBytes http post with raw bytes body
+// PostBytes sends an HTTP POST request with a pre-encoded byte body.
+//
+// This avoids JSON encoding when the payload is already serialized.
 func PostBytes(ctx context.Context, url string, accessToken string, body []byte, v any, before ...func(r *http.Request)) error {
 	return DoBytesWithClient(nil, ctx, http.MethodPost, url, accessToken, body, v, before...)
 }
 
-// PostBytesWithClient http post with raw bytes body and explicit client
+// PostBytesWithClient sends an HTTP POST request with a byte body using client.
 func PostBytesWithClient(client *http.Client, ctx context.Context, url string, accessToken string, body []byte, v any, before ...func(r *http.Request)) error {
 	return DoBytesWithClient(client, ctx, http.MethodPost, url, accessToken, body, v, before...)
 }
 
-// Put http put
+// Put sends an HTTP PUT request with data encoded as JSON.
 func Put(ctx context.Context, url string, accessToken string, data any, v any, before ...func(r *http.Request)) error {
 	return doWithJSONBody(nil, ctx, http.MethodPut, url, accessToken, data, v, before...)
 }
 
-// PutWithClient http put with explicit client
+// PutWithClient sends an HTTP PUT request with a JSON body using client.
 func PutWithClient(client *http.Client, ctx context.Context, url string, accessToken string, data any, v any, before ...func(r *http.Request)) error {
 	return doWithJSONBody(client, ctx, http.MethodPut, url, accessToken, data, v, before...)
 }
 
-// PutBytes http put with raw bytes body
+// PutBytes sends an HTTP PUT request with a pre-encoded byte body.
 func PutBytes(ctx context.Context, url string, accessToken string, body []byte, v any, before ...func(r *http.Request)) error {
 	return DoBytesWithClient(nil, ctx, http.MethodPut, url, accessToken, body, v, before...)
 }
 
-// PutBytesWithClient http put with raw bytes body and explicit client
+// PutBytesWithClient sends an HTTP PUT request with a byte body using client.
 func PutBytesWithClient(client *http.Client, ctx context.Context, url string, accessToken string, body []byte, v any, before ...func(r *http.Request)) error {
 	return DoBytesWithClient(client, ctx, http.MethodPut, url, accessToken, body, v, before...)
 }
 
-// Patch http patch
+// Patch sends an HTTP PATCH request with data encoded as JSON.
 func Patch(ctx context.Context, url string, accessToken string, data any, v any, before ...func(r *http.Request)) error {
 	return doWithJSONBody(nil, ctx, http.MethodPatch, url, accessToken, data, v, before...)
 }
 
-// PatchWithClient http patch with explicit client
+// PatchWithClient sends an HTTP PATCH request with a JSON body using client.
 func PatchWithClient(client *http.Client, ctx context.Context, url string, accessToken string, data any, v any, before ...func(r *http.Request)) error {
 	return doWithJSONBody(client, ctx, http.MethodPatch, url, accessToken, data, v, before...)
 }
 
-// PatchBytes http patch with raw bytes body
+// PatchBytes sends an HTTP PATCH request with a pre-encoded byte body.
 func PatchBytes(ctx context.Context, url string, accessToken string, body []byte, v any, before ...func(r *http.Request)) error {
 	return DoBytesWithClient(nil, ctx, http.MethodPatch, url, accessToken, body, v, before...)
 }
 
-// PatchBytesWithClient http patch with raw bytes body and explicit client
+// PatchBytesWithClient sends an HTTP PATCH request with a byte body using client.
 func PatchBytesWithClient(client *http.Client, ctx context.Context, url string, accessToken string, body []byte, v any, before ...func(r *http.Request)) error {
 	return DoBytesWithClient(client, ctx, http.MethodPatch, url, accessToken, body, v, before...)
 }
 
-// Delete http delete
+// Delete sends an HTTP DELETE request using http.DefaultClient.
 func Delete(ctx context.Context, url string, accessToken string, v any, before ...func(r *http.Request)) error {
 	return DoWithClient(nil, ctx, http.MethodDelete, url, accessToken, nil, v, before...)
 }
 
-// DeleteWithClient http delete with explicit client
+// DeleteWithClient sends an HTTP DELETE request using client.
 func DeleteWithClient(client *http.Client, ctx context.Context, url string, accessToken string, v any, before ...func(r *http.Request)) error {
 	return DoWithClient(client, ctx, http.MethodDelete, url, accessToken, nil, v, before...)
 }
 
-// Do do http request
+// Do sends an HTTP request with the supplied method and body.
+//
+// It creates a request with ctx, applies default JSON headers when no before
+// callbacks are supplied, and decodes the response into v.
 func Do(ctx context.Context, method string, url string, accessToken string, body io.Reader, v any, before ...func(r *http.Request)) error {
 	return DoWithClient(nil, ctx, method, url, accessToken, body, v, before...)
 }
 
-// DoWithClient do http request with explicit client
+// DoWithClient sends an HTTP request with the supplied method and body using client.
+//
+// before callbacks can modify headers or other request fields. When at least one
+// callback is provided, default Content-Type and Accept headers are not applied.
 func DoWithClient(client *http.Client, ctx context.Context, method string, url string, accessToken string, body io.Reader, v any, before ...func(r *http.Request)) error {
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 
@@ -136,12 +155,15 @@ func DoWithClient(client *http.Client, ctx context.Context, method string, url s
 	return DoReqWithClient(client, req, v, nil)
 }
 
-// DoBytes sends a request with a pre-encoded body.
+// DoBytes sends a request with a pre-encoded byte body.
+//
+// The default Content-Type is application/octet-stream and the default Accept is
+// application/json unless before callbacks are supplied.
 func DoBytes(ctx context.Context, method string, url string, accessToken string, body []byte, v any, before ...func(r *http.Request)) error {
 	return DoBytesWithClient(nil, ctx, method, url, accessToken, body, v, before...)
 }
 
-// DoBytesWithClient sends a request with a pre-encoded body and explicit client.
+// DoBytesWithClient sends a request with a pre-encoded byte body using client.
 func DoBytesWithClient(client *http.Client, ctx context.Context, method string, url string, accessToken string, body []byte, v any, before ...func(r *http.Request)) error {
 	var reader io.Reader
 	if body != nil {
@@ -171,12 +193,19 @@ func DoBytesWithClient(client *http.Client, ctx context.Context, method string, 
 	return DoReqWithClient(client, req, v, nil)
 }
 
-// DoReq do http request
+// DoReq executes an already constructed request using http.DefaultClient.
+//
+// Successful JSON responses are decoded into v. Pass *RawBody to v to receive
+// raw bytes. failure handles HTTP 400 responses when provided.
 func DoReq(req *http.Request, v any, failure func(statusCode int, body io.ReadCloser) error) error {
 	return DoReqWithClient(nil, req, v, failure)
 }
 
-// DoReqWithClient do http request with explicit client
+// DoReqWithClient executes an already constructed request using client.
+//
+// Status 200, 201, and 202 are treated as success and decoded into v. Status
+// 204 succeeds without decoding. Common API errors are mapped to package errors;
+// unexpected statuses return ErrUnexpected.
 func DoReqWithClient(client *http.Client, req *http.Request, v any, failure func(statusCode int, body io.ReadCloser) error) error {
 	resp, err := httpClientOrDefault(client).Do(req)
 
@@ -218,108 +247,162 @@ func DoReqWithClient(client *http.Client, req *http.Request, v any, failure func
 	}
 }
 
-// TryGet
+// TryGet sends an HTTP GET request with retry support using http.DefaultClient.
+//
+// retry is the maximum number of attempts; values <= 0 still perform one
+// attempt. Retries stop early for non-retriable API errors such as
+// ErrUnauthorized, ErrForbidden, and ErrBadRequest.
 func TryGet(ctx context.Context, url string, accessToken string, v any, retry int, before ...func(r *http.Request)) error {
 	return TryGetWithClient(nil, ctx, url, accessToken, v, retry, before...)
 }
 
-// TryGetWithClient
+// TryGetWithClient sends an HTTP GET request with retry support using client.
+//
+// When client is nil, http.DefaultClient is used. The context controls both the
+// request and the one-second delay between attempts.
 func TryGetWithClient(client *http.Client, ctx context.Context, url string, accessToken string, v any, retry int, before ...func(r *http.Request)) error {
 	return retryLoop(ctx, retry, func() error {
 		return GetWithClient(client, ctx, url, accessToken, v, before...)
 	})
 }
 
-// TryPost
+// TryPost sends a JSON POST request with retry support using http.DefaultClient.
+//
+// data is JSON-encoded for each attempt. Use TryPostBytes when the request body
+// is already encoded or when avoiding repeated JSON encoding matters.
 func TryPost(ctx context.Context, url string, accessToken string, data any, v any, retry int, before ...func(r *http.Request)) error {
 	return TryPostWithClient(nil, ctx, url, accessToken, data, v, retry, before...)
 }
 
-// TryPostWithClient
+// TryPostWithClient sends a JSON POST request with retry support using client.
+//
+// The response is decoded into v using the same rules as PostWithClient. Pass
+// *RawBody to v when the response should be copied as bytes instead of decoded.
 func TryPostWithClient(client *http.Client, ctx context.Context, url string, accessToken string, data any, v any, retry int, before ...func(r *http.Request)) error {
 	return retryLoop(ctx, retry, func() error {
 		return PostWithClient(client, ctx, url, accessToken, data, v, before...)
 	})
 }
 
-// TryPostBytes
+// TryPostBytes sends a POST request with a pre-encoded byte body and retries.
+//
+// The same byte slice is reused for every attempt, making this the preferred
+// retry helper when the payload is already serialized.
 func TryPostBytes(ctx context.Context, url string, accessToken string, body []byte, v any, retry int, before ...func(r *http.Request)) error {
 	return TryPostBytesWithClient(nil, ctx, url, accessToken, body, v, retry, before...)
 }
 
-// TryPostBytesWithClient
+// TryPostBytesWithClient sends a byte-body POST request with retry support using client.
+//
+// Default headers are application/octet-stream for Content-Type and
+// application/json for Accept unless before callbacks are supplied.
 func TryPostBytesWithClient(client *http.Client, ctx context.Context, url string, accessToken string, body []byte, v any, retry int, before ...func(r *http.Request)) error {
 	return retryLoop(ctx, retry, func() error {
 		return PostBytesWithClient(client, ctx, url, accessToken, body, v, before...)
 	})
 }
 
-// TryPut
+// TryPut sends a JSON PUT request with retry support using http.DefaultClient.
+//
+// retry counts total attempts, not extra attempts. For example, retry=3 performs
+// at most three HTTP requests.
 func TryPut(ctx context.Context, url string, accessToken string, data any, v any, retry int, before ...func(r *http.Request)) error {
 	return TryPutWithClient(nil, ctx, url, accessToken, data, v, retry, before...)
 }
 
-// TryPutWithClient
+// TryPutWithClient sends a JSON PUT request with retry support using client.
+//
+// Use this variant when the caller owns a tuned http.Client with timeouts,
+// tracing, custom transport, or connection pooling.
 func TryPutWithClient(client *http.Client, ctx context.Context, url string, accessToken string, data any, v any, retry int, before ...func(r *http.Request)) error {
 	return retryLoop(ctx, retry, func() error {
 		return PutWithClient(client, ctx, url, accessToken, data, v, before...)
 	})
 }
 
-// TryPutBytes
+// TryPutBytes sends a PUT request with a pre-encoded byte body and retries.
+//
+// This avoids JSON encoding and is useful for binary, compressed, or already
+// serialized payloads.
 func TryPutBytes(ctx context.Context, url string, accessToken string, body []byte, v any, retry int, before ...func(r *http.Request)) error {
 	return TryPutBytesWithClient(nil, ctx, url, accessToken, body, v, retry, before...)
 }
 
-// TryPutBytesWithClient
+// TryPutBytesWithClient sends a byte-body PUT request with retry support using client.
+//
+// The response handling and error mapping are identical to DoReqWithClient.
 func TryPutBytesWithClient(client *http.Client, ctx context.Context, url string, accessToken string, body []byte, v any, retry int, before ...func(r *http.Request)) error {
 	return retryLoop(ctx, retry, func() error {
 		return PutBytesWithClient(client, ctx, url, accessToken, body, v, before...)
 	})
 }
 
-// TryPatch
+// TryPatch sends a JSON PATCH request with retry support using http.DefaultClient.
+//
+// before callbacks can customize headers or request metadata before each
+// attempt is sent.
 func TryPatch(ctx context.Context, url string, accessToken string, data any, v any, retry int, before ...func(r *http.Request)) error {
 	return TryPatchWithClient(nil, ctx, url, accessToken, data, v, retry, before...)
 }
 
-// TryPatchWithClient
+// TryPatchWithClient sends a JSON PATCH request with retry support using client.
+//
+// Non-retriable framework errors are returned immediately so authentication or
+// validation failures are not repeated unnecessarily.
 func TryPatchWithClient(client *http.Client, ctx context.Context, url string, accessToken string, data any, v any, retry int, before ...func(r *http.Request)) error {
 	return retryLoop(ctx, retry, func() error {
 		return PatchWithClient(client, ctx, url, accessToken, data, v, before...)
 	})
 }
 
-// TryPatchBytes
+// TryPatchBytes sends a PATCH request with a pre-encoded byte body and retries.
+//
+// Use this for JSON bytes, merge-patch payloads, binary patches, or any payload
+// that has already been serialized by the caller.
 func TryPatchBytes(ctx context.Context, url string, accessToken string, body []byte, v any, retry int, before ...func(r *http.Request)) error {
 	return TryPatchBytesWithClient(nil, ctx, url, accessToken, body, v, retry, before...)
 }
 
-// TryPatchBytesWithClient
+// TryPatchBytesWithClient sends a byte-body PATCH request with retry support using client.
+//
+// Each attempt creates a fresh reader over body, so the payload can be replayed
+// safely across retries.
 func TryPatchBytesWithClient(client *http.Client, ctx context.Context, url string, accessToken string, body []byte, v any, retry int, before ...func(r *http.Request)) error {
 	return retryLoop(ctx, retry, func() error {
 		return PatchBytesWithClient(client, ctx, url, accessToken, body, v, before...)
 	})
 }
 
-// TryDelete
+// TryDelete sends an HTTP DELETE request with retry support using http.DefaultClient.
+//
+// v receives the successful response body, or can be nil when the caller only
+// cares whether the delete operation succeeded.
 func TryDelete(ctx context.Context, url string, accessToken string, v any, retry int, before ...func(r *http.Request)) error {
 	return TryDeleteWithClient(nil, ctx, url, accessToken, v, retry, before...)
 }
 
-// TryDeleteWithClient
+// TryDeleteWithClient sends an HTTP DELETE request with retry support using client.
+//
+// It is a convenience wrapper around retryLoop and DeleteWithClient.
 func TryDeleteWithClient(client *http.Client, ctx context.Context, url string, accessToken string, v any, retry int, before ...func(r *http.Request)) error {
 	return retryLoop(ctx, retry, func() error {
 		return DeleteWithClient(client, ctx, url, accessToken, v, before...)
 	})
 }
 
-// TryDo
+// TryDo sends an arbitrary HTTP request with retry support using http.DefaultClient.
+//
+// The body reader, when non-nil, is read into memory once so it can be replayed
+// for each retry attempt. Prefer TryDoBytes when the caller already has a byte
+// slice or when making this buffering behavior explicit is clearer.
 func TryDo(ctx context.Context, method string, url string, accessToken string, body io.Reader, v any, retry int, before ...func(r *http.Request)) error {
 	return TryDoWithClient(nil, ctx, method, url, accessToken, body, v, retry, before...)
 }
 
-// TryDoWithClient
+// TryDoWithClient sends an arbitrary HTTP request with retry support using client.
+//
+// The request body is buffered once before the first attempt. The context is used
+// for all attempts and for cancellation while waiting between retries.
 func TryDoWithClient(client *http.Client, ctx context.Context, method string, url string, accessToken string, body io.Reader, v any, retry int, before ...func(r *http.Request)) error {
 	var payload []byte
 	var err error
@@ -340,12 +423,18 @@ func TryDoWithClient(client *http.Client, ctx context.Context, method string, ur
 	})
 }
 
-// TryDoBytes
+// TryDoBytes sends an arbitrary HTTP request with a byte body and retry support.
+//
+// It uses http.DefaultClient and reuses body across attempts without additional
+// buffering.
 func TryDoBytes(ctx context.Context, method string, url string, accessToken string, body []byte, v any, retry int, before ...func(r *http.Request)) error {
 	return TryDoBytesWithClient(nil, ctx, method, url, accessToken, body, v, retry, before...)
 }
 
-// TryDoBytesWithClient
+// TryDoBytesWithClient sends an arbitrary byte-body HTTP request with retry support.
+//
+// Use this as the lowest-level retry helper when you need a custom method,
+// custom client, optional bearer token, and a replayable byte payload.
 func TryDoBytesWithClient(client *http.Client, ctx context.Context, method string, url string, accessToken string, body []byte, v any, retry int, before ...func(r *http.Request)) error {
 	return retryLoop(ctx, retry, func() error {
 		return DoBytesWithClient(client, ctx, method, url, accessToken, body, v, before...)

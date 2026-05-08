@@ -144,10 +144,20 @@ func (e *errFn) Code() int {
 	return e.code
 }
 
+// NewErr creates a framework error with an associated HTTP status code.
+//
+// The returned error exposes Code through an internal interface used by the
+// framework error writer, access log middleware, and client helpers. msg is the
+// value returned by Error.
 func NewErr(code int, msg string) error {
 	return &errString{code: code, s: msg}
 }
 
+// NewErrFn creates a framework error that can write its own response.
+//
+// cb is invoked by the framework error path with the original ResponseWriter and
+// Request. This is useful for redirects or compatibility responses that need to
+// bypass the normal content negotiation writer.
 func NewErrFn(code int, msg string, cb Fn) error {
 	return &errFn{
 		cb: cb,

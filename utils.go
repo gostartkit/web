@@ -170,7 +170,14 @@ func parseBoolFast(s string) (bool, bool) {
 	}
 }
 
-// Redirect helper function for return url and redirect error
+// Redirect returns a handler result that performs an HTTP redirect.
+//
+// Use it directly from a route handler:
+//
+//	return web.Redirect("/login", http.StatusFound)
+//
+// The returned error carries code and writes through http.Redirect on the
+// framework error path.
 func Redirect(url string, code int) (any, error) {
 	return nil, NewErrFn(code, "REDIRECT", func(w http.ResponseWriter, r *http.Request) error {
 		http.Redirect(w, r, url, code)
@@ -178,7 +185,19 @@ func Redirect(url string, code int) (any, error) {
 	})
 }
 
-// TryParse try parse val to v
+// TryParse parses val into the destination pointer v.
+//
+// Supported destinations include pointers to string, signed and unsigned integer
+// widths, float32, float64, bool, and comma-separated slices of those scalar
+// types. Empty val is treated as "not provided": TryParse returns nil and leaves
+// the destination unchanged.
+//
+// Example:
+//
+//	var ids []uint64
+//	if err := web.TryParse("1,2,3", &ids); err != nil {
+//		return nil, err
+//	}
 func TryParse(val string, v any) error {
 
 	if len(val) == 0 {
@@ -691,6 +710,10 @@ func TryParse(val string, v any) error {
 	}
 }
 
+// TryInt parses val as int.
+//
+// Empty strings return zero and nil, matching the framework's optional
+// parameter/query behavior.
 func TryInt(val string) (int, error) {
 	if val == "" {
 		return 0, nil
@@ -708,6 +731,9 @@ func TryInt(val string) (int, error) {
 	return int(n), nil
 }
 
+// TryUint parses val as uint.
+//
+// Empty strings return zero and nil. Overflow is reported as strconv.ErrRange.
 func TryUint(val string) (uint, error) {
 	if val == "" {
 		return 0, nil
@@ -725,6 +751,10 @@ func TryUint(val string) (uint, error) {
 	return uint(n), nil
 }
 
+// TryInt8 parses val as int8.
+//
+// Empty strings return zero and nil. Values outside the int8 range return
+// strconv.ErrRange.
 func TryInt8(val string) (int8, error) {
 	if val == "" {
 		return 0, nil
@@ -742,6 +772,10 @@ func TryInt8(val string) (int8, error) {
 	return int8(n), nil
 }
 
+// TryUint8 parses val as uint8.
+//
+// Empty strings return zero and nil. Values above math.MaxUint8 return
+// strconv.ErrRange.
 func TryUint8(val string) (uint8, error) {
 	if val == "" {
 		return 0, nil
@@ -759,6 +793,10 @@ func TryUint8(val string) (uint8, error) {
 	return uint8(n), nil
 }
 
+// TryInt16 parses val as int16.
+//
+// Empty strings return zero and nil. Values outside the int16 range return
+// strconv.ErrRange.
 func TryInt16(val string) (int16, error) {
 	if val == "" {
 		return 0, nil
@@ -776,6 +814,10 @@ func TryInt16(val string) (int16, error) {
 	return int16(n), nil
 }
 
+// TryUint16 parses val as uint16.
+//
+// Empty strings return zero and nil. Values above math.MaxUint16 return
+// strconv.ErrRange.
 func TryUint16(val string) (uint16, error) {
 	if val == "" {
 		return 0, nil
@@ -793,6 +835,10 @@ func TryUint16(val string) (uint16, error) {
 	return uint16(n), nil
 }
 
+// TryInt32 parses val as int32.
+//
+// Empty strings return zero and nil. Values outside the int32 range return
+// strconv.ErrRange.
 func TryInt32(val string) (int32, error) {
 	if val == "" {
 		return 0, nil
@@ -810,6 +856,10 @@ func TryInt32(val string) (int32, error) {
 	return int32(n), nil
 }
 
+// TryUint32 parses val as uint32.
+//
+// Empty strings return zero and nil. Values above math.MaxUint32 return
+// strconv.ErrRange.
 func TryUint32(val string) (uint32, error) {
 	if val == "" {
 		return 0, nil
@@ -827,6 +877,10 @@ func TryUint32(val string) (uint32, error) {
 	return uint32(n), nil
 }
 
+// TryInt64 parses val as int64.
+//
+// Empty strings return zero and nil. The hot path avoids allocations for common
+// decimal input and falls back to strconv for standard error reporting.
 func TryInt64(val string) (int64, error) {
 	if val == "" {
 		return 0, nil
@@ -841,6 +895,10 @@ func TryInt64(val string) (int64, error) {
 	return n, nil
 }
 
+// TryUint64 parses val as uint64.
+//
+// Empty strings return zero and nil. This helper is used by Ctx.ParamUint64 and
+// QueryUint64 for fast numeric ID parsing.
 func TryUint64(val string) (uint64, error) {
 	if val == "" {
 		return 0, nil
@@ -855,6 +913,10 @@ func TryUint64(val string) (uint64, error) {
 	return n, nil
 }
 
+// TryFloat32 parses val as float32.
+//
+// Empty strings return zero and nil. Non-empty input follows strconv.ParseFloat
+// semantics.
 func TryFloat32(val string) (float32, error) {
 	if val == "" {
 		return 0, nil
@@ -866,6 +928,10 @@ func TryFloat32(val string) (float32, error) {
 	return float32(n), nil
 }
 
+// TryFloat64 parses val as float64.
+//
+// Empty strings return zero and nil. Non-empty input follows strconv.ParseFloat
+// semantics.
 func TryFloat64(val string) (float64, error) {
 	if val == "" {
 		return 0, nil
@@ -877,6 +943,11 @@ func TryFloat64(val string) (float64, error) {
 	return n, nil
 }
 
+// TryBool parses val as bool.
+//
+// Empty strings return false and nil. Common boolean spellings such as "true",
+// "false", "1", and "0" are handled by a fast path before falling back to
+// strconv.ParseBool.
 func TryBool(val string) (bool, error) {
 	if val == "" {
 		return false, nil
@@ -921,6 +992,11 @@ func bearerToken(auth string) string {
 	return auth[l:]
 }
 
+// IsErrFn reports whether err carries a custom response callback created by NewErrFn.
+//
+// It is primarily used internally by the framework error path, but can help
+// tests distinguish redirect/custom-response errors from ordinary framework
+// errors.
 func IsErrFn(err error) bool {
 	_, ok := err.(*errFn)
 	return ok

@@ -131,6 +131,313 @@ func main() {
 }
 ```
 
+### 使用指南
+
+这一节专门讲最常见的使用方式。如果你想尽快把一个 API 跑起来，直接从这里开始就够了。
+
+#### 1. 创建应用
+
+默认情况下，直接用 `web.New()` 即可。如果你一开始就知道要加中间件或结构化错误处理，也可以在构造时一次性声明。
+
+```go
+app := web.New(
+	web.WithMiddleware(
+		web.RequestID("", nil),
+		web.Recover(nil),
+	),
+	web.WithErrorHandler(web.JSONErrorHandler(true)),
+)
+```
+
+如果你希望初始化代码更集中、更声明式，优先用 `WithXxx(...)`。如果中间件是后面按条件追加的，用 `app.Use(...)` 会更自然。
+
+#### 2. 注册路由
+
+handler 的签名是：
+
+```go
+func(c *web.Ctx) (any, error)
+```
+
+最简单的写法是直接返回一个值，让框架帮你编码响应：
+
+```go
+app.Get("/health", func(c *web.Ctx) (any, error) {
+	return map[string]string{"status": "ok"}, nil
+})
+```
+
+也可以注册其他 HTTP 方法：
+
+```go
+app.Post("/users", createUser)
+app.Put("/users/:id", updateUser)
+app.Delete("/users/:id", deleteUser)
+app.Handle("PURGE", "/cache/:key", purgeCache)
+```
+
+如果你已经有标准 `net/http` handler，也可以直接挂载：
+
+```go
+app.GetHTTP("/metrics", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNoContent)
+}))
+```
+
+#### 3. 读取路径参数、查询参数和表单
+
+字符串场景直接用 `Param`、`Query`、`Form`。如果你想顺手完成解析和校验，优先用类型化 helper。
+
+```go
+app.Get("/users/:id", func(c *web.Ctx) (any, error) {
+	id, err := c.ParamUint64("id")
+	if err != nil {
+		return nil, web.ErrBadRequest
+	}
+
+	verbose := c.Query("verbose") == "1"
+
+	return map[string]any{
+		"id":      id,
+		"verbose": verbose,
+	}, nil
+})
+```
+
+表单请求示例：
+
+```go
+app.Post("/login", func(c *web.Ctx) (any, error) {
+	email := c.Form("email")
+	password := c.Form("password")
+
+	if email == "" || password == "" {
+		return nil, web.ErrBadRequest
+	}
+
+	return map[string]bool{"ok": true}, nil
+})
+```
+
+#### 4. 解析请求体
+
+当你希望根据请求的 `Content-Type` 自动选择解码方式时，使用 `TryParseBody`。它内置支持 JSON、GOB 和 XML。
+
+```go
+type CreateUserRequest struct {
+	Name string `json:"name"`
+	Age  int    `json:"age"`
+}
+
+app.Post("/users", func(c *web.Ctx) (any, error) {
+	var req CreateUserRequest
+	if err := c.TryParseBody(&req); err != nil {
+		return nil, err
+	}
+
+	return map[string]any{
+		"name": req.Name,
+		"age":  req.Age,
+	}, nil
+})
+```
+
+如果你明确知道请求体就是 JSON，并且更关心速度，可以使用 `TryParseJSONBodyFast`。
+
+```go
+app.Post("/events", func(c *web.Ctx) (any, error) {
+	var req struct {
+		Type string `json:"type"`
+	}
+
+	if err := c.TryParseJSONBodyFast(&req); err != nil {
+		return nil, err
+	}
+
+	return map[string]string{"accepted": req.Type}, nil
+})
+```
+
+简单判断：
+
+- 需要更严格的 JSON 语义时，用 `TryParseBody`
+- 需要更快的 JSON 热路径时，用 `TryParseJSONBodyFast`
+
+#### 5. 返回响应
+
+框架默认的响应规则很简单：
+
+- `return nil, nil` 写出 `204 No Content`
+- `return value, nil` 写出 `200 OK`
+- `c.SetStatus(code)` 可以覆写默认成功状态码
+- `return nil, err` 走错误响应路径
+
+显式设置成功状态码示例：
+
+```go
+app.Post("/users", func(c *web.Ctx) (any, error) {
+	c.SetStatus(http.StatusCreated)
+	return map[string]string{"result": "created"}, nil
+})
+```
+
+如果你希望立即写出响应，可以使用这些 helper：
+
+```go
+app.Get("/ping", func(c *web.Ctx) (any, error) {
+	return nil, c.String(http.StatusOK, "pong")
+})
+
+app.Get("/config.json", func(c *web.Ctx) (any, error) {
+	return nil, c.JSON(http.StatusOK, map[string]bool{"ok": true})
+})
+
+app.Get("/logo", func(c *web.Ctx) (any, error) {
+	return nil, c.Blob(http.StatusOK, "image/png", pngBytes)
+})
+```
+
+一般来说，如果你的 handler 走“框架托管响应”的路线，直接返回值会更自然。只有在你需要精确控制输出时，再用 `JSON`、`String`、`Blob`、`NoContent` 这一类即时写出 helper。
+
+#### 6. 路由分组和中间件
+
+当前缀和中间件只想作用于某一组路由时，用 `Group` 会最清晰。
+
+```go
+api := app.Group("/api", web.Timeout(2*time.Second))
+api.Use(web.AccessLog(func(c *web.Ctx, status int, d time.Duration, err error) {
+	log.Printf("%s %s -> %d (%s)", c.Method(), c.Path(), status, d)
+}))
+
+api.Get("/users/:id", func(c *web.Ctx) (any, error) {
+	return map[string]string{
+		"id":         c.Param("id"),
+		"request_id": c.RequestID(),
+	}, nil
+})
+```
+
+中间件执行顺序是：
+
+- 应用级 middleware
+- 父分组 middleware
+- 子分组 middleware
+- 路由级 middleware
+
+#### 7. 错误处理
+
+你可以直接返回框架内置错误：
+
+```go
+app.Get("/private", func(c *web.Ctx) (any, error) {
+	if c.BearerToken() == "" {
+		return nil, web.ErrUnauthorized
+	}
+	return map[string]bool{"ok": true}, nil
+})
+```
+
+如果你希望所有 API 错误都输出统一 JSON 结构，可以安装 `JSONErrorHandler`：
+
+```go
+app.SetErrorHandler(web.JSONErrorHandler(true))
+```
+
+响应体大致会是这样：
+
+```json
+{
+  "code": 401,
+  "message": "UNAUTHORIZED",
+  "request_id": "abc123"
+}
+```
+
+如果是重定向，不要只返回一个状态错误，直接使用 `web.Redirect(...)`：
+
+```go
+app.Get("/old-home", func(c *web.Ctx) (any, error) {
+	return web.Redirect("/new-home", http.StatusMovedPermanently)
+})
+```
+
+#### 8. 静态文件
+
+当应用的一部分需要暴露目录文件时，使用 `ServeFiles`：
+
+```go
+app.ServeFiles("/static/*filepath", http.Dir("./public"))
+```
+
+例如 `/static/app.css`、`/static/js/app.js` 这样的请求，会自动转发到底层文件系统，并去掉 `/static` 这一层前缀。
+
+#### 9. 发起 HTTP 请求
+
+这个包还带了一套轻量的客户端 helper。
+
+简单的 JSON GET：
+
+```go
+var resp struct {
+	Name string `json:"name"`
+}
+
+if err := web.Get(context.Background(), "https://api.example.com/user/1", "", &resp); err != nil {
+	return err
+}
+```
+
+JSON POST：
+
+```go
+payload := map[string]string{"name": "alice"}
+
+var resp struct {
+	ID uint64 `json:"id"`
+}
+
+if err := web.Post(context.Background(), "https://api.example.com/users", token, payload, &resp); err != nil {
+	return err
+}
+```
+
+请求体已经编码好的情况：
+
+```go
+body := []byte(`{"name":"alice"}`)
+if err := web.PostBytes(context.Background(), "https://api.example.com/users", token, body, &resp); err != nil {
+	return err
+}
+```
+
+带重试的请求：
+
+```go
+if err := web.TryGet(context.Background(), "https://api.example.com/user/1", token, &resp, 3); err != nil {
+	return err
+}
+```
+
+如果你需要自定义超时、transport 或连接池，使用 `*WithClient` 版本：
+
+```go
+client := &http.Client{Timeout: 2 * time.Second}
+if err := web.GetWithClient(client, context.Background(), "https://api.example.com/user/1", token, &resp); err != nil {
+	return err
+}
+```
+
+如果你想拿到原始响应体，而不是 JSON 解码结果：
+
+```go
+req, _ := http.NewRequest(http.MethodGet, "https://example.com/data", nil)
+
+var raw web.RawBody
+if err := web.DoReqWithClient(http.DefaultClient, req, &raw, nil); err != nil {
+	return err
+}
+```
+
 ### API 索引
 
 - `web.New(options ...Option) *Application`

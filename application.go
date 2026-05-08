@@ -38,7 +38,11 @@ func methodRootIndex(method string) int {
 	}
 }
 
-// Application is type of a web.Application
+// Application is the HTTP router, middleware registry, and request dispatcher.
+//
+// Routes are registered before serving and are matched by HTTP method plus path.
+// Application implements http.Handler, so it can be passed directly to
+// http.Server, httptest, or any standard library integration point.
 type Application struct {
 	srv             *http.Server
 	trees           map[string]*node
@@ -65,6 +69,16 @@ type Application struct {
 }
 
 // New returns a configured *web.Application.
+//
+// Options are applied immediately, before any routes are registered. Calling New
+// without options is equivalent to the historical zero-configuration setup.
+//
+// Example:
+//
+//	app := web.New(
+//		web.WithMiddleware(web.RequestID("", nil), web.Recover(nil)),
+//		web.WithErrorHandler(web.JSONErrorHandler(true)),
+//	)
 func New(options ...Option) *Application {
 	app := &Application{}
 	app.paramsPool.New = func() any {
@@ -92,6 +106,9 @@ func New(options ...Option) *Application {
 }
 
 // WithInfoLogger configures the informational logger used by the application.
+//
+// The logger is used for successful framework-managed route completions. Passing
+// nil disables informational logging.
 func WithInfoLogger(logger *log.Logger) Option {
 	return func(app *Application) {
 		app.info = logger
@@ -99,6 +116,9 @@ func WithInfoLogger(logger *log.Logger) Option {
 }
 
 // WithErrLogger configures the error logger used by the application.
+//
+// The logger is used for route errors, write errors, and recovered panics handled
+// by Application.recv. Passing nil disables error logging.
 func WithErrLogger(logger *log.Logger) Option {
 	return func(app *Application) {
 		app.err = logger
@@ -106,6 +126,9 @@ func WithErrLogger(logger *log.Logger) Option {
 }
 
 // WithCORS configures the CORS hook used for automatic OPTIONS responses.
+//
+// The hook runs only for OPTIONS requests handled by the framework's automatic
+// method discovery path.
 func WithCORS(cors Cors) Option {
 	return func(app *Application) {
 		app.cors = cors
@@ -113,6 +136,10 @@ func WithCORS(cors Cors) Option {
 }
 
 // WithPanic configures the panic hook used by the recovery boundary in ServeHTTP.
+//
+// This hook is for panics that reach the Application-level recover boundary. For
+// route-level panic handling that participates in normal error writing, prefer
+// Recover or RecoverWithOptions middleware.
 func WithPanic(panic Panic) Option {
 	return func(app *Application) {
 		app.panic = panic
@@ -120,6 +147,9 @@ func WithPanic(panic Panic) Option {
 }
 
 // WithErrorHandler configures the application-level route error handler.
+//
+// The handler is called when a route returns a non-nil error. Returning nil from
+// the handler means the error response has already been written.
 func WithErrorHandler(handler ErrorHandler) Option {
 	return func(app *Application) {
 		app.errorHandler = handler
@@ -127,6 +157,9 @@ func WithErrorHandler(handler ErrorHandler) Option {
 }
 
 // WithMiddleware appends application middleware for subsequently registered routes.
+//
+// Middleware is still applied at route registration time. This option is a
+// declarative shortcut for calling app.Use immediately after New.
 func WithMiddleware(middleware ...Middleware) Option {
 	return func(app *Application) {
 		app.Use(middleware...)
@@ -134,6 +167,8 @@ func WithMiddleware(middleware ...Middleware) Option {
 }
 
 // WithNotFound configures the handler used when no route matches.
+//
+// When handler is nil, Application falls back to http.NotFound.
 func WithNotFound(handler http.Handler) Option {
 	return func(app *Application) {
 		app.NotFound = handler
@@ -141,38 +176,58 @@ func WithNotFound(handler http.Handler) Option {
 }
 
 // WithMethodNotAllowed configures the handler used when a path exists for other methods.
+//
+// The framework sets the Allow header before invoking the handler. When handler
+// is nil, Application falls back to http.Error with status 405.
 func WithMethodNotAllowed(handler http.Handler) Option {
 	return func(app *Application) {
 		app.MethodNotAllowed = handler
 	}
 }
 
-// SetInfoLogger set info logger
+// SetInfoLogger sets the informational logger used after successful requests.
+//
+// This setter is equivalent to constructing the application with WithInfoLogger.
 func (app *Application) SetInfoLogger(logger *log.Logger) {
 	app.info = logger
 }
 
-// SetErrLogger set err logger
+// SetErrLogger sets the logger used for route, write, and panic errors.
+//
+// This setter is equivalent to constructing the application with WithErrLogger.
 func (app *Application) SetErrLogger(logger *log.Logger) {
 	app.err = logger
 }
 
-// SetCORS set CORS
+// SetCORS sets the CORS hook used by automatic OPTIONS responses.
+//
+// The hook receives a header setter, the request Origin, and the methods allowed
+// for the requested route.
 func (app *Application) SetCORS(cors Cors) {
 	app.cors = cors
 }
 
-// SetPanic set Panic
+// SetPanic sets the application-level panic hook.
+//
+// Prefer Recover or RecoverWithOptions middleware for route-level panic recovery.
 func (app *Application) SetPanic(panic Panic) {
 	app.panic = panic
 }
 
 // SetErrorHandler sets a custom route error handler.
+//
+// The handler is called for errors returned by route handlers. Return nil when
+// the handler has written the response; return an error to let the default writer
+// handle it.
 func (app *Application) SetErrorHandler(handler ErrorHandler) {
 	app.errorHandler = handler
 }
 
 // RegisterReader registers a request body reader for a supported content type.
+//
+// The content type must map to one of the framework's known media types, such as
+// application/json or application/xml. A registered reader overrides the built-in
+// decoder for TryParseBody.
 func (app *Application) RegisterReader(contentType string, reader Reader) error {
 	mt := parseMediaType(contentType)
 	if mt == mediaUnknown {
@@ -184,6 +239,10 @@ func (app *Application) RegisterReader(contentType string, reader Reader) error 
 }
 
 // RegisterWriter registers a response writer for a supported accept/content type.
+//
+// The content type must map to one of the framework's known media types. A
+// registered writer overrides the built-in response writer for framework-managed
+// responses negotiated to that media type.
 func (app *Application) RegisterWriter(contentType string, writer Writer) error {
 	mt := parseMediaType(contentType)
 	if mt == mediaUnknown {
@@ -195,11 +254,17 @@ func (app *Application) RegisterWriter(contentType string, writer Writer) error 
 }
 
 // Use appends application middleware for subsequently registered routes.
+//
+// Middleware is applied when each route is registered. Calling Use does not
+// affect routes that were already registered.
 func (app *Application) Use(middleware ...Middleware) {
 	app.middleware = append(app.middleware, middleware...)
 }
 
 // Group creates a route group with a shared prefix and middleware chain.
+//
+// Routes registered on the returned group inherit the application's current
+// middleware plus the group middleware. The prefix must be empty or start with /.
 func (app *Application) Group(prefix string, middleware ...Middleware) *RouteGroup {
 	if prefix != "" && prefix[0] != '/' {
 		panic("group prefix must begin with '/' in path '" + prefix + "'")
@@ -212,11 +277,18 @@ func (app *Application) Group(prefix string, middleware ...Middleware) *RouteGro
 }
 
 // Handle registers a route for an arbitrary HTTP method.
+//
+// The path must start with /. Optional route middleware is applied after
+// application and group middleware, and only affects this route.
 func (app *Application) Handle(method string, path string, next Next, middleware ...Middleware) {
 	app.addRoute(method, path, wrapNext(next, app.middleware, Chain(middleware)))
 }
 
 // HTTPHandler adapts a standard net/http handler into a web route handler.
+//
+// The adapted handler writes directly to the Ctx, which implements
+// http.ResponseWriter. It returns (nil, nil) because the response is considered
+// manually handled.
 func HTTPHandler(handler http.Handler) Next {
 	if handler == nil {
 		return nil
@@ -228,76 +300,79 @@ func HTTPHandler(handler http.Handler) Next {
 }
 
 // HandleHTTP registers a standard net/http handler for an arbitrary HTTP method.
+//
+// This is useful for mounting existing handlers from the standard library or
+// third-party packages without rewriting them as Next handlers.
 func (app *Application) HandleHTTP(method string, path string, handler http.Handler, middleware ...Middleware) {
 	app.Handle(method, path, HTTPHandler(handler), middleware...)
 }
 
-// Get method
+// Get registers a route for HTTP GET requests.
 func (app *Application) Get(path string, next Next) {
 	app.Handle(http.MethodGet, path, next)
 }
 
-// GetHTTP registers a standard net/http handler for GET.
+// GetHTTP registers a standard net/http handler for HTTP GET requests.
 func (app *Application) GetHTTP(path string, handler http.Handler) {
 	app.HandleHTTP(http.MethodGet, path, handler)
 }
 
-// Head method
+// Head registers a route for HTTP HEAD requests.
 func (app *Application) Head(path string, cb Next) {
 	app.Handle(http.MethodHead, path, cb)
 }
 
-// HeadHTTP registers a standard net/http handler for HEAD.
+// HeadHTTP registers a standard net/http handler for HTTP HEAD requests.
 func (app *Application) HeadHTTP(path string, handler http.Handler) {
 	app.HandleHTTP(http.MethodHead, path, handler)
 }
 
-// Post method
+// Post registers a route for HTTP POST requests.
 func (app *Application) Post(path string, next Next) {
 	app.Handle(http.MethodPost, path, next)
 }
 
-// PostHTTP registers a standard net/http handler for POST.
+// PostHTTP registers a standard net/http handler for HTTP POST requests.
 func (app *Application) PostHTTP(path string, handler http.Handler) {
 	app.HandleHTTP(http.MethodPost, path, handler)
 }
 
-// Put method
+// Put registers a route for HTTP PUT requests.
 func (app *Application) Put(path string, next Next) {
 	app.Handle(http.MethodPut, path, next)
 }
 
-// PutHTTP registers a standard net/http handler for PUT.
+// PutHTTP registers a standard net/http handler for HTTP PUT requests.
 func (app *Application) PutHTTP(path string, handler http.Handler) {
 	app.HandleHTTP(http.MethodPut, path, handler)
 }
 
-// Patch method
+// Patch registers a route for HTTP PATCH requests.
 func (app *Application) Patch(path string, next Next) {
 	app.Handle(http.MethodPatch, path, next)
 }
 
-// PatchHTTP registers a standard net/http handler for PATCH.
+// PatchHTTP registers a standard net/http handler for HTTP PATCH requests.
 func (app *Application) PatchHTTP(path string, handler http.Handler) {
 	app.HandleHTTP(http.MethodPatch, path, handler)
 }
 
-// Delete method
+// Delete registers a route for HTTP DELETE requests.
 func (app *Application) Delete(path string, next Next) {
 	app.Handle(http.MethodDelete, path, next)
 }
 
-// DeleteHTTP registers a standard net/http handler for DELETE.
+// DeleteHTTP registers a standard net/http handler for HTTP DELETE requests.
 func (app *Application) DeleteHTTP(path string, handler http.Handler) {
 	app.HandleHTTP(http.MethodDelete, path, handler)
 }
 
-// Options method
+// Options registers a route for HTTP OPTIONS requests.
 func (app *Application) Options(path string, next Next) {
 	app.Handle(http.MethodOptions, path, next)
 }
 
-// OptionsHTTP registers a standard net/http handler for OPTIONS.
+// OptionsHTTP registers a standard net/http handler for HTTP OPTIONS requests.
 func (app *Application) OptionsHTTP(path string, handler http.Handler) {
 	app.HandleHTTP(http.MethodOptions, path, handler)
 }
@@ -348,17 +423,15 @@ func (app *Application) addRoute(method string, path string, next Next) {
 	}
 }
 
-// ServeFiles registers a route to serve static files from the specified file system under the given path pattern.
-// The path must end with "/*filepath" to capture file paths dynamically.
-// It panics if the path pattern is invalid, ensuring correct configuration during initialization.
+// ServeFiles registers a GET route that serves files from root.
 //
-// Parameters:
-//   - path: The URL path pattern (e.g., "/static/*filepath") to match file requests.
-//     Must end with "/*filepath" to extract the file path as a parameter.
-//   - root: The http.FileSystem to serve files from (e.g., http.Dir("./static")).
+// The route path must end with /*filepath so the remaining request path can be
+// captured and passed to http.FileServer. For example:
 //
-// Panics:
-//   - If the path is shorter than 10 characters or does not end with "/*filepath".
+//	app.ServeFiles("/static/*filepath", http.Dir("./public"))
+//
+// A request to /static/css/app.css will serve /css/app.css from the provided
+// file system. ServeFiles panics during registration if the pattern is invalid.
 func (app *Application) ServeFiles(path string, root http.FileSystem) {
 	// Validate the path pattern to ensure it ends with "/*filepath" for dynamic file path capturing.
 	// This check prevents incorrect routing configurations.
@@ -375,7 +448,12 @@ func (app *Application) ServeFiles(path string, root http.FileSystem) {
 	})
 }
 
-// ServeHTTP w, r
+// ServeHTTP dispatches an HTTP request to the registered route tree.
+//
+// Application implements http.Handler through this method. ServeHTTP is
+// responsible for route lookup, context pooling, middleware-executed handlers,
+// response encoding, automatic OPTIONS handling, method-not-allowed handling,
+// not-found handling, logging, and panic recovery.
 func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	defer app.recv(w, r)
@@ -600,12 +678,18 @@ func joinPaths(prefix, path string) string {
 	}
 }
 
-// Use appends middleware to the group.
+// Use appends middleware to this route group.
+//
+// Middleware added to a group affects only routes registered on that group after
+// the call. It does not mutate the parent application or sibling groups.
 func (g *RouteGroup) Use(middleware ...Middleware) {
 	g.middleware = append(g.middleware, middleware...)
 }
 
-// Group creates a nested route group.
+// Group creates a nested route group below the current group prefix.
+//
+// The child group inherits the current group's middleware and appends any
+// middleware supplied to this call. The prefix must be empty or start with /.
 func (g *RouteGroup) Group(prefix string, middleware ...Middleware) *RouteGroup {
 	if prefix != "" && prefix[0] != '/' {
 		panic("group prefix must begin with '/' in path '" + prefix + "'")
@@ -619,81 +703,87 @@ func (g *RouteGroup) Group(prefix string, middleware ...Middleware) *RouteGroup 
 }
 
 // Handle registers a route on the group.
+//
+// The final path is the group prefix joined with path. Middleware is composed in
+// application, parent group, child group, then route order.
 func (g *RouteGroup) Handle(method string, path string, next Next, middleware ...Middleware) {
 	g.app.addRoute(method, joinPaths(g.prefix, path), wrapNext(next, g.app.middleware, g.middleware, Chain(middleware)))
 }
 
 // HandleHTTP registers a standard net/http handler on the group.
+//
+// This is the grouped equivalent of Application.HandleHTTP and is useful for
+// mounting existing net/http handlers under an API prefix.
 func (g *RouteGroup) HandleHTTP(method string, path string, handler http.Handler, middleware ...Middleware) {
 	g.Handle(method, path, HTTPHandler(handler), middleware...)
 }
 
-// Get registers a GET route on the group.
+// Get registers an HTTP GET route on the group.
 func (g *RouteGroup) Get(path string, next Next) {
 	g.Handle(http.MethodGet, path, next)
 }
 
-// GetHTTP registers a standard net/http handler for GET on the group.
+// GetHTTP registers a standard net/http handler for HTTP GET on the group.
 func (g *RouteGroup) GetHTTP(path string, handler http.Handler) {
 	g.HandleHTTP(http.MethodGet, path, handler)
 }
 
-// Head registers a HEAD route on the group.
+// Head registers an HTTP HEAD route on the group.
 func (g *RouteGroup) Head(path string, next Next) {
 	g.Handle(http.MethodHead, path, next)
 }
 
-// HeadHTTP registers a standard net/http handler for HEAD on the group.
+// HeadHTTP registers a standard net/http handler for HTTP HEAD on the group.
 func (g *RouteGroup) HeadHTTP(path string, handler http.Handler) {
 	g.HandleHTTP(http.MethodHead, path, handler)
 }
 
-// Post registers a POST route on the group.
+// Post registers an HTTP POST route on the group.
 func (g *RouteGroup) Post(path string, next Next) {
 	g.Handle(http.MethodPost, path, next)
 }
 
-// PostHTTP registers a standard net/http handler for POST on the group.
+// PostHTTP registers a standard net/http handler for HTTP POST on the group.
 func (g *RouteGroup) PostHTTP(path string, handler http.Handler) {
 	g.HandleHTTP(http.MethodPost, path, handler)
 }
 
-// Put registers a PUT route on the group.
+// Put registers an HTTP PUT route on the group.
 func (g *RouteGroup) Put(path string, next Next) {
 	g.Handle(http.MethodPut, path, next)
 }
 
-// PutHTTP registers a standard net/http handler for PUT on the group.
+// PutHTTP registers a standard net/http handler for HTTP PUT on the group.
 func (g *RouteGroup) PutHTTP(path string, handler http.Handler) {
 	g.HandleHTTP(http.MethodPut, path, handler)
 }
 
-// Patch registers a PATCH route on the group.
+// Patch registers an HTTP PATCH route on the group.
 func (g *RouteGroup) Patch(path string, next Next) {
 	g.Handle(http.MethodPatch, path, next)
 }
 
-// PatchHTTP registers a standard net/http handler for PATCH on the group.
+// PatchHTTP registers a standard net/http handler for HTTP PATCH on the group.
 func (g *RouteGroup) PatchHTTP(path string, handler http.Handler) {
 	g.HandleHTTP(http.MethodPatch, path, handler)
 }
 
-// Delete registers a DELETE route on the group.
+// Delete registers an HTTP DELETE route on the group.
 func (g *RouteGroup) Delete(path string, next Next) {
 	g.Handle(http.MethodDelete, path, next)
 }
 
-// DeleteHTTP registers a standard net/http handler for DELETE on the group.
+// DeleteHTTP registers a standard net/http handler for HTTP DELETE on the group.
 func (g *RouteGroup) DeleteHTTP(path string, handler http.Handler) {
 	g.HandleHTTP(http.MethodDelete, path, handler)
 }
 
-// Options registers an OPTIONS route on the group.
+// Options registers an HTTP OPTIONS route on the group.
 func (g *RouteGroup) Options(path string, next Next) {
 	g.Handle(http.MethodOptions, path, next)
 }
 
-// OptionsHTTP registers a standard net/http handler for OPTIONS on the group.
+// OptionsHTTP registers a standard net/http handler for HTTP OPTIONS on the group.
 func (g *RouteGroup) OptionsHTTP(path string, handler http.Handler) {
 	g.HandleHTTP(http.MethodOptions, path, handler)
 }
@@ -752,7 +842,11 @@ func (app *Application) rootsForMethod(method string) (*node, *frozenNode) {
 	return app.trees[method], app.frozenTrees[method]
 }
 
-// ListenAndServe Serve with options on addr
+// ListenAndServe starts an HTTP server on network and addr.
+//
+// The application is installed as the root handler. Optional functions receive
+// the created *http.Server before Serve is called, which lets callers configure
+// timeouts, TLSNextProto, ErrorLog, and other server fields.
 func (app *Application) ListenAndServe(network string, addr string, fns ...func(*http.Server)) error {
 
 	l, err := net.Listen(network, addr)
@@ -766,7 +860,10 @@ func (app *Application) ListenAndServe(network string, addr string, fns ...func(
 	return app.serve(l, fns...)
 }
 
-// ListenAndServeTLS Serve with tls and options on addr
+// ListenAndServeTLS starts an HTTPS server on network and addr.
+//
+// tlsConfig is passed to tls.Listen. Optional functions receive the created
+// *http.Server before Serve is called, matching ListenAndServe.
 func (app *Application) ListenAndServeTLS(network string, addr string, tlsConfig *tls.Config, fns ...func(*http.Server)) error {
 
 	l, err := tls.Listen(network, addr, tlsConfig)
@@ -780,17 +877,11 @@ func (app *Application) ListenAndServeTLS(network string, addr string, tlsConfig
 	return app.serve(l, fns...)
 }
 
-// Shutdown gracefully shuts down the HTTP server, allowing active connections to complete.
-// It returns an error if the server is not initialized, ensuring callers can detect invalid states.
+// Shutdown gracefully shuts down the HTTP server created by ListenAndServe or
+// ListenAndServeTLS.
 //
-// Parameters:
-//   - ctx: Context controlling the shutdown timeout. If the context expires before shutdown completes,
-//     remaining connections may be forcibly closed.
-//
-// Returns:
-//   - error: Returns ErrServerNotInitialized if the server is not initialized,
-//     or any error from http.Server.Shutdown (e.g., context timeout).
-//     Returns nil if shutdown completes successfully.
+// The context controls the shutdown deadline. If the application has not started
+// a server through this package, Shutdown returns ErrServerNotInitialized.
 func (app *Application) Shutdown(ctx context.Context) error {
 	if app.srv == nil {
 		return ErrServerNotInitialized
@@ -819,19 +910,26 @@ func (app *Application) serve(listener net.Listener, fns ...func(*http.Server)) 
 	return nil
 }
 
-// Inspect method
+// Inspect returns a textual description of the application.
+//
+// The method is reserved for future diagnostics and currently returns an empty
+// string.
 func (app *Application) Inspect() string {
 	return ""
 }
 
-// Logf write info log
+// Logf writes a formatted message to the informational logger when one is set.
+//
+// Calls are ignored when no informational logger has been configured.
 func (app *Application) Logf(format string, v ...any) {
 	if app.info != nil {
 		app.info.Printf(format, v...)
 	}
 }
 
-// Errf write err log
+// Errf writes a formatted message to the error logger when one is set.
+//
+// Calls are ignored when no error logger has been configured.
 func (app *Application) Errf(format string, v ...any) {
 	if app.err != nil {
 		app.err.Printf(format, v...)

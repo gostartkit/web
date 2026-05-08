@@ -68,7 +68,11 @@ func releaseCtx(c *Ctx) {
 	}
 }
 
-// Ctx represents the context for a web request, holding relevant request data and response methods.
+// Ctx represents one HTTP request/response exchange.
+//
+// A Ctx is pooled and reused by the framework. Do not store it beyond the
+// lifetime of the handler. Use Request, ResponseWriter, and Context when you
+// need direct access to standard net/http primitives.
 type Ctx struct {
 	app                    *Application
 	w                      http.ResponseWriter
@@ -93,25 +97,43 @@ type Ctx struct {
 	routeParamValue2       string
 }
 
-// Init initializes the context with user ID and user rights.
+// Init stores the authenticated user ID on the request context.
+//
+// The framework does not call Init automatically; applications or middleware can
+// call it after authentication so handlers can read the value with UserId.
 func (c *Ctx) Init(userId uint64) {
 	c.userId = userId
 }
 
+// Request returns the underlying *http.Request.
+//
+// Use this when a handler needs access to standard library request fields or
+// APIs that are not wrapped by Ctx.
 func (c *Ctx) Request() *http.Request {
 	return c.r
 }
 
+// ResponseWriter returns the underlying http.ResponseWriter.
+//
+// Prefer Ctx helpers for common writes, but use ResponseWriter when integrating
+// lower-level net/http code.
 func (c *Ctx) ResponseWriter() http.ResponseWriter {
 	return c.w
 }
 
-// Header implements http.ResponseWriter and proxies to the underlying writer.
+// Header implements http.ResponseWriter and returns the response header map.
+//
+// Mutate this map before the response is committed. After WriteHeader or Write,
+// behavior follows the underlying ResponseWriter.
 func (c *Ctx) Header() http.Header {
 	return c.w.Header()
 }
 
-// Write implements http.ResponseWriter and proxies to the underlying writer.
+// Write implements http.ResponseWriter and writes bytes to the response body.
+//
+// If no status was committed, Write commits status 200 OK unless SetStatus was
+// called first. Returning a non-nil value from the handler after calling Write is
+// not recommended because the response has already been handled manually.
 func (c *Ctx) Write(p []byte) (int, error) {
 	if !c.responseCommitted {
 		code := c.statusCode
@@ -127,7 +149,9 @@ func (c *Ctx) Write(p []byte) (int, error) {
 	return c.w.Write(p)
 }
 
-// WriteHeader implements http.ResponseWriter and proxies to the underlying writer.
+// WriteHeader implements http.ResponseWriter and commits the response status.
+//
+// Additional calls after the response is committed are ignored by Ctx.
 func (c *Ctx) WriteHeader(statusCode int) {
 	if c.responseCommitted {
 		return
@@ -139,10 +163,19 @@ func (c *Ctx) WriteHeader(statusCode int) {
 
 // SetStatus sets the response status code for framework-managed writes without
 // immediately committing the response.
+//
+// Use SetStatus when returning a value and letting the framework encode it:
+//
+//	c.SetStatus(http.StatusCreated)
+//	return user, nil
 func (c *Ctx) SetStatus(statusCode int) {
 	c.statusCode = statusCode
 }
 
+// QueryValues returns the parsed query string values for the request URL.
+//
+// Values are parsed lazily and cached on the Ctx for the remainder of the
+// request.
 func (c *Ctx) QueryValues() url.Values {
 	if c.query == nil {
 		c.query = c.r.URL.Query()
@@ -150,12 +183,18 @@ func (c *Ctx) QueryValues() url.Values {
 	return c.query
 }
 
-// UserId returns the user id from the context.
+// UserId returns the user ID previously stored with Init.
+//
+// A zero value means no user ID was set, unless zero is a valid user ID in the
+// application domain.
 func (c *Ctx) UserId() uint64 {
 	return c.userId
 }
 
-// RequestID returns the request ID injected into the request context by RequestID middleware.
+// RequestID returns the request ID injected by RequestID middleware.
+//
+// It returns an empty string when the middleware is not installed or no request
+// is attached to the Ctx.
 func (c *Ctx) RequestID() string {
 	if c == nil || c.r == nil {
 		return ""
@@ -163,7 +202,11 @@ func (c *Ctx) RequestID() string {
 	return RequestIDFromContext(c.r.Context())
 }
 
-// Param retrieves a parameter value by name from the Params.
+// Param returns a route parameter captured by name.
+//
+// Parameters come from :name and *name route segments. If the parameter is not
+// present, Param returns an empty string. For numeric parameters, prefer typed
+// helpers such as ParamUint64 to avoid repeated manual parsing.
 func (c *Ctx) Param(name string) string {
 	if c.routeParamCount != 0 {
 		names := c.routeParamNames
@@ -215,87 +258,125 @@ func (c *Ctx) Param(name string) string {
 	return c.param.Val(name)
 }
 
-// Query retrieves a query string parameter by name from the request URL.
+// Query returns the first query string value for name.
+//
+// It follows url.Values.Get semantics: an absent key returns an empty string.
+// Use QueryValues when you need all values for a repeated query key.
 func (c *Ctx) Query(name string) string {
 	return c.QueryValues().Get(name)
 }
 
-// Form retrieves a form value by name from the request.
+// Form returns the first form value for name.
+//
+// It delegates to http.Request.FormValue, so it may parse URL-encoded or
+// multipart form data. Query parameters are considered by the standard library
+// when FormValue is used.
 func (c *Ctx) Form(name string) string {
 	return c.r.FormValue(name)
 }
 
-// PostForm retrieves a form value by name from the request.
+// PostForm returns the first POST form value for name.
+//
+// It delegates to http.Request.PostFormValue and does not fall back to URL query
+// parameters.
 func (c *Ctx) PostForm(name string) string {
 	return c.r.PostFormValue(name)
 }
 
-// FormFile retrieves the first file uploaded for the specified form key.
-// It calls Request.ParseMultipartForm and Request.ParseForm if needed.
+// FormFile returns the first uploaded file for key.
+//
+// It delegates to http.Request.FormFile, which parses multipart form data when
+// needed. The caller is responsible for closing the returned file.
 func (c *Ctx) FormFile(key string) (multipart.File, *multipart.FileHeader, error) {
 	return c.r.FormFile(key)
 }
 
-// Host returns the host from the request header.
+// Host returns the request Host value.
+//
+// This is the host from http.Request.Host, not necessarily a Host header looked
+// up through Header.Get.
 func (c *Ctx) Host() string {
 	return c.r.Host
 }
 
-// Path returns the path from the request URL.
+// Path returns the request URL path.
+//
+// The value is the routed path used by the framework, such as /users/42.
 func (c *Ctx) Path() string {
 	return c.r.URL.Path
 }
 
-// Body returns the request body.
+// Body returns the request body stream.
+//
+// Reading from Body consumes it. Use TryParseBody or TryParseJSONBodyFast for
+// common structured request decoding.
 func (c *Ctx) Body() io.ReadCloser {
 	return c.r.Body
 }
 
-// Method returns the HTTP method (GET, POST, etc.) used for the request.
+// Method returns the HTTP method used for the request.
+//
+// Examples include GET, POST, PUT, PATCH, DELETE, and custom methods registered
+// through Application.Handle.
 func (c *Ctx) Method() string {
 	return c.r.Method
 }
 
-// RemoteAddr returns the remote IP address of the client making the request.
+// RemoteAddr returns the remote network address reported by net/http.
+//
+// The value may include a port. In deployments behind proxies, use trusted proxy
+// headers at the application layer if you need the original client IP.
 func (c *Ctx) RemoteAddr() string {
 	return c.r.RemoteAddr
 }
 
-// BearerToken retrieves the Bearer token from the Authorization header.
+// BearerToken returns the bearer token from the Authorization header.
+//
+// It returns an empty string unless the header is in the form
+// "Bearer <token>".
 func (c *Ctx) BearerToken() string {
 	return bearerToken(c.GetHeader("Authorization"))
 }
 
-// Origin returns the Origin header from the request.
+// Origin returns the request Origin header.
 func (c *Ctx) Origin() string {
 	return c.GetHeader("Origin")
 }
 
-// SetOrigin sets the "Access-Control-Allow-Origin" header in the response.
+// SetOrigin sets the Access-Control-Allow-Origin response header.
 func (c *Ctx) SetOrigin(origin string) {
 	c.SetHeader("Access-Control-Allow-Origin", origin)
 }
 
-// AllowCredentials sets the "Access-Control-Allow-Credentials" header to true in the response.
+// AllowCredentials sets Access-Control-Allow-Credentials to true.
 func (c *Ctx) AllowCredentials() {
 	c.SetHeader("Access-Control-Allow-Credentials", "true")
 }
 
-// UserAgent returns the User-Agent header from the request.
+// UserAgent returns the request User-Agent header.
 func (c *Ctx) UserAgent() string {
 	return c.GetHeader("User-Agent")
 }
 
-// IsAjax checks if the request is an AJAX request based on the "X-Requested-With" header.
+// IsAjax reports whether X-Requested-With is XMLHttpRequest.
+//
+// This is a legacy browser convention and is not a general-purpose request type
+// detector.
 func (c *Ctx) IsAjax() bool {
 	return c.GetHeader("X-Requested-With") == "XMLHttpRequest"
 }
 
-// Deprecated: use IsForm() instead
+// IsFormData reports whether the request Content-Type is a supported form type.
+//
+// Deprecated: use IsForm instead.
 func (c *Ctx) IsFormData() bool {
 	return c.IsForm()
 }
 
+// IsForm reports whether the request Content-Type is a form submission.
+//
+// It returns true for application/x-www-form-urlencoded and multipart/form-data.
+// The result is cached on the Ctx after the first call.
 func (c *Ctx) IsForm() bool {
 
 	if c.formDataState > 0 {
@@ -315,7 +396,11 @@ func (c *Ctx) IsForm() bool {
 	return isForm
 }
 
-// TryParseBody attempts to parse the request body based on its Content-Type and decode it into the provided value.
+// TryParseBody decodes the request body into val based on Content-Type.
+//
+// JSON decoding rejects unknown fields. GOB and XML use the standard library
+// decoders. Custom readers registered with RegisterReader take precedence for
+// their media type. ErrContentType is returned for unsupported media types.
 func (c *Ctx) TryParseBody(val any) error {
 
 	if c.r == nil || c.r.Body == nil {
@@ -363,6 +448,8 @@ func (c *Ctx) TryParseBody(val any) error {
 // TryParseJSONBodyFast parses a JSON request body using a pooled buffer and
 // json.Unmarshal. This is faster than TryParseBody for common JSON payloads,
 // but unlike TryParseBody it does not reject unknown fields.
+//
+// Use this in hot paths where standard json.Unmarshal semantics are acceptable.
 func (c *Ctx) TryParseJSONBodyFast(val any) error {
 	if c.r == nil || c.r.Body == nil {
 		return io.EOF
@@ -381,291 +468,304 @@ func (c *Ctx) TryParseJSONBodyFast(val any) error {
 	return err
 }
 
-// TryParseParam attempts to parse a parameter value from the URL parameters.
+// TryParseParam parses the named route parameter into val.
+//
+// val must be a pointer to one of the types supported by TryParse, such as
+// *int, *uint64, *bool, or a supported slice pointer.
 func (c *Ctx) TryParseParam(name string, val any) error {
 	return TryParse(c.Param(name), val)
 }
 
-// TryParseQuery attempts to parse a query string parameter value.
+// TryParseQuery parses the named query string value into val.
+//
+// Missing query values are treated the same way as TryParse receiving an empty
+// string.
 func (c *Ctx) TryParseQuery(name string, val any) error {
 	return TryParse(c.Query(name), val)
 }
 
-// TryParseForm attempts to parse a form value by name.
+// TryParseForm parses the named form value into val.
+//
+// It uses Form, so it follows http.Request.FormValue behavior for form parsing.
 func (c *Ctx) TryParseForm(name string, val any) error {
 	return TryParse(c.Form(name), val)
 }
 
-// ParamInt attempts to parse an integer from the URL parameter by name.
+// ParamInt parses the named route parameter as int.
 func (c *Ctx) ParamInt(name string) (int, error) {
 	return TryInt(c.Param(name))
 }
 
-// ParamUint attempts to parse an unsigned integer from the URL parameter by name.
+// ParamUint parses the named route parameter as uint.
 func (c *Ctx) ParamUint(name string) (uint, error) {
 	return TryUint(c.Param(name))
 }
 
-// ParamInt8 attempts to parse an int8 from the URL parameter by name.
+// ParamInt8 parses the named route parameter as int8.
 func (c *Ctx) ParamInt8(name string) (int8, error) {
 	return TryInt8(c.Param(name))
 }
 
-// ParamUint8 attempts to parse a uint8 from the URL parameter by name.
+// ParamUint8 parses the named route parameter as uint8.
 func (c *Ctx) ParamUint8(name string) (uint8, error) {
 	return TryUint8(c.Param(name))
 }
 
-// ParamInt16 attempts to parse an int16 from the URL parameter by name.
+// ParamInt16 parses the named route parameter as int16.
 func (c *Ctx) ParamInt16(name string) (int16, error) {
 	return TryInt16(c.Param(name))
 }
 
-// ParamUint16 attempts to parse a uint16 from the URL parameter by name.
+// ParamUint16 parses the named route parameter as uint16.
 func (c *Ctx) ParamUint16(name string) (uint16, error) {
 	return TryUint16(c.Param(name))
 }
 
-// ParamInt32 attempts to parse an int32 from the URL parameter by name.
+// ParamInt32 parses the named route parameter as int32.
 func (c *Ctx) ParamInt32(name string) (int32, error) {
 	return TryInt32(c.Param(name))
 }
 
-// ParamUint32 attempts to parse a uint32 from the URL parameter by name.
+// ParamUint32 parses the named route parameter as uint32.
 func (c *Ctx) ParamUint32(name string) (uint32, error) {
 	return TryUint32(c.Param(name))
 }
 
-// ParamInt64 attempts to parse an int64 from the URL parameter by name.
+// ParamInt64 parses the named route parameter as int64.
 func (c *Ctx) ParamInt64(name string) (int64, error) {
 	return TryInt64(c.Param(name))
 }
 
-// ParamUint64 attempts to parse a uint64 from the URL parameter by name.
+// ParamUint64 parses the named route parameter as uint64.
+//
+// This is the preferred helper for numeric IDs in hot paths because it avoids
+// intermediate allocations and uses the package's fast integer parser.
 func (c *Ctx) ParamUint64(name string) (uint64, error) {
 	return TryUint64(c.Param(name))
 }
 
-// ParamFloat32 attempts to parse a float32 from the URL parameter by name.
+// ParamFloat32 parses the named route parameter as float32.
 func (c *Ctx) ParamFloat32(name string) (float32, error) {
 	return TryFloat32(c.Param(name))
 }
 
-// ParamFloat64 attempts to parse a float64 from the URL parameter by name.
+// ParamFloat64 parses the named route parameter as float64.
 func (c *Ctx) ParamFloat64(name string) (float64, error) {
 	return TryFloat64(c.Param(name))
 }
 
-// ParamBool attempts to parse a bool from the URL parameter by name.
+// ParamBool parses the named route parameter as bool.
 func (c *Ctx) ParamBool(name string) (bool, error) {
 	return TryBool(c.Param(name))
 }
 
-// QueryInt attempts to parse a int from the request URL by name.
+// QueryInt parses the named query value as int.
 func (c *Ctx) QueryInt(name string) (int, error) {
 	return TryInt(c.Query(name))
 }
 
-// QueryUint attempts to parse a uint from the request URL by name.
+// QueryUint parses the named query value as uint.
 func (c *Ctx) QueryUint(name string) (uint, error) {
 	return TryUint(c.Query(name))
 }
 
-// QueryInt8 attempts to parse a int8 from the request URL by name.
+// QueryInt8 parses the named query value as int8.
 func (c *Ctx) QueryInt8(name string) (int8, error) {
 	return TryInt8(c.Query(name))
 }
 
-// QueryUint8 attempts to parse a uint8 from the request URL by name.
+// QueryUint8 parses the named query value as uint8.
 func (c *Ctx) QueryUint8(name string) (uint8, error) {
 	return TryUint8(c.Query(name))
 }
 
-// QueryInt16 attempts to parse a int16 from the request URL by name.
+// QueryInt16 parses the named query value as int16.
 func (c *Ctx) QueryInt16(name string) (int16, error) {
 	return TryInt16(c.Query(name))
 }
 
-// QueryUint16 attempts to parse a uint16 from the request URL by name.
+// QueryUint16 parses the named query value as uint16.
 func (c *Ctx) QueryUint16(name string) (uint16, error) {
 	return TryUint16(c.Query(name))
 }
 
-// QueryInt32 attempts to parse a int32 from the request URL by name.
+// QueryInt32 parses the named query value as int32.
 func (c *Ctx) QueryInt32(name string) (int32, error) {
 	return TryInt32(c.Query(name))
 }
 
-// QueryUint32 attempts to parse a uint32 from the request URL by name.
+// QueryUint32 parses the named query value as uint32.
 func (c *Ctx) QueryUint32(name string) (uint32, error) {
 	return TryUint32(c.Query(name))
 }
 
-// QueryInt64 attempts to parse a int64 from the request URL by name.
+// QueryInt64 parses the named query value as int64.
 func (c *Ctx) QueryInt64(name string) (int64, error) {
 	return TryInt64(c.Query(name))
 }
 
-// QueryUint64 attempts to parse a uint64 from the request URL by name.
+// QueryUint64 parses the named query value as uint64.
 func (c *Ctx) QueryUint64(name string) (uint64, error) {
 	return TryUint64(c.Query(name))
 }
 
-// QueryFloat32 attempts to parse a float32 from the request URL by name.
+// QueryFloat32 parses the named query value as float32.
 func (c *Ctx) QueryFloat32(name string) (float32, error) {
 	return TryFloat32(c.Query(name))
 }
 
-// QueryFloat64 attempts to parse a float64 from the request URL by name.
+// QueryFloat64 parses the named query value as float64.
 func (c *Ctx) QueryFloat64(name string) (float64, error) {
 	return TryFloat64(c.Query(name))
 }
 
-// QueryBool attempts to parse a bool from the request URL by name.
+// QueryBool parses the named query value as bool.
 func (c *Ctx) QueryBool(name string) (bool, error) {
 	return TryBool(c.Query(name))
 }
 
-// FormIn attempts to parse a int from form value by name.
+// FormInt parses the named form value as int.
 func (c *Ctx) FormInt(name string) (int, error) {
 	return TryInt(c.Form(name))
 }
 
-// FormUint attempts to parse a uint from form value by name.
+// FormUint parses the named form value as uint.
 func (c *Ctx) FormUint(name string) (uint, error) {
 	return TryUint(c.Form(name))
 }
 
-// FormInt8 attempts to parse a int8 from form value by name.
+// FormInt8 parses the named form value as int8.
 func (c *Ctx) FormInt8(name string) (int8, error) {
 	return TryInt8(c.Form(name))
 }
 
-// FormUint8 attempts to parse a uint8 from form value by name.
+// FormUint8 parses the named form value as uint8.
 func (c *Ctx) FormUint8(name string) (uint8, error) {
 	return TryUint8(c.Form(name))
 }
 
-// FormInt16 attempts to parse a int16 from form value by name.
+// FormInt16 parses the named form value as int16.
 func (c *Ctx) FormInt16(name string) (int16, error) {
 	return TryInt16(c.Form(name))
 }
 
-// FormUint16 attempts to parse a uint16 from form value by name.
+// FormUint16 parses the named form value as uint16.
 func (c *Ctx) FormUint16(name string) (uint16, error) {
 	return TryUint16(c.Form(name))
 }
 
-// FormInt32 attempts to parse a int32 from form value by name.
+// FormInt32 parses the named form value as int32.
 func (c *Ctx) FormInt32(name string) (int32, error) {
 	return TryInt32(c.Form(name))
 }
 
-// FormUint32 attempts to parse a uint32 from form value by name.
+// FormUint32 parses the named form value as uint32.
 func (c *Ctx) FormUint32(name string) (uint32, error) {
 	return TryUint32(c.Form(name))
 }
 
-// FormInt64 attempts to parse a int64 from form value by name.
+// FormInt64 parses the named form value as int64.
 func (c *Ctx) FormInt64(name string) (int64, error) {
 	return TryInt64(c.Form(name))
 }
 
-// FormUint64 attempts to parse a uint64 from form value by name.
+// FormUint64 parses the named form value as uint64.
 func (c *Ctx) FormUint64(name string) (uint64, error) {
 	return TryUint64(c.Form(name))
 }
 
-// FormFloat32 attempts to parse a float32 from form value by name.
+// FormFloat32 parses the named form value as float32.
 func (c *Ctx) FormFloat32(name string) (float32, error) {
 	return TryFloat32(c.Form(name))
 }
 
-// FormFloat64 attempts to parse a float64 from form value by name.
+// FormFloat64 parses the named form value as float64.
 func (c *Ctx) FormFloat64(name string) (float64, error) {
 	return TryFloat64(c.Form(name))
 }
 
-// FormBool attempts to parse a bool from form value by name.
+// FormBool parses the named form value as bool.
 func (c *Ctx) FormBool(name string) (bool, error) {
 	return TryBool(c.Form(name))
 }
 
-// PostFormIn attempts to parse a int from PostForm value by name.
+// PostFormInt parses the named POST form value as int.
 func (c *Ctx) PostFormInt(name string) (int, error) {
 	return TryInt(c.PostForm(name))
 }
 
-// PostFormUint attempts to parse a uint from PostForm value by name.
+// PostFormUint parses the named POST form value as uint.
 func (c *Ctx) PostFormUint(name string) (uint, error) {
 	return TryUint(c.PostForm(name))
 }
 
-// PostFormInt8 attempts to parse a int8 from PostForm value by name.
+// PostFormInt8 parses the named POST form value as int8.
 func (c *Ctx) PostFormInt8(name string) (int8, error) {
 	return TryInt8(c.PostForm(name))
 }
 
-// PostFormUint8 attempts to parse a uint8 from PostForm value by name.
+// PostFormUint8 parses the named POST form value as uint8.
 func (c *Ctx) PostFormUint8(name string) (uint8, error) {
 	return TryUint8(c.PostForm(name))
 }
 
-// PostFormInt16 attempts to parse a int16 from PostForm value by name.
+// PostFormInt16 parses the named POST form value as int16.
 func (c *Ctx) PostFormInt16(name string) (int16, error) {
 	return TryInt16(c.PostForm(name))
 }
 
-// PostFormUint16 attempts to parse a uint16 from PostForm value by name.
+// PostFormUint16 parses the named POST form value as uint16.
 func (c *Ctx) PostFormUint16(name string) (uint16, error) {
 	return TryUint16(c.PostForm(name))
 }
 
-// PostFormInt32 attempts to parse a int32 from PostForm value by name.
+// PostFormInt32 parses the named POST form value as int32.
 func (c *Ctx) PostFormInt32(name string) (int32, error) {
 	return TryInt32(c.PostForm(name))
 }
 
-// PostFormUint32 attempts to parse a uint32 from PostForm value by name.
+// PostFormUint32 parses the named POST form value as uint32.
 func (c *Ctx) PostFormUint32(name string) (uint32, error) {
 	return TryUint32(c.PostForm(name))
 }
 
-// PostFormInt64 attempts to parse a int64 from PostForm value by name.
+// PostFormInt64 parses the named POST form value as int64.
 func (c *Ctx) PostFormInt64(name string) (int64, error) {
 	return TryInt64(c.PostForm(name))
 }
 
-// PostFormUint64 attempts to parse a uint64 from PostForm value by name.
+// PostFormUint64 parses the named POST form value as uint64.
 func (c *Ctx) PostFormUint64(name string) (uint64, error) {
 	return TryUint64(c.PostForm(name))
 }
 
-// PostFormFloat32 attempts to parse a float32 from PostForm value by name.
+// PostFormFloat32 parses the named POST form value as float32.
 func (c *Ctx) PostFormFloat32(name string) (float32, error) {
 	return TryFloat32(c.PostForm(name))
 }
 
-// PostFormFloat64 attempts to parse a float64 from PostForm value by name.
+// PostFormFloat64 parses the named POST form value as float64.
 func (c *Ctx) PostFormFloat64(name string) (float64, error) {
 	return TryFloat64(c.PostForm(name))
 }
 
-// PostFormBool attempts to parse a bool from PostForm value by name.
+// PostFormBool parses the named POST form value as bool.
 func (c *Ctx) PostFormBool(name string) (bool, error) {
 	return TryBool(c.PostForm(name))
 }
 
-// Accept get Accept from header
+// Accept returns the request Accept header.
+//
+// The framework uses this value to choose the response media type for
+// framework-managed writes.
 func (c *Ctx) Accept() string {
 	return c.GetHeader("Accept")
 }
 
-// Flusher returns the http.Flusher interface if the response writer supports it.
-// This is useful for enabling HTTP/1.1 chunked transfer encoding.
-// It allows the server to send data to the client in chunks, rather than waiting for the entire response to be ready.
-// This is particularly useful for streaming data or for long-lived connections.
-// If the response writer does not support chunked transfer encoding, it returns nil.
+// Flusher returns the underlying http.Flusher when the writer supports it.
+//
+// Use this for streaming responses that need to push partial data to the client.
+// It returns nil when the underlying ResponseWriter cannot flush.
 func (c *Ctx) Flusher() http.Flusher {
 	if flusher, ok := c.w.(http.Flusher); ok {
 		return flusher
@@ -673,16 +773,19 @@ func (c *Ctx) Flusher() http.Flusher {
 	return nil
 }
 
-// Flush implements http.Flusher when supported by the underlying writer.
+// Flush flushes buffered response data when the underlying writer supports it.
+//
+// If flushing is not supported, Flush is a no-op.
 func (c *Ctx) Flush() {
 	if flusher, ok := c.w.(http.Flusher); ok {
 		flusher.Flush()
 	}
 }
 
-// Hijacker returns the http.Hijacker interface if the response writer supports it.
-// This is useful for upgrading the connection to a different protocol, such as WebSocket.
-// If the response writer does not support hijacking, it returns nil.
+// Hijacker returns the underlying http.Hijacker when the writer supports it.
+//
+// This is useful for protocol upgrades or raw connection control. It returns nil
+// when hijacking is unsupported.
 func (c *Ctx) Hijacker() http.Hijacker {
 	if hijacker, ok := c.w.(http.Hijacker); ok {
 		return hijacker
@@ -690,7 +793,10 @@ func (c *Ctx) Hijacker() http.Hijacker {
 	return nil
 }
 
-// Hijack implements http.Hijacker when supported by the underlying writer.
+// Hijack takes over the underlying network connection when supported.
+//
+// It delegates to the underlying http.Hijacker. When hijacking is unsupported,
+// it returns http.ErrNotSupported.
 func (c *Ctx) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	if hijacker, ok := c.w.(http.Hijacker); ok {
 		return hijacker.Hijack()
@@ -698,7 +804,9 @@ func (c *Ctx) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return nil, nil, http.ErrNotSupported
 }
 
-// Push implements http.Pusher when supported by the underlying writer.
+// Push initiates an HTTP/2 server push when the underlying writer supports it.
+//
+// It returns http.ErrNotSupported when server push is unavailable.
 func (c *Ctx) Push(target string, opts *http.PushOptions) error {
 	if pusher, ok := c.w.(http.Pusher); ok {
 		return pusher.Push(target, opts)
@@ -706,57 +814,77 @@ func (c *Ctx) Push(target string, opts *http.PushOptions) error {
 	return http.ErrNotSupported
 }
 
-// Context returns the context of the request.
+// Context returns the request context.
+//
+// Middleware such as Timeout and RequestID can replace or enrich this context
+// during request handling.
 func (c *Ctx) Context() context.Context {
 	return c.r.Context()
 }
 
-// ContentType get Content-Type from header
+// ContentType returns the request Content-Type header.
+//
+// The value is cached on first access because parsing request media type is a
+// hot path for body decoding.
 func (c *Ctx) ContentType() string {
 	return c.requestContentType()
 }
 
-// SetContentType Set Content-Type to header
+// SetContentType sets the response Content-Type header.
 func (c *Ctx) SetContentType(val string) {
 	c.SetHeader("Content-Type", val)
 }
 
-// SetCacheControl Set Cache-Control to header
+// SetCacheControl sets the response Cache-Control header.
 func (c *Ctx) SetCacheControl(val string) {
 	c.SetHeader("Cache-Control", val)
 }
 
-// SetConnection Set Connection to header
+// SetConnection sets the response Connection header.
 func (c *Ctx) SetConnection(val string) {
 	c.SetHeader("Connection", val)
 }
 
-// SetVersion set `version` header
+// SetVersion sets the response Version header.
 func (c *Ctx) SetVersion(version string) {
 	c.SetHeader("Version", version)
 }
 
-// SetCookie adds a Set-Cookie header to the provided [ResponseWriter]'s headers. The provided cookie must have a valid Name. Invalid cookies may be silently dropped.
+// SetCookie adds a Set-Cookie header to the response.
+//
+// It delegates to http.SetCookie. Invalid cookies may be silently dropped by the
+// standard library.
 func (c *Ctx) SetCookie(cookie *http.Cookie) {
 	http.SetCookie(c.w, cookie)
 }
 
-// GetCookie returns the named cookie provided in the request or [ErrNoCookie] if not found. If multiple cookies match the given name, only one cookie will be returned.
+// GetCookie returns the named cookie from the request.
+//
+// It delegates to http.Request.Cookie. If multiple cookies match, the standard
+// library returns one of them. Missing cookies return http.ErrNoCookie.
 func (c *Ctx) GetCookie(name string) (*http.Cookie, error) {
 	return c.r.Cookie(name)
 }
 
-// GetHeader GetHeader header, short hand of r.Header.Get
+// GetHeader returns the request header value for key.
+//
+// It is a convenience wrapper around c.Request().Header.Get.
 func (c *Ctx) GetHeader(key string) string {
 	return c.r.Header.Get(key)
 }
 
-// SetHeader set header, short hand of w.Header().Set
+// SetHeader sets a response header.
+//
+// It is a convenience wrapper around c.ResponseWriter().Header().Set.
 func (c *Ctx) SetHeader(key string, value string) {
 	c.w.Header().Set(key, value)
 }
 
-// NoContent writes a response status without a body. A zero status defaults to 204.
+// NoContent writes a response status without a body.
+//
+// A zero status defaults to 204 No Content. This helper writes immediately; if
+// you prefer the framework return-value model, returning (nil, nil) already
+// produces 204 when the response has not been written.
 func (c *Ctx) NoContent(statusCode int) error {
 	if statusCode == 0 {
 		statusCode = http.StatusNoContent
@@ -765,7 +893,11 @@ func (c *Ctx) NoContent(statusCode int) error {
 	return nil
 }
 
-// JSON writes a JSON response immediately. A zero status defaults to 200.
+// JSON writes a JSON response immediately.
+//
+// A zero status defaults to 200 OK. This bypasses Accept negotiation and always
+// writes application/json. In normal framework-managed handlers, returning a
+// value and optional SetStatus is the more idiomatic path.
 func (c *Ctx) JSON(statusCode int, val any) error {
 	if statusCode == 0 {
 		statusCode = http.StatusOK
@@ -778,7 +910,10 @@ func (c *Ctx) JSON(statusCode int, val any) error {
 	return c.writeMedia(mediaJSON, val)
 }
 
-// String writes a text response immediately. A zero status defaults to 200.
+// String writes a plain-text response immediately.
+//
+// A zero status defaults to 200 OK. The Content-Type is set to
+// text/plain; charset=utf-8 when the response has not already been committed.
 func (c *Ctx) String(statusCode int, body string) error {
 	if statusCode == 0 {
 		statusCode = http.StatusOK
@@ -791,7 +926,10 @@ func (c *Ctx) String(statusCode int, body string) error {
 	return err
 }
 
-// Blob writes raw bytes with the provided content type. A zero status defaults to 200.
+// Blob writes raw bytes immediately with the provided content type.
+//
+// A zero status defaults to 200 OK. Blob is useful for pre-encoded bytes in hot
+// paths where you want to avoid framework media negotiation.
 func (c *Ctx) Blob(statusCode int, contentType string, body []byte) error {
 	if statusCode == 0 {
 		statusCode = http.StatusOK

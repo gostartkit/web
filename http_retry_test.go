@@ -167,6 +167,18 @@ func TestDoReqWithClientRawBodyFastPath(t *testing.T) {
 	if string(out) != `{"ok":true}` {
 		t.Fatalf("expected raw response body, got %q", string(out))
 	}
+
+	before := &out[0]
+	out = out[:0]
+	if err := DoReqWithClient(client, req, &out, nil); err != nil {
+		t.Fatalf("expected no error on buffer reuse, got %v", err)
+	}
+	if string(out) != `{"ok":true}` {
+		t.Fatalf("expected raw response body after reuse, got %q", string(out))
+	}
+	if &out[0] != before {
+		t.Fatalf("expected raw response buffer capacity to be reused")
+	}
 }
 
 func TestTryDoRecreatesBodyForRetry(t *testing.T) {

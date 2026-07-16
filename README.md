@@ -522,6 +522,7 @@ if err := web.DoReqWithClient(http.DefaultClient, req, &raw, nil); err != nil {
 | Application | `RegisterReader(contentType, reader)` | Override request decoding for a media type |
 | Application | `RegisterWriter(contentType, writer)` | Override response encoding for a media type |
 | Application | `ServeFiles("/static/*filepath", fs)` | Serve static files with catch-all path |
+| Application | `Finalize()` | Compile routes before serving; called automatically on first request |
 | Application | `ListenAndServe(network, addr, ...opts)` | Start HTTP server |
 | Application | `ListenAndServeTLS(network, addr, tlsConfig, ...opts)` | Start HTTPS server |
 | Application | `Shutdown(ctx)` | Graceful shutdown |

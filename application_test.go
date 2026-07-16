@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -575,5 +576,151 @@ func TestMethodNotAllowed(t *testing.T) {
 	}
 	if got := rec.Header().Get("Allow"); got != "GET, OPTIONS" {
 		t.Fatalf("Expected Allow header %q, but got %q", "GET, OPTIONS", got)
+	}
+}
+
+func TestFinalizeCompilesRoutesOnce(t *testing.T) {
+	app := New()
+	app.Get("/organizations/:id/devices/:device_id", func(c *Ctx) (any, error) {
+		return nil, nil
+	})
+	app.Get("/organizations/:id/devices/provision", func(c *Ctx) (any, error) {
+		return nil, nil
+	})
+
+	if app.frozenRoots[methodRootIndex(http.MethodGet)] != nil {
+		t.Fatal("expected route compilation to be deferred")
+	}
+	app.Finalize()
+	app.Finalize()
+	if app.frozenRoots[methodRootIndex(http.MethodGet)] == nil {
+		t.Fatal("expected mixed static/parameter routes to be compiled")
+	}
+
+	defer func() {
+		if recover() == nil {
+			t.Fatal("expected route registration after finalization to panic")
+		}
+	}()
+	app.Get("/late", func(c *Ctx) (any, error) { return nil, nil })
+}
+
+func TestServeHTTPFinalizesRoutesConcurrently(t *testing.T) {
+	app := New()
+	app.Get("/organizations/:id/devices/:device_id", func(c *Ctx) (any, error) {
+		return c.Param("device_id"), nil
+	})
+	app.Get("/organizations/:id/devices/provision", func(c *Ctx) (any, error) {
+		return c.Param("id"), nil
+	})
+
+	const requests = 32
+	var wg sync.WaitGroup
+	wg.Add(requests)
+	for i := 0; i < requests; i++ {
+		go func() {
+			defer wg.Done()
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, "/organizations/123/devices/provision", nil)
+			app.ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK {
+				t.Errorf("expected status 200, got %d", rec.Code)
+			}
+		}()
+	}
+	wg.Wait()
+}
+
+func TestAutomaticCORSCannotMutateCompiledAllowedMethods(t *testing.T) {
+	app := New(WithCORS(func(set func(string, string), origin string, allow []string) {
+		allow[0] = "MUTATED"
+	}))
+	app.Get("/users", func(c *Ctx) (any, error) { return nil, nil })
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodOptions, "/users", nil)
+	req.Header.Set("Origin", "https://example.com")
+	app.ServeHTTP(rec, req)
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/users", nil)
+	app.ServeHTTP(rec, req)
+	if got := rec.Header().Get("Allow"); got != "GET, OPTIONS" {
+		t.Fatalf("expected immutable compiled Allow value, got %q", got)
+	}
+}
+
+func TestCompiledAllowedMethodsIncludeDynamicRoutesFromOtherMethods(t *testing.T) {
+	app := New()
+	app.Get("/users/:id", func(c *Ctx) (any, error) { return nil, nil })
+	app.Post("/users/new", func(c *Ctx) (any, error) { return nil, nil })
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/users/new", nil)
+	app.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected status 405, got %d", rec.Code)
+	}
+	if got := rec.Header().Get("Allow"); got != "GET, OPTIONS, POST" {
+		t.Fatalf("expected Allow header to include static and dynamic matches, got %q", got)
+	}
+}
+
+func TestFinalizeCompilesGlobalAllowedMethodsForOptionsStar(t *testing.T) {
+	var got []string
+	app := New(WithCORS(func(set func(string, string), origin string, allow []string) {
+		got = append(got[:0], allow...)
+	}))
+	app.Get("/users", func(c *Ctx) (any, error) { return nil, nil })
+	app.Post("/events", func(c *Ctx) (any, error) { return nil, nil })
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodOptions, "*", nil)
+	req.Header.Set("Origin", "https://example.com")
+	app.ServeHTTP(rec, req)
+
+	want := []string{http.MethodGet, http.MethodOptions, http.MethodPost}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected global allowed methods %v, got %v", want, got)
+	}
+}
+
+func TestDynamicAllowedHeaderIncludesMultipleMethods(t *testing.T) {
+	app := New()
+	app.Get("/users/:id", func(c *Ctx) (any, error) { return nil, nil })
+	app.Post("/users/:id", func(c *Ctx) (any, error) { return nil, nil })
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/users/123", nil)
+	app.ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("Allow"); got != "GET, OPTIONS, POST" {
+		t.Fatalf("expected sorted dynamic Allow header, got %q", got)
+	}
+}
+
+func TestDynamicAllowedHeaderSortsCustomMethod(t *testing.T) {
+	tests := []struct {
+		method string
+		want   string
+	}{
+		{method: "BREW", want: "BREW, OPTIONS"},
+		{method: "PURGE", want: "OPTIONS, PURGE"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.method, func(t *testing.T) {
+			app := New()
+			app.Handle(tt.method, "/cache/:key", func(c *Ctx) (any, error) { return nil, nil })
+
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, "/cache/home", nil)
+			app.ServeHTTP(rec, req)
+
+			if got := rec.Header().Get("Allow"); got != tt.want {
+				t.Fatalf("expected Allow header %q, got %q", tt.want, got)
+			}
+		})
 	}
 }

@@ -532,7 +532,7 @@ walk:
 	for {
 		prefix := n.path
 		if len(path) > len(prefix) {
-			if strings.HasPrefix(path, prefix) {
+			if path[:len(prefix)] == prefix {
 				path = path[len(prefix):]
 
 				if !n.wildChild {

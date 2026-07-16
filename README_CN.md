@@ -512,6 +512,7 @@ if err := web.DoReqWithClient(http.DefaultClient, req, &raw, nil); err != nil {
 | 应用程序 | `RegisterReader(contentType, reader)` | 为指定媒体类型覆写请求解码 |
 | 应用程序 | `RegisterWriter(contentType, writer)` | 为指定媒体类型覆写响应编码 |
 | 应用程序 | `ServeFiles("/static/*filepath", fs)` | 使用通配路径提供静态文件服务 |
+| 应用程序 | `Finalize()` | 在服务前编译路由；首次请求时会自动调用 |
 | 应用程序 | `ListenAndServe(network, addr, ...opts)` | 启动 HTTP 服务器 |
 | 应用程序 | `ListenAndServeTLS(network, addr, tlsConfig, ...opts)` | 启动 HTTPS 服务器 |
 | 应用程序 | `Shutdown(ctx)` | 优雅关闭 |

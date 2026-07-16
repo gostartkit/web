@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"unsafe"
@@ -233,6 +234,59 @@ func BenchmarkServeHTTPCustomJSONWriter(b *testing.B) {
 	req.Header.Set("Accept", "application/json")
 	w := newBenchResponseWriter()
 
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w.reset()
+		app.ServeHTTP(w, req)
+	}
+}
+
+func BenchmarkRouteRegistrationStaticParamSiblings(b *testing.B) {
+	paths := make([]string, 128)
+	for i := range paths {
+		paths[i] = "/organizations/:id/devices/static-" + strconv.Itoa(i)
+	}
+	handler := func(c *Ctx) (any, error) { return nil, nil }
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		app := New()
+		app.Get("/organizations/:id/devices/:device_id", handler)
+		for _, path := range paths {
+			app.Get(path, handler)
+		}
+		app.Finalize()
+	}
+}
+
+func BenchmarkServeHTTPMethodNotAllowedStatic(b *testing.B) {
+	app := New(WithMethodNotAllowed(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	})))
+	app.Get("/users", func(c *Ctx) (any, error) { return nil, nil })
+	app.Finalize()
+
+	req := httptest.NewRequest(http.MethodPost, "/users", nil)
+	w := newBenchResponseWriter()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w.reset()
+		app.ServeHTTP(w, req)
+	}
+}
+
+func BenchmarkServeHTTPMethodNotAllowedParam(b *testing.B) {
+	app := New(WithMethodNotAllowed(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	})))
+	app.Get("/users/:id", func(c *Ctx) (any, error) { return nil, nil })
+	app.Finalize()
+
+	req := httptest.NewRequest(http.MethodPost, "/users/123", nil)
+	w := newBenchResponseWriter()
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -470,6 +524,35 @@ func BenchmarkDoReqWithClientRawBody(b *testing.B) {
 
 	var out RawBody
 
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		out = out[:0]
+		if err := DoReqWithClient(client, req, &out, nil); err != nil {
+			b.Fatalf("DoReqWithClient failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkDoReqWithClientRawBody64KB(b *testing.B) {
+	payload := bytes.Repeat([]byte("a"), 64*1024)
+	client := &http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewReader(payload)),
+				Header:     make(http.Header),
+				Request:    r,
+			}, nil
+		}),
+	}
+
+	req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
+	if err != nil {
+		b.Fatalf("new request failed: %v", err)
+	}
+
+	out := make(RawBody, 0, len(payload)+bytes.MinRead)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

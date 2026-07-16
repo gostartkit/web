@@ -986,48 +986,28 @@ func (c *Ctx) write(val any) error {
 }
 
 func (c *Ctx) writeMedia(mt mediaType, val any) error {
+	if app := c.app; app != nil && app.hasWriters {
+		writerType := mt
+		if writerType < mediaJSON || writerType > mediaXML {
+			writerType = mediaJSON
+		}
+		if writer := app.writers[writerType]; writer != nil {
+			return writer(c, val)
+		}
+	}
+
 	switch mt {
 	case mediaJSON:
-		if c.app != nil && c.app.hasWriters {
-			if writer := c.app.writers[mediaJSON]; writer != nil {
-				return writer(c, val)
-			}
-		}
 		return c.writeJSON(val)
 	case mediaGOB:
-		if c.app != nil && c.app.hasWriters {
-			if writer := c.app.writers[mediaGOB]; writer != nil {
-				return writer(c, val)
-			}
-		}
 		return c.writeGOB(val)
 	case mediaOctetStream:
-		if c.app != nil && c.app.hasWriters {
-			if writer := c.app.writers[mediaOctetStream]; writer != nil {
-				return writer(c, val)
-			}
-		}
 		return c.writeBinary(val)
 	case mediaAvro:
-		if c.app != nil && c.app.hasWriters {
-			if writer := c.app.writers[mediaAvro]; writer != nil {
-				return writer(c, val)
-			}
-		}
 		return c.writeAvro(val)
 	case mediaXML:
-		if c.app != nil && c.app.hasWriters {
-			if writer := c.app.writers[mediaXML]; writer != nil {
-				return writer(c, val)
-			}
-		}
 		return c.writeXML(val)
 	default:
-		if c.app != nil && c.app.hasWriters {
-			if writer := c.app.writers[mediaJSON]; writer != nil {
-				return writer(c, val)
-			}
-		}
 		return c.writeJSON(val)
 	}
 }
@@ -1037,7 +1017,13 @@ func (c *Ctx) responseMediaType() mediaType {
 		return c.acceptType
 	}
 
-	c.acceptType = acceptMediaType(c.Accept())
+	// net/http stores request header keys canonically. Direct lookup avoids
+	// canonicalizing this constant key again on every encoded response.
+	var accept string
+	if values := c.r.Header["Accept"]; len(values) != 0 {
+		accept = values[0]
+	}
+	c.acceptType = acceptMediaType(accept)
 	c.acceptTypeCached = true
 	return c.acceptType
 }
@@ -1056,7 +1042,10 @@ func (c *Ctx) requestContentType() string {
 	if c.contentTypeValueCached {
 		return c.contentTypeValue
 	}
-	c.contentTypeValue = c.GetHeader("Content-Type")
+	// See responseMediaType: this is already the canonical net/http key.
+	if values := c.r.Header["Content-Type"]; len(values) != 0 {
+		c.contentTypeValue = values[0]
+	}
 	c.contentTypeValueCached = true
 	return c.contentTypeValue
 }

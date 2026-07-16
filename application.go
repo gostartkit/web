@@ -15,6 +15,12 @@ import (
 
 const methodRootSlots = 9
 
+type allowedMethods struct {
+	methods []string
+	header  string
+	shared  bool
+}
+
 func methodRootIndex(method string) int {
 	switch method {
 	case http.MethodGet:
@@ -63,8 +69,12 @@ type Application struct {
 	hasWriters      bool
 	paramsPool      sync.Pool
 	paramValuesPool sync.Pool
+	finalizeOnce    sync.Once
 	maxParams       uint16
-	globalAllowed   []string
+	finalized       bool
+	staticPaths     map[string]struct{}
+	staticAllowed   map[string]allowedMethods
+	globalAllowed   allowedMethods
 
 	NotFound         http.Handler
 	MethodNotAllowed http.Handler
@@ -384,6 +394,9 @@ func (app *Application) OptionsHTTP(path string, handler http.Handler) {
 }
 
 func (app *Application) addRoute(method string, path string, next Next) {
+	if app.finalized {
+		panic("routes cannot be registered after application is finalized")
+	}
 
 	if method == "" {
 		panic("method must not be empty")
@@ -409,23 +422,81 @@ func (app *Application) addRoute(method string, path string, next Next) {
 		if idx := methodRootIndex(method); idx >= 0 {
 			app.methodRoots[idx] = root
 		}
-		app.globalAllowed = app.allowed("*", "")
 	}
 
 	root.addRoute(path, next)
-	if root.hasStaticParamSibling() {
-		frozenRoot := root.freeze()
-		if app.frozenTrees == nil {
-			app.frozenTrees = make(map[string]*frozenNode)
+	if countParams(path) == 0 {
+		if app.staticPaths == nil {
+			app.staticPaths = make(map[string]struct{})
 		}
-		app.frozenTrees[method] = frozenRoot
-		if idx := methodRootIndex(method); idx >= 0 {
-			app.frozenRoots[idx] = frozenRoot
-		}
+		app.staticPaths[path] = struct{}{}
 	}
 
 	if pc := countParams(path); pc > app.maxParams {
 		app.maxParams = pc
+	}
+}
+
+// Finalize compiles registered routes into immutable lookup structures.
+//
+// ServeHTTP calls Finalize automatically on the first request. Servers with a
+// latency-sensitive first request can call it explicitly after registering all
+// routes. Route registration after finalization panics.
+func (app *Application) Finalize() {
+	app.finalizeOnce.Do(func() {
+		for method, root := range app.trees {
+			if !root.hasStaticParamSibling() {
+				continue
+			}
+
+			if app.frozenTrees == nil {
+				app.frozenTrees = make(map[string]*frozenNode)
+			}
+			frozenRoot := root.freeze()
+			app.frozenTrees[method] = frozenRoot
+			if idx := methodRootIndex(method); idx >= 0 {
+				app.frozenRoots[idx] = frozenRoot
+			}
+		}
+
+		app.compileAllowedMethods()
+		app.finalized = true
+	})
+}
+
+func (app *Application) compileAllowedMethods() {
+	methods := make([]string, 0, len(app.trees))
+	for method := range app.trees {
+		methods = append(methods, method)
+	}
+	app.globalAllowed = makeAllowedMethods(methods, true)
+
+	if len(app.staticPaths) != 0 {
+		app.staticAllowed = make(map[string]allowedMethods, len(app.staticPaths))
+		for path := range app.staticPaths {
+			app.staticAllowed[path] = app.lookupAllowedMethods(path, "", true)
+		}
+	}
+	app.staticPaths = nil
+}
+
+func makeAllowedMethods(methods []string, shared bool) allowedMethods {
+	allowed := make([]string, 0, len(methods)+1)
+	for _, method := range methods {
+		if method != http.MethodOptions {
+			allowed = append(allowed, method)
+		}
+	}
+	if len(allowed) == 0 {
+		return allowedMethods{shared: shared}
+	}
+
+	allowed = append(allowed, http.MethodOptions)
+	sort.Strings(allowed)
+	return allowedMethods{
+		methods: allowed,
+		header:  strings.Join(allowed, ", "),
+		shared:  shared,
 	}
 }
 
@@ -463,6 +534,7 @@ func (app *Application) ServeFiles(path string, root http.FileSystem) {
 func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	defer app.recv(w, r)
+	app.Finalize()
 
 	rel := r.URL.Path
 	infoLogger := app.info
@@ -607,17 +679,21 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodOptions && app.cors != nil {
 		// Handle OPTIONS requests
-		if allow := app.allowed(rel, http.MethodOptions); len(allow) > 0 {
+		if allow := app.allowed(rel, http.MethodOptions); len(allow.methods) > 0 {
 			if origin := r.Header.Get("Origin"); origin != "" {
-				app.cors(w.Header().Set, origin, allow)
+				methods := allow.methods
+				if allow.shared {
+					methods = append([]string(nil), methods...)
+				}
+				app.cors(w.Header().Set, origin, methods)
 			}
 		}
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
-	if allow := app.allowed(rel, r.Method); len(allow) > 0 {
-		w.Header().Set("Allow", strings.Join(allow, ", "))
+	if allow := app.allowedHeader(rel, r.Method); allow != "" {
+		w.Header().Set("Allow", allow)
 		if app.MethodNotAllowed != nil {
 			app.MethodNotAllowed.ServeHTTP(w, r)
 		} else {
@@ -794,51 +870,107 @@ func (g *RouteGroup) OptionsHTTP(path string, handler http.Handler) {
 	g.HandleHTTP(http.MethodOptions, path, handler)
 }
 
-func (app *Application) allowed(path, reqMethod string) []string {
+func (app *Application) allowed(path, reqMethod string) allowedMethods {
+	if path == "*" {
+		return app.globalAllowed
+	}
+	if allow, ok := app.staticAllowed[path]; ok {
+		return allow
+	}
+	return app.lookupAllowedMethods(path, reqMethod, false)
+}
 
-	allowed := make([]string, 0, 9)
+func (app *Application) allowedHeader(path, reqMethod string) string {
+	if path == "*" {
+		return app.globalAllowed.header
+	}
+	if allow, ok := app.staticAllowed[path]; ok {
+		return allow.header
+	}
 
-	if path == "*" { // server-wide
-		// empty method is used for internal calls to refresh the cache
-		if reqMethod == "" {
-			for method := range app.trees {
-				if method == http.MethodOptions {
-					continue
-				}
-				// Add request method to list of allowed methods
-				allowed = append(allowed, method)
-			}
+	var first string
+	var methods []string
+	for method, root := range app.trees {
+		if method == reqMethod || method == http.MethodOptions {
+			continue
+		}
+
+		var cb Next
+		if frozenRoot := app.frozenTrees[method]; frozenRoot != nil {
+			cb, _, _ = frozenRoot.getValue(path, nil)
 		} else {
-			return app.globalAllowed
+			cb, _, _ = root.getValueFast(path, nil)
 		}
-	} else { // specific path
-		for method := range app.trees {
-			// Skip the requested method - we already tried this one
-			if method == reqMethod || method == http.MethodOptions {
-				continue
-			}
+		if cb == nil {
+			continue
+		}
 
-			var cb Next
-			if frozenRoot := app.frozenTrees[method]; frozenRoot != nil {
-				cb, _, _ = frozenRoot.getValue(path, nil)
-			} else {
-				cb, _, _ = app.trees[method].getValueFast(path, nil)
-			}
-			if cb != nil {
-				// Add request method to list of allowed methods
-				allowed = append(allowed, method)
-			}
+		if first == "" {
+			first = method
+			continue
+		}
+		if methods == nil {
+			methods = make([]string, 1, len(app.trees))
+			methods[0] = first
+		}
+		methods = append(methods, method)
+	}
+
+	if first == "" {
+		return ""
+	}
+	if methods == nil {
+		return singleAllowedHeader(first)
+	}
+	return makeAllowedMethods(methods, false).header
+}
+
+func singleAllowedHeader(method string) string {
+	switch method {
+	case http.MethodConnect:
+		return "CONNECT, OPTIONS"
+	case http.MethodDelete:
+		return "DELETE, OPTIONS"
+	case http.MethodGet:
+		return "GET, OPTIONS"
+	case http.MethodHead:
+		return "HEAD, OPTIONS"
+	case http.MethodPatch:
+		return "OPTIONS, PATCH"
+	case http.MethodPost:
+		return "OPTIONS, POST"
+	case http.MethodPut:
+		return "OPTIONS, PUT"
+	case http.MethodTrace:
+		return "OPTIONS, TRACE"
+	default:
+		if method < http.MethodOptions {
+			return method + ", OPTIONS"
+		}
+		return "OPTIONS, " + method
+	}
+}
+
+func (app *Application) lookupAllowedMethods(path, reqMethod string, shared bool) allowedMethods {
+	methods := make([]string, 0, len(app.trees))
+	for method, root := range app.trees {
+		// Skip the requested method - ServeHTTP already tried it.
+		if method == reqMethod || method == http.MethodOptions {
+			continue
+		}
+
+		var cb Next
+		if frozenRoot := app.frozenTrees[method]; frozenRoot != nil {
+			cb, _, _ = frozenRoot.getValue(path, nil)
+		} else {
+			cb, _, _ = root.getValueFast(path, nil)
+		}
+		if cb != nil {
+			methods = append(methods, method)
 		}
 	}
 
-	if len(allowed) > 0 {
-
-		allowed = append(allowed, http.MethodOptions)
-
-		sort.Strings(allowed)
-	}
-
-	return allowed
+	return makeAllowedMethods(methods, shared)
 }
 
 func (app *Application) rootsForMethod(method string) (*node, *frozenNode) {
@@ -896,7 +1028,6 @@ func (app *Application) Shutdown(ctx context.Context) error {
 }
 
 func (app *Application) serve(listener net.Listener, fns ...func(*http.Server)) error {
-
 	mux := http.NewServeMux()
 
 	mux.Handle("/", app)
@@ -908,6 +1039,7 @@ func (app *Application) serve(listener net.Listener, fns ...func(*http.Server)) 
 	for _, fn := range fns {
 		fn(app.srv)
 	}
+	app.Finalize()
 
 	if err := app.srv.Serve(listener); err != nil && err != http.ErrServerClosed {
 		return err

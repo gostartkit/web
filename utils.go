@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+var errTryParseNil = errors.New("TryParse: nil pointer")
+
 func reuseOrMakeCommaSlice[T any](dst []T, val string) []T {
 	if cap(dst) > 0 {
 		return dst[:0]
@@ -209,14 +211,20 @@ func TryParse(val string, v any) error {
 	}
 
 	if v == nil {
-		return errors.New("TryParse: nil pointer")
+		return errTryParseNil
 	}
 
 	switch dest := v.(type) {
 	case *string:
+		if dest == nil {
+			return errTryParseNil
+		}
 		*dest = val
 		return nil
 	case *int:
+		if dest == nil {
+			return errTryParseNil
+		}
 		if n, ok := parseIntFast64(val); ok {
 			if strconv.IntSize == 32 && (n < math.MinInt32 || n > math.MaxInt32) {
 				return strconv.ErrRange
@@ -231,6 +239,9 @@ func TryParse(val string, v any) error {
 		*dest = int(n)
 		return nil
 	case *int8:
+		if dest == nil {
+			return errTryParseNil
+		}
 		if n, ok := parseIntFast64(val); ok {
 			if n < math.MinInt8 || n > math.MaxInt8 {
 				return strconv.ErrRange
@@ -245,6 +256,9 @@ func TryParse(val string, v any) error {
 		*dest = int8(n)
 		return nil
 	case *int16:
+		if dest == nil {
+			return errTryParseNil
+		}
 		if n, ok := parseIntFast64(val); ok {
 			if n < math.MinInt16 || n > math.MaxInt16 {
 				return strconv.ErrRange
@@ -259,6 +273,9 @@ func TryParse(val string, v any) error {
 		*dest = int16(n)
 		return nil
 	case *int32:
+		if dest == nil {
+			return errTryParseNil
+		}
 		if n, ok := parseIntFast64(val); ok {
 			if n < math.MinInt32 || n > math.MaxInt32 {
 				return strconv.ErrRange
@@ -273,6 +290,9 @@ func TryParse(val string, v any) error {
 		*dest = int32(n)
 		return nil
 	case *int64:
+		if dest == nil {
+			return errTryParseNil
+		}
 		if n, ok := parseIntFast64(val); ok {
 			*dest = n
 			return nil
@@ -284,6 +304,9 @@ func TryParse(val string, v any) error {
 		*dest = n
 		return nil
 	case *uint:
+		if dest == nil {
+			return errTryParseNil
+		}
 		if n, ok := parseUintFast64(val); ok {
 			if strconv.IntSize == 32 && n > math.MaxUint32 {
 				return strconv.ErrRange
@@ -298,6 +321,9 @@ func TryParse(val string, v any) error {
 		*dest = uint(n)
 		return nil
 	case *uint8:
+		if dest == nil {
+			return errTryParseNil
+		}
 		if n, ok := parseUintFast64(val); ok {
 			if n > math.MaxUint8 {
 				return strconv.ErrRange
@@ -312,6 +338,9 @@ func TryParse(val string, v any) error {
 		*dest = uint8(n)
 		return nil
 	case *uint16:
+		if dest == nil {
+			return errTryParseNil
+		}
 		if n, ok := parseUintFast64(val); ok {
 			if n > math.MaxUint16 {
 				return strconv.ErrRange
@@ -326,6 +355,9 @@ func TryParse(val string, v any) error {
 		*dest = uint16(n)
 		return nil
 	case *uint32:
+		if dest == nil {
+			return errTryParseNil
+		}
 		if n, ok := parseUintFast64(val); ok {
 			if n > math.MaxUint32 {
 				return strconv.ErrRange
@@ -340,6 +372,9 @@ func TryParse(val string, v any) error {
 		*dest = uint32(n)
 		return nil
 	case *uint64:
+		if dest == nil {
+			return errTryParseNil
+		}
 		if n, ok := parseUintFast64(val); ok {
 			*dest = n
 			return nil
@@ -351,6 +386,9 @@ func TryParse(val string, v any) error {
 		*dest = n
 		return nil
 	case *float32:
+		if dest == nil {
+			return errTryParseNil
+		}
 		n, err := strconv.ParseFloat(val, 32)
 		if err != nil {
 			return err
@@ -358,6 +396,9 @@ func TryParse(val string, v any) error {
 		*dest = float32(n)
 		return nil
 	case *float64:
+		if dest == nil {
+			return errTryParseNil
+		}
 		n, err := strconv.ParseFloat(val, 64)
 		if err != nil {
 			return err
@@ -365,6 +406,9 @@ func TryParse(val string, v any) error {
 		*dest = n
 		return nil
 	case *bool:
+		if dest == nil {
+			return errTryParseNil
+		}
 		if n, ok := parseBoolFast(val); ok {
 			*dest = n
 			return nil
@@ -376,6 +420,9 @@ func TryParse(val string, v any) error {
 		*dest = n
 		return nil
 	case *[]string:
+		if dest == nil {
+			return errTryParseNil
+		}
 		parts := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
@@ -390,6 +437,9 @@ func TryParse(val string, v any) error {
 		*dest = parts
 		return nil
 	case *[]int:
+		if dest == nil {
+			return errTryParseNil
+		}
 		arr, err := parseIntCSVFast(val, *dest)
 		if err != nil {
 			return err
@@ -397,6 +447,9 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]int8:
+		if dest == nil {
+			return errTryParseNil
+		}
 		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
@@ -425,6 +478,9 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]int16:
+		if dest == nil {
+			return errTryParseNil
+		}
 		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
@@ -453,6 +509,9 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]int32:
+		if dest == nil {
+			return errTryParseNil
+		}
 		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
@@ -481,6 +540,9 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]int64:
+		if dest == nil {
+			return errTryParseNil
+		}
 		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
@@ -506,6 +568,9 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]uint:
+		if dest == nil {
+			return errTryParseNil
+		}
 		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
@@ -534,6 +599,9 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]uint8:
+		if dest == nil {
+			return errTryParseNil
+		}
 		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
@@ -562,6 +630,9 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]uint16:
+		if dest == nil {
+			return errTryParseNil
+		}
 		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
@@ -590,6 +661,9 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]uint32:
+		if dest == nil {
+			return errTryParseNil
+		}
 		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
@@ -618,6 +692,9 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]uint64:
+		if dest == nil {
+			return errTryParseNil
+		}
 		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
@@ -643,6 +720,9 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]float32:
+		if dest == nil {
+			return errTryParseNil
+		}
 		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
@@ -664,6 +744,9 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]float64:
+		if dest == nil {
+			return errTryParseNil
+		}
 		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
@@ -685,6 +768,9 @@ func TryParse(val string, v any) error {
 		*dest = arr
 		return nil
 	case *[]bool:
+		if dest == nil {
+			return errTryParseNil
+		}
 		arr := reuseOrMakeCommaSlice(*dest, val)
 		s := val
 		for {
@@ -1002,6 +1088,6 @@ func bearerToken(auth string) string {
 // tests distinguish redirect/custom-response errors from ordinary framework
 // errors.
 func IsErrFn(err error) bool {
-	_, ok := err.(*errFn)
-	return ok
+	var target *errFn
+	return errors.As(err, &target)
 }

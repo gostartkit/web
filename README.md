@@ -573,6 +573,13 @@ if err := web.DoReqWithClient(http.DefaultClient, req, &raw, nil); err != nil {
 - Catch-all routes are still only allowed at the end of the path.
 - Invalid wildcard combinations remain rejected at registration time.
 
+Route and application configuration is an initialization phase. Complete calls
+to `Use`, `Group`, route registration, setters, and reader/writer registration
+before `Finalize` or the first request. Finalization is concurrency-safe and the
+compiled request path is immutable and lock-free. Concurrent attempts to start a
+second server with the same `Application` return `ErrServerAlreadyRunning`, and
+`Shutdown` safely coordinates with the active server.
+
 This makes common REST route sets work without handler-level catch-all dispatch:
 
 ```go

@@ -116,6 +116,26 @@ var (
 	// on an Application instance whose HTTP server (app.srv) has not been initialized.
 	// This typically occurs if the serve method has not been called or if the server was explicitly reset.
 	ErrServerNotInitialized = NewErr(http.StatusServiceUnavailable, "SERVERNOTINITIALIZED")
+
+	// ErrServerAlreadyRunning is returned when the same Application is used to
+	// start more than one HTTP server concurrently.
+	ErrServerAlreadyRunning = NewErr(http.StatusServiceUnavailable, "SERVERALREADYRUNNING")
+
+	// ErrApplicationFinalized is returned when a fallible registration method is
+	// called after routes and codecs have been frozen for serving.
+	ErrApplicationFinalized = errors.New("web: application is finalized")
+
+	// ErrTLSConfigRequired is returned when ListenAndServeTLS is called without
+	// a TLS configuration.
+	ErrTLSConfigRequired = errors.New("web: TLS config is required")
+
+	// ErrNilRequest is returned when a prepared-request client helper is called
+	// without an HTTP request.
+	ErrNilRequest = errors.New("web: request must not be nil")
+
+	// ErrNilContext is returned when an operation that requires cancellation or
+	// deadline propagation is called with a nil context.
+	ErrNilContext = errors.New("web: context must not be nil")
 )
 
 type errString struct {

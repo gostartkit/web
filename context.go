@@ -8,6 +8,7 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"io"
 	"mime/multipart"
 	"net"
@@ -16,6 +17,8 @@ import (
 	"strings"
 	"sync"
 )
+
+const maxRetainedBodyBuffer = 64 * 1024
 
 var (
 	_ctxPool = sync.Pool{
@@ -161,6 +164,7 @@ func (c *Ctx) Write(p []byte) (int, error) {
 			code = http.StatusOK
 			c.statusCode = code
 		}
+		validateHTTPStatus(code)
 		c.responseCommitted = true
 		if code != http.StatusOK {
 			c.w.WriteHeader(code)
@@ -176,9 +180,26 @@ func (c *Ctx) WriteHeader(statusCode int) {
 	if c.responseCommitted {
 		return
 	}
+	validateHTTPStatus(statusCode)
 	c.statusCode = statusCode
 	c.responseCommitted = true
 	c.w.WriteHeader(statusCode)
+}
+
+func (c *Ctx) commitMedia(mt mediaType, statusCode int) {
+	if c.responseCommitted {
+		return
+	}
+	validateHTTPStatus(statusCode)
+	c.statusCode = statusCode
+	c.responseCommitted = true
+	writeCodeByMedia(c.w, mt, statusCode)
+}
+
+func validateHTTPStatus(statusCode int) {
+	if statusCode < 100 || statusCode > 999 {
+		panic("web: invalid HTTP status code")
+	}
 }
 
 // SetStatus sets the response status code for framework-managed writes without
@@ -437,7 +458,17 @@ func (c *Ctx) TryParseBody(val any) error {
 		}
 		dec := json.NewDecoder(c.r.Body)
 		dec.DisallowUnknownFields()
-		return dec.Decode(val)
+		if err := dec.Decode(val); err != nil {
+			return err
+		}
+		var trailing any
+		if err := dec.Decode(&trailing); err != io.EOF {
+			if err == nil {
+				return errors.New("request body must contain a single JSON value")
+			}
+			return err
+		}
+		return nil
 	case mediaGOB:
 		if c.app != nil && c.app.hasReaders {
 			if reader := c.app.readers[mediaGOB]; reader != nil {
@@ -478,15 +509,21 @@ func (c *Ctx) TryParseJSONBodyFast(val any) error {
 
 	buf := _bodyReadBufferPool.Get().(*bytes.Buffer)
 	buf.Reset()
+	defer putBodyReadBuffer(buf)
 
 	_, err := buf.ReadFrom(c.r.Body)
 	if err == nil {
 		err = json.Unmarshal(buf.Bytes(), val)
 	}
 
-	buf.Reset()
-	_bodyReadBufferPool.Put(buf)
 	return err
+}
+
+func putBodyReadBuffer(buf *bytes.Buffer) {
+	if buf.Cap() <= maxRetainedBodyBuffer {
+		buf.Reset()
+		_bodyReadBufferPool.Put(buf)
+	}
 }
 
 // TryParseParam parses the named route parameter into val.
@@ -788,8 +825,8 @@ func (c *Ctx) Accept() string {
 // Use this for streaming responses that need to push partial data to the client.
 // It returns nil when the underlying ResponseWriter cannot flush.
 func (c *Ctx) Flusher() http.Flusher {
-	if flusher, ok := c.w.(http.Flusher); ok {
-		return flusher
+	if _, ok := c.w.(http.Flusher); ok {
+		return c
 	}
 	return nil
 }
@@ -799,6 +836,10 @@ func (c *Ctx) Flusher() http.Flusher {
 // If flushing is not supported, Flush is a no-op.
 func (c *Ctx) Flush() {
 	if flusher, ok := c.w.(http.Flusher); ok {
+		if !c.responseCommitted {
+			c.statusCode = http.StatusOK
+			c.responseCommitted = true
+		}
 		flusher.Flush()
 	}
 }
@@ -808,8 +849,8 @@ func (c *Ctx) Flush() {
 // This is useful for protocol upgrades or raw connection control. It returns nil
 // when hijacking is unsupported.
 func (c *Ctx) Hijacker() http.Hijacker {
-	if hijacker, ok := c.w.(http.Hijacker); ok {
-		return hijacker
+	if _, ok := c.w.(http.Hijacker); ok {
+		return c
 	}
 	return nil
 }
@@ -820,7 +861,14 @@ func (c *Ctx) Hijacker() http.Hijacker {
 // it returns http.ErrNotSupported.
 func (c *Ctx) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	if hijacker, ok := c.w.(http.Hijacker); ok {
-		return hijacker.Hijack()
+		conn, rw, err := hijacker.Hijack()
+		if err == nil {
+			c.responseCommitted = true
+			if c.statusCode == 0 {
+				c.statusCode = http.StatusSwitchingProtocols
+			}
+		}
+		return conn, rw, err
 	}
 	return nil, nil, http.ErrNotSupported
 }
@@ -876,7 +924,9 @@ func (c *Ctx) SetVersion(version string) {
 // It delegates to http.SetCookie. Invalid cookies may be silently dropped by the
 // standard library.
 func (c *Ctx) SetCookie(cookie *http.Cookie) {
-	http.SetCookie(c.w, cookie)
+	if cookie != nil {
+		http.SetCookie(c.w, cookie)
+	}
 }
 
 // GetCookie returns the named cookie from the request.
@@ -924,9 +974,7 @@ func (c *Ctx) JSON(statusCode int, val any) error {
 		statusCode = http.StatusOK
 	}
 	if !c.responseCommitted {
-		writeCodeByMedia(c.w, mediaJSON, statusCode)
-		c.statusCode = statusCode
-		c.responseCommitted = true
+		c.commitMedia(mediaJSON, statusCode)
 	}
 	return c.writeMedia(mediaJSON, val)
 }

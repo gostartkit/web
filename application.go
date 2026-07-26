@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 const methodRootSlots = 9
@@ -19,6 +21,12 @@ type allowedMethods struct {
 	methods []string
 	header  string
 	shared  bool
+}
+
+type requestCleanup struct {
+	ctx      *Ctx
+	params   *Params
+	releaser IRelease
 }
 
 func methodRootIndex(method string) int {
@@ -52,29 +60,32 @@ func methodRootIndex(method string) int {
 // Application implements http.Handler, so it can be passed directly to
 // http.Server, httptest, or any standard library integration point.
 type Application struct {
-	srv             *http.Server
-	trees           map[string]*node
-	methodRoots     [methodRootSlots]*node
-	frozenTrees     map[string]*frozenNode
-	frozenRoots     [methodRootSlots]*frozenNode
-	info            *log.Logger
-	err             *log.Logger
-	cors            Cors
-	panic           Panic
-	errorHandler    ErrorHandler
-	middleware      Chain
-	readers         [mediaTypeSlots]Reader
-	writers         [mediaTypeSlots]Writer
-	hasReaders      bool
-	hasWriters      bool
-	paramsPool      sync.Pool
-	paramValuesPool sync.Pool
-	finalizeOnce    sync.Once
-	maxParams       uint16
-	finalized       bool
-	staticPaths     map[string]struct{}
-	staticAllowed   map[string]allowedMethods
-	globalAllowed   allowedMethods
+	srv              atomic.Pointer[http.Server]
+	stateMu          sync.Mutex
+	trees            map[string]*node
+	methodRoots      [methodRootSlots]*node
+	frozenTrees      map[string]*frozenNode
+	frozenRoots      [methodRootSlots]*frozenNode
+	info             *log.Logger
+	err              *log.Logger
+	cors             Cors
+	panic            Panic
+	errorHandler     ErrorHandler
+	middleware       Chain
+	readers          [mediaTypeSlots]Reader
+	writers          [mediaTypeSlots]Writer
+	hasReaders       bool
+	hasWriters       bool
+	paramsPool       sync.Pool
+	paramValuesPool  sync.Pool
+	finalizeOnce     sync.Once
+	maxParams        uint16
+	finalized        bool
+	staticPaths      map[string]struct{}
+	staticAllowed    map[string]allowedMethods
+	globalAllowed    allowedMethods
+	notFound         http.Handler
+	methodNotAllowed http.Handler
 
 	NotFound         http.Handler
 	MethodNotAllowed http.Handler
@@ -124,6 +135,9 @@ func New(options ...Option) *Application {
 // key/value fields.
 func WithInfoLogger(logger *log.Logger) Option {
 	return func(app *Application) {
+		app.stateMu.Lock()
+		defer app.stateMu.Unlock()
+		app.mustBeConfigurable()
 		app.info = logger
 	}
 }
@@ -131,10 +145,13 @@ func WithInfoLogger(logger *log.Logger) Option {
 // WithErrLogger configures the error logger used by the application.
 //
 // The logger is used for route errors, write errors, and recovered panics handled
-// by Application.recv. Passing nil disables error logging. Framework-emitted
+// by Application. Passing nil disables error logging. Framework-emitted
 // error logs use logfmt key/value fields.
 func WithErrLogger(logger *log.Logger) Option {
 	return func(app *Application) {
+		app.stateMu.Lock()
+		defer app.stateMu.Unlock()
+		app.mustBeConfigurable()
 		app.err = logger
 	}
 }
@@ -145,6 +162,9 @@ func WithErrLogger(logger *log.Logger) Option {
 // method discovery path.
 func WithCORS(cors Cors) Option {
 	return func(app *Application) {
+		app.stateMu.Lock()
+		defer app.stateMu.Unlock()
+		app.mustBeConfigurable()
 		app.cors = cors
 	}
 }
@@ -156,6 +176,9 @@ func WithCORS(cors Cors) Option {
 // Recover or RecoverWithOptions middleware.
 func WithPanic(panic Panic) Option {
 	return func(app *Application) {
+		app.stateMu.Lock()
+		defer app.stateMu.Unlock()
+		app.mustBeConfigurable()
 		app.panic = panic
 	}
 }
@@ -166,6 +189,9 @@ func WithPanic(panic Panic) Option {
 // the handler means the error response has already been written.
 func WithErrorHandler(handler ErrorHandler) Option {
 	return func(app *Application) {
+		app.stateMu.Lock()
+		defer app.stateMu.Unlock()
+		app.mustBeConfigurable()
 		app.errorHandler = handler
 	}
 }
@@ -185,6 +211,9 @@ func WithMiddleware(middleware ...Middleware) Option {
 // When handler is nil, Application falls back to http.NotFound.
 func WithNotFound(handler http.Handler) Option {
 	return func(app *Application) {
+		app.stateMu.Lock()
+		defer app.stateMu.Unlock()
+		app.mustBeConfigurable()
 		app.NotFound = handler
 	}
 }
@@ -195,6 +224,9 @@ func WithNotFound(handler http.Handler) Option {
 // is nil, Application falls back to http.Error with status 405.
 func WithMethodNotAllowed(handler http.Handler) Option {
 	return func(app *Application) {
+		app.stateMu.Lock()
+		defer app.stateMu.Unlock()
+		app.mustBeConfigurable()
 		app.MethodNotAllowed = handler
 	}
 }
@@ -204,6 +236,9 @@ func WithMethodNotAllowed(handler http.Handler) Option {
 // This setter is equivalent to constructing the application with WithInfoLogger.
 // Framework-emitted request logs use logfmt key/value fields.
 func (app *Application) SetInfoLogger(logger *log.Logger) {
+	app.stateMu.Lock()
+	defer app.stateMu.Unlock()
+	app.mustBeConfigurable()
 	app.info = logger
 }
 
@@ -212,6 +247,9 @@ func (app *Application) SetInfoLogger(logger *log.Logger) {
 // This setter is equivalent to constructing the application with WithErrLogger.
 // Framework-emitted error logs use logfmt key/value fields.
 func (app *Application) SetErrLogger(logger *log.Logger) {
+	app.stateMu.Lock()
+	defer app.stateMu.Unlock()
+	app.mustBeConfigurable()
 	app.err = logger
 }
 
@@ -220,6 +258,9 @@ func (app *Application) SetErrLogger(logger *log.Logger) {
 // The hook receives a header setter, the request Origin, and the methods allowed
 // for the requested route.
 func (app *Application) SetCORS(cors Cors) {
+	app.stateMu.Lock()
+	defer app.stateMu.Unlock()
+	app.mustBeConfigurable()
 	app.cors = cors
 }
 
@@ -227,6 +268,9 @@ func (app *Application) SetCORS(cors Cors) {
 //
 // Prefer Recover or RecoverWithOptions middleware for route-level panic recovery.
 func (app *Application) SetPanic(panic Panic) {
+	app.stateMu.Lock()
+	defer app.stateMu.Unlock()
+	app.mustBeConfigurable()
 	app.panic = panic
 }
 
@@ -236,6 +280,9 @@ func (app *Application) SetPanic(panic Panic) {
 // the handler has written the response; return an error to let the default writer
 // handle it.
 func (app *Application) SetErrorHandler(handler ErrorHandler) {
+	app.stateMu.Lock()
+	defer app.stateMu.Unlock()
+	app.mustBeConfigurable()
 	app.errorHandler = handler
 }
 
@@ -249,8 +296,13 @@ func (app *Application) RegisterReader(contentType string, reader Reader) error 
 	if mt == mediaUnknown {
 		return ErrContentType
 	}
+	app.stateMu.Lock()
+	defer app.stateMu.Unlock()
+	if app.finalized {
+		return ErrApplicationFinalized
+	}
 	app.readers[mt] = reader
-	app.hasReaders = true
+	app.hasReaders = reader != nil || app.hasAnyReader()
 	return nil
 }
 
@@ -264,8 +316,13 @@ func (app *Application) RegisterWriter(contentType string, writer Writer) error 
 	if mt == mediaUnknown {
 		return ErrContentType
 	}
+	app.stateMu.Lock()
+	defer app.stateMu.Unlock()
+	if app.finalized {
+		return ErrApplicationFinalized
+	}
 	app.writers[mt] = writer
-	app.hasWriters = true
+	app.hasWriters = writer != nil || app.hasAnyWriter()
 	return nil
 }
 
@@ -274,6 +331,9 @@ func (app *Application) RegisterWriter(contentType string, writer Writer) error 
 // Middleware is applied when each route is registered. Calling Use does not
 // affect routes that were already registered.
 func (app *Application) Use(middleware ...Middleware) {
+	app.stateMu.Lock()
+	defer app.stateMu.Unlock()
+	app.mustBeConfigurable()
 	app.middleware = append(app.middleware, middleware...)
 }
 
@@ -285,6 +345,9 @@ func (app *Application) Group(prefix string, middleware ...Middleware) *RouteGro
 	if prefix != "" && prefix[0] != '/' {
 		panic("group prefix must begin with '/' in path '" + prefix + "'")
 	}
+	app.stateMu.Lock()
+	defer app.stateMu.Unlock()
+	app.mustBeConfigurable()
 	return &RouteGroup{
 		app:        app,
 		prefix:     prefix,
@@ -297,7 +360,11 @@ func (app *Application) Group(prefix string, middleware ...Middleware) *RouteGro
 // The path must start with /. Optional route middleware is applied after
 // application and group middleware, and only affects this route.
 func (app *Application) Handle(method string, path string, next Next, middleware ...Middleware) {
-	app.addRoute(method, path, wrapNext(next, app.middleware, Chain(middleware)))
+	appMiddleware := app.middlewareSnapshot()
+	wrapped := wrapNext(next, appMiddleware, Chain(middleware))
+	app.stateMu.Lock()
+	defer app.stateMu.Unlock()
+	app.addRouteLocked(method, path, wrapped)
 }
 
 // HTTPHandler adapts a standard net/http handler into a web route handler.
@@ -393,7 +460,7 @@ func (app *Application) OptionsHTTP(path string, handler http.Handler) {
 	app.HandleHTTP(http.MethodOptions, path, handler)
 }
 
-func (app *Application) addRoute(method string, path string, next Next) {
+func (app *Application) addRouteLocked(method string, path string, next Next) {
 	if app.finalized {
 		panic("routes cannot be registered after application is finalized")
 	}
@@ -425,15 +492,16 @@ func (app *Application) addRoute(method string, path string, next Next) {
 	}
 
 	root.addRoute(path, next)
-	if countParams(path) == 0 {
+	paramCount := countParams(path)
+	if paramCount == 0 {
 		if app.staticPaths == nil {
 			app.staticPaths = make(map[string]struct{})
 		}
 		app.staticPaths[path] = struct{}{}
 	}
 
-	if pc := countParams(path); pc > app.maxParams {
-		app.maxParams = pc
+	if paramCount > app.maxParams {
+		app.maxParams = paramCount
 	}
 }
 
@@ -441,9 +509,14 @@ func (app *Application) addRoute(method string, path string, next Next) {
 //
 // ServeHTTP calls Finalize automatically on the first request. Servers with a
 // latency-sensitive first request can call it explicitly after registering all
-// routes. Route registration after finalization panics.
+// routes. Route and configuration mutation must finish before Finalize; route
+// registration after finalization panics and fallible codec registration returns
+// ErrApplicationFinalized.
 func (app *Application) Finalize() {
 	app.finalizeOnce.Do(func() {
+		app.stateMu.Lock()
+		defer app.stateMu.Unlock()
+
 		for method, root := range app.trees {
 			if !root.hasStaticParamSibling() {
 				continue
@@ -460,8 +533,41 @@ func (app *Application) Finalize() {
 		}
 
 		app.compileAllowedMethods()
+		app.notFound = app.NotFound
+		app.methodNotAllowed = app.MethodNotAllowed
 		app.finalized = true
 	})
+}
+
+func (app *Application) mustBeConfigurable() {
+	if app.finalized {
+		panic("application configuration cannot be changed after finalization")
+	}
+}
+
+func (app *Application) middlewareSnapshot() Chain {
+	app.stateMu.Lock()
+	defer app.stateMu.Unlock()
+	app.mustBeConfigurable()
+	return append(Chain(nil), app.middleware...)
+}
+
+func (app *Application) hasAnyReader() bool {
+	for _, reader := range app.readers {
+		if reader != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func (app *Application) hasAnyWriter() bool {
+	for _, writer := range app.writers {
+		if writer != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func (app *Application) compileAllowedMethods() {
@@ -515,12 +621,19 @@ func (app *Application) ServeFiles(path string, root http.FileSystem) {
 	if len(path) < 10 || path[len(path)-10:] != "/*filepath" {
 		panic("path must end with /*filepath in path '" + path + "'")
 	}
+	if root == nil {
+		panic("file system must not be nil")
+	}
 
 	fileServer := http.FileServer(root)
 
 	app.Get(path, func(c *Ctx) (any, error) {
+		originalPath := c.r.URL.Path
+		defer func() {
+			c.r.URL.Path = originalPath
+		}()
 		c.r.URL.Path = c.Param("filepath")
-		fileServer.ServeHTTP(c.w, c.r)
+		fileServer.ServeHTTP(c, c.r)
 		return nil, nil
 	})
 }
@@ -532,8 +645,8 @@ func (app *Application) ServeFiles(path string, root http.FileSystem) {
 // response encoding, automatic OPTIONS handling, method-not-allowed handling,
 // not-found handling, logging, and panic recovery.
 func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
-	defer app.recv(w, r)
+	var cleanup requestCleanup
+	defer app.finishRequest(w, r, &cleanup)
 	app.Finalize()
 
 	rel := r.URL.Path
@@ -542,15 +655,19 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if root, frozenRoot := app.rootsForMethod(r.Method); root != nil {
 		if frozenRoot == nil {
-			if next, params, _ := root.getValueFast(rel, app); next != nil {
+			next, params, _ := root.getValueFast(rel, app)
+			if next != nil {
 				c := createCtx(app, w, r, params)
+				cleanup.ctx = c
+				cleanup.params = params
 				val, err := next(c)
 				userID := c.UserId()
+				if releaser, ok := val.(IRelease); ok {
+					cleanup.releaser = releaser
+				}
 
 				if err != nil {
 					code, writeErr := app.handleError(c, err)
-					app.putParams(params)
-					releaseBaseCtx(c)
 					if writeErr != nil && errLogger != nil {
 						errLogger.Print(formatRequestLog("error", "write_error", r, userID, rel, code, writeErr))
 					}
@@ -568,11 +685,9 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					}
 					mt := c.responseMediaType()
 					if !c.responseCommitted {
-						writeCodeByMedia(w, mt, code)
+						c.commitMedia(mt, code)
 					}
 					err := c.writeMedia(mt, val)
-					app.putParams(params)
-					releaseBaseCtx(c)
 					if err != nil {
 						if errLogger != nil {
 							errLogger.Print(formatRequestLog("error", "write_error", r, userID, rel, code, err))
@@ -583,18 +698,12 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					if infoLogger != nil {
 						infoLogger.Print(formatRequestLog("info", "request", r, userID, rel, code, nil))
 					}
-
-					if rel, ok := val.(IRelease); ok {
-						rel.Release()
-					}
 				} else {
 					code := c.statusCode
 					if code == 0 {
 						code = http.StatusNoContent
 					}
 					committed := c.responseCommitted
-					app.putParams(params)
-					releaseBaseCtx(c)
 					if !committed {
 						w.WriteHeader(code)
 					}
@@ -606,19 +715,22 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 				return
 			}
+			app.putParams(params)
 		} else {
 			var match routeMatch
 			frozenRoot.lookup(rel, app, &match)
 			if match.callback != nil {
 
 				c := createCtxWithRouteMatch(app, w, r, &match)
+				cleanup.ctx = c
 				val, err := match.callback(c)
 				userID := c.UserId()
+				if releaser, ok := val.(IRelease); ok {
+					cleanup.releaser = releaser
+				}
 
 				if err != nil {
 					code, writeErr := app.handleError(c, err)
-					app.putParamValues(match.params.extraValues)
-					releaseCtx(c)
 					if writeErr != nil && errLogger != nil {
 						errLogger.Print(formatRequestLog("error", "write_error", r, userID, rel, code, writeErr))
 					}
@@ -636,11 +748,9 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					}
 					mt := c.responseMediaType()
 					if !c.responseCommitted {
-						writeCodeByMedia(w, mt, code)
+						c.commitMedia(mt, code)
 					}
 					err := c.writeMedia(mt, val)
-					app.putParamValues(match.params.extraValues)
-					releaseCtx(c)
 					if err != nil {
 						if errLogger != nil {
 							errLogger.Print(formatRequestLog("error", "write_error", r, userID, rel, code, err))
@@ -651,18 +761,12 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					if infoLogger != nil {
 						infoLogger.Print(formatRequestLog("info", "request", r, userID, rel, code, nil))
 					}
-
-					if rel, ok := val.(IRelease); ok {
-						rel.Release()
-					}
 				} else {
 					code := c.statusCode
 					if code == 0 {
 						code = http.StatusNoContent
 					}
 					committed := c.responseCommitted
-					app.putParamValues(match.params.extraValues)
-					releaseCtx(c)
 					if !committed {
 						w.WriteHeader(code)
 					}
@@ -674,6 +778,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 				return
 			}
+			app.putParamValues(match.params.extraValues)
 		}
 	}
 
@@ -694,25 +799,68 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if allow := app.allowedHeader(rel, r.Method); allow != "" {
 		w.Header().Set("Allow", allow)
-		if app.MethodNotAllowed != nil {
-			app.MethodNotAllowed.ServeHTTP(w, r)
+		if app.methodNotAllowed != nil {
+			app.methodNotAllowed.ServeHTTP(w, r)
 		} else {
 			http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 		}
 		return
 	}
 
-	if app.NotFound != nil {
-		app.NotFound.ServeHTTP(w, r)
+	if app.notFound != nil {
+		app.notFound.ServeHTTP(w, r)
 	} else {
 		http.NotFound(w, r)
 	}
 }
 
+func (app *Application) finishRequest(w http.ResponseWriter, r *http.Request, cleanup *requestCleanup) {
+	recovered := recover()
+	committed := false
+	if cleanup.ctx != nil {
+		committed = cleanup.ctx.responseCommitted
+	}
+
+	if cleanup.releaser != nil {
+		if releasePanic := callRelease(cleanup.releaser); recovered == nil {
+			recovered = releasePanic
+		}
+	}
+	if cleanup.ctx != nil && cleanup.ctx.routeCtx != nil {
+		app.putParamValues(cleanup.ctx.routeCtx.params.extraValues)
+		releaseCtx(cleanup.ctx)
+	} else if cleanup.ctx != nil {
+		app.putParams(cleanup.params)
+		releaseBaseCtx(cleanup.ctx)
+	}
+	if recovered != nil {
+		app.handlePanic(w, r, recovered, committed)
+	}
+}
+
+func callRelease(releaser IRelease) (releasePanic any) {
+	defer func() {
+		releasePanic = recover()
+	}()
+	releaser.Release()
+	return nil
+}
+
 func (app *Application) handleError(c *Ctx, err error) (int, error) {
-	if e, ok := err.(*errFn); ok {
+	if c.responseCommitted {
+		code := c.statusCode
+		if code == 0 {
+			code = http.StatusOK
+		}
+		return code, nil
+	}
+
+	var e *errFn
+	if errors.As(err, &e) && e.cb != nil {
 		code := e.code
 		if cbErr := e.cb(c.w, c.r); cbErr == nil {
+			c.statusCode = code
+			c.responseCommitted = true
 			return code, nil
 		} else {
 			err = cbErr
@@ -721,7 +869,13 @@ func (app *Application) handleError(c *Ctx, err error) (int, error) {
 
 	if app.errorHandler != nil {
 		if nextErr := app.errorHandler(c, err); nextErr == nil {
-			return errCode(err), nil
+			code := c.statusCode
+			if code == 0 {
+				code = errCode(err)
+				c.statusCode = code
+			}
+			c.responseCommitted = true
+			return code, nil
 		} else {
 			err = nextErr
 		}
@@ -729,7 +883,7 @@ func (app *Application) handleError(c *Ctx, err error) (int, error) {
 
 	code := errCode(err)
 	mt := c.responseMediaType()
-	writeCodeByMedia(c.w, mt, code)
+	c.commitMedia(mt, code)
 	return code, c.writeMedia(mt, err.Error())
 }
 
@@ -765,6 +919,11 @@ func joinPaths(prefix, path string) string {
 // Middleware added to a group affects only routes registered on that group after
 // the call. It does not mutate the parent application or sibling groups.
 func (g *RouteGroup) Use(middleware ...Middleware) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.app.stateMu.Lock()
+	defer g.app.stateMu.Unlock()
+	g.app.mustBeConfigurable()
 	g.middleware = append(g.middleware, middleware...)
 }
 
@@ -776,6 +935,11 @@ func (g *RouteGroup) Group(prefix string, middleware ...Middleware) *RouteGroup 
 	if prefix != "" && prefix[0] != '/' {
 		panic("group prefix must begin with '/' in path '" + prefix + "'")
 	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.app.stateMu.Lock()
+	defer g.app.stateMu.Unlock()
+	g.app.mustBeConfigurable()
 	child := &RouteGroup{
 		app:        g.app,
 		prefix:     joinPaths(g.prefix, prefix),
@@ -789,7 +953,16 @@ func (g *RouteGroup) Group(prefix string, middleware ...Middleware) *RouteGroup 
 // The final path is the group prefix joined with path. Middleware is composed in
 // application, parent group, child group, then route order.
 func (g *RouteGroup) Handle(method string, path string, next Next, middleware ...Middleware) {
-	g.app.addRoute(method, joinPaths(g.prefix, path), wrapNext(next, g.app.middleware, g.middleware, Chain(middleware)))
+	g.mu.Lock()
+	prefix := g.prefix
+	groupMiddleware := append(Chain(nil), g.middleware...)
+	g.mu.Unlock()
+
+	appMiddleware := g.app.middlewareSnapshot()
+	wrapped := wrapNext(next, appMiddleware, groupMiddleware, Chain(middleware))
+	g.app.stateMu.Lock()
+	defer g.app.stateMu.Unlock()
+	g.app.addRouteLocked(method, joinPaths(prefix, path), wrapped)
 }
 
 // HandleHTTP registers a standard net/http handler on the group.
@@ -1003,6 +1176,9 @@ func (app *Application) ListenAndServe(network string, addr string, fns ...func(
 // tlsConfig is passed to tls.Listen. Optional functions receive the created
 // *http.Server before Serve is called, matching ListenAndServe.
 func (app *Application) ListenAndServeTLS(network string, addr string, tlsConfig *tls.Config, fns ...func(*http.Server)) error {
+	if tlsConfig == nil {
+		return ErrTLSConfigRequired
+	}
 
 	l, err := tls.Listen(network, addr, tlsConfig)
 
@@ -1021,10 +1197,14 @@ func (app *Application) ListenAndServeTLS(network string, addr string, tlsConfig
 // The context controls the shutdown deadline. If the application has not started
 // a server through this package, Shutdown returns ErrServerNotInitialized.
 func (app *Application) Shutdown(ctx context.Context) error {
-	if app.srv == nil {
+	if ctx == nil {
+		return ErrNilContext
+	}
+	srv := app.srv.Load()
+	if srv == nil {
 		return ErrServerNotInitialized
 	}
-	return app.srv.Shutdown(ctx)
+	return srv.Shutdown(ctx)
 }
 
 func (app *Application) serve(listener net.Listener, fns ...func(*http.Server)) error {
@@ -1032,16 +1212,22 @@ func (app *Application) serve(listener net.Listener, fns ...func(*http.Server)) 
 
 	mux.Handle("/", app)
 
-	app.srv = &http.Server{
+	srv := &http.Server{
 		Handler: mux,
 	}
+	if !app.srv.CompareAndSwap(nil, srv) {
+		return ErrServerAlreadyRunning
+	}
+	defer app.srv.CompareAndSwap(srv, nil)
 
 	for _, fn := range fns {
-		fn(app.srv)
+		if fn != nil {
+			fn(srv)
+		}
 	}
 	app.Finalize()
 
-	if err := app.srv.Serve(listener); err != nil && err != http.ErrServerClosed {
+	if err := srv.Serve(listener); err != nil && err != http.ErrServerClosed {
 		return err
 	}
 
@@ -1086,6 +1272,8 @@ func (app *Application) getParams() *Params {
 
 func (app *Application) putParams(ps *Params) {
 	if ps != nil {
+		clear(*ps)
+		*ps = (*ps)[:0]
 		app.paramsPool.Put(ps)
 	}
 }
@@ -1102,19 +1290,31 @@ func (app *Application) getParamValues() *[]string {
 
 func (app *Application) putParamValues(values *[]string) {
 	if values != nil {
+		clear(*values)
+		*values = (*values)[:0]
 		app.paramValuesPool.Put(values)
 	}
 }
 
-func (app *Application) recv(w http.ResponseWriter, r *http.Request) {
-	if rcv := recover(); rcv != nil {
+func (app *Application) handlePanic(w http.ResponseWriter, r *http.Request, recovered any, committed bool) {
+	if !committed {
 		writeCode(w, r, http.StatusInternalServerError)
-		if app.panic != nil {
-			app.panic(w, r, rcv)
-		} else {
-			app.Errf("%s", formatPanicLog(r, rcv))
-		}
 	}
+	if app.panic != nil {
+		if hookPanic := callPanicHook(app.panic, w, r, recovered); hookPanic != nil {
+			app.Errf("%s", formatPanicLog(r, fmt.Errorf("panic hook failed: %v", hookPanic)))
+		}
+	} else {
+		app.Errf("%s", formatPanicLog(r, recovered))
+	}
+}
+
+func callPanicHook(hook Panic, w http.ResponseWriter, r *http.Request, recovered any) (hookPanic any) {
+	defer func() {
+		hookPanic = recover()
+	}()
+	hook(w, r, recovered)
+	return nil
 }
 
 func formatRequestLog(level string, event string, r *http.Request, userID uint64, path string, status int, err error) string {

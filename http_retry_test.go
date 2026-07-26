@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -52,6 +53,17 @@ func TestTryGetRetryZeroStillAttemptsOnce(t *testing.T) {
 	}
 }
 
+func TestRetryHelpersRejectNilContext(t *testing.T) {
+	t.Parallel()
+
+	if err := TryGet(nil, "http://example.com", "", nil, 2); !errors.Is(err, ErrNilContext) {
+		t.Fatalf("expected ErrNilContext, got %v", err)
+	}
+	if err := TryPost(nil, "http://example.com", "", map[string]bool{"ok": true}, nil, 2); !errors.Is(err, ErrNilContext) {
+		t.Fatalf("expected ErrNilContext, got %v", err)
+	}
+}
+
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (fn roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
@@ -85,6 +97,43 @@ func TestDoReqWithClientUsesProvidedClient(t *testing.T) {
 	}
 	if !out.Ok {
 		t.Fatalf("expected parsed response payload")
+	}
+}
+
+func TestDoReqWithClientAcceptsAnySuccessful2xxStatus(t *testing.T) {
+	t.Parallel()
+
+	client := &http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusPartialContent,
+				Body:       io.NopCloser(strings.NewReader(`{"ok":true}`)),
+				Header:     make(http.Header),
+				Request:    r,
+			}, nil
+		}),
+	}
+	req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
+	if err != nil {
+		t.Fatalf("new request failed: %v", err)
+	}
+
+	var out struct {
+		Ok bool `json:"ok"`
+	}
+	if err := DoReqWithClient(client, req, &out, nil); err != nil {
+		t.Fatalf("expected partial content to succeed, got %v", err)
+	}
+	if !out.Ok {
+		t.Fatal("expected response body to be decoded")
+	}
+}
+
+func TestDoReqWithClientRejectsNilRequest(t *testing.T) {
+	t.Parallel()
+
+	if err := DoReqWithClient(nil, nil, nil, nil); !errors.Is(err, ErrNilRequest) {
+		t.Fatalf("expected ErrNilRequest, got %v", err)
 	}
 }
 

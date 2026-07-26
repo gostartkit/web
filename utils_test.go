@@ -184,3 +184,26 @@ func TestTryParseSliceFastPaths(t *testing.T) {
 		}
 	})
 }
+
+func TestTryParseTypedNilReturnsError(t *testing.T) {
+	t.Parallel()
+
+	var intDest *int
+	if err := TryParse("1", intDest); !errors.Is(err, errTryParseNil) {
+		t.Fatalf("expected typed nil error, got %v", err)
+	}
+
+	var sliceDest *[]uint64
+	if err := TryParse("1,2", sliceDest); !errors.Is(err, errTryParseNil) {
+		t.Fatalf("expected typed nil slice error, got %v", err)
+	}
+}
+
+func TestNilParamsVal(t *testing.T) {
+	t.Parallel()
+
+	var params *Params
+	if got := params.Val("id"); got != "" {
+		t.Fatalf("expected empty value from nil params, got %q", got)
+	}
+}

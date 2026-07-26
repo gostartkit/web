@@ -1,13 +1,16 @@
 package web
 
-import "net/http"
+import (
+	"net/http"
+	"sync"
+)
 
 // IRelease is implemented by handler return values that need cleanup after the
 // response body has been written.
 //
-// ServeHTTP calls Release after a successful framework-managed write. This is
-// useful for pooled DTOs or buffers that should be returned to an object pool
-// after encoding.
+// ServeHTTP calls Release after the framework has finished with the value,
+// including error paths. This is useful for pooled DTOs or buffers that should
+// be returned to an object pool after encoding.
 type IRelease interface {
 	Release()
 }
@@ -45,8 +48,7 @@ type Cors func(set func(key string, value string), origin string, allow []string
 // directly with net/http helpers such as http.Redirect.
 type Fn func(w http.ResponseWriter, r *http.Request) error
 
-// Panic is called by Application.recv when ServeHTTP recovers a panic outside
-// route middleware.
+// Panic is called when Application recovers a panic outside route middleware.
 //
 // Use Recover or RecoverWithOptions middleware when you want route-local panic
 // handling that participates in framework error semantics.
@@ -77,6 +79,7 @@ type Chain []Middleware
 // Groups are lightweight registration helpers. Nested groups combine their
 // prefixes and middleware when routes are added.
 type RouteGroup struct {
+	mu         sync.Mutex
 	app        *Application
 	prefix     string
 	middleware Chain
@@ -129,6 +132,9 @@ type Params []Param
 // When duplicate names exist, the last matching parameter wins. An empty string
 // is returned when the parameter is not present.
 func (o *Params) Val(name string) string {
+	if o == nil {
+		return ""
+	}
 	for i := len(*o) - 1; i >= 0; i-- {
 		if (*o)[i].Key == name {
 			return (*o)[i].Value

@@ -18,6 +18,8 @@ var _bodyBufferPool = sync.Pool{
 	},
 }
 
+const maxErrorBodyDrain = 64 * 1024
+
 func httpClientOrDefault(client *http.Client) *http.Client {
 	if client != nil {
 		return client
@@ -203,10 +205,13 @@ func DoReq(req *http.Request, v any, failure func(statusCode int, body io.ReadCl
 
 // DoReqWithClient executes an already constructed request using client.
 //
-// Status 200, 201, and 202 are treated as success and decoded into v. Status
-// 204 succeeds without decoding. Common API errors are mapped to package errors;
-// unexpected statuses return ErrUnexpected.
+// Every 2xx status is treated as success and decoded into v. Status 204, status
+// 205, and HEAD responses succeed without decoding. Common API errors are mapped
+// to package errors; unexpected statuses return ErrUnexpected.
 func DoReqWithClient(client *http.Client, req *http.Request, v any, failure func(statusCode int, body io.ReadCloser) error) error {
+	if req == nil {
+		return ErrNilRequest
+	}
 	resp, err := httpClientOrDefault(client).Do(req)
 
 	if err != nil {
@@ -215,8 +220,13 @@ func DoReqWithClient(client *http.Client, req *http.Request, v any, failure func
 
 	defer resp.Body.Close()
 
-	switch resp.StatusCode {
-	case http.StatusOK, http.StatusCreated, http.StatusAccepted:
+	switch {
+	case resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices:
+		if resp.StatusCode == http.StatusNoContent ||
+			resp.StatusCode == http.StatusResetContent ||
+			req.Method == http.MethodHead {
+			return nil
+		}
 		if v == nil {
 			_, _ = io.Copy(io.Discard, resp.Body)
 			return nil
@@ -225,26 +235,34 @@ func DoReqWithClient(client *http.Client, req *http.Request, v any, failure func
 			return err
 		}
 		return nil
-	case http.StatusNoContent:
-		return nil
-	case http.StatusBadRequest:
+	case resp.StatusCode == http.StatusBadRequest:
 		if failure != nil {
-			return failure(resp.StatusCode, resp.Body)
+			err := failure(resp.StatusCode, resp.Body)
+			drainErrorBody(resp.Body)
+			return err
 		}
 		errMessage := ""
 		if err := decodeJSONBody(resp.Body, &errMessage); err != nil {
 			return fmt.Errorf("%w: %s", ErrBadRequest, err)
 		}
 		return fmt.Errorf("%w: %s", ErrBadRequest, errMessage)
-	case http.StatusUnauthorized:
+	case resp.StatusCode == http.StatusUnauthorized:
+		drainErrorBody(resp.Body)
 		return ErrUnauthorized
-	case http.StatusForbidden:
+	case resp.StatusCode == http.StatusForbidden:
+		drainErrorBody(resp.Body)
 		return ErrForbidden
-	case http.StatusNotFound:
+	case resp.StatusCode == http.StatusNotFound:
+		drainErrorBody(resp.Body)
 		return ErrNotFound
 	default:
+		drainErrorBody(resp.Body)
 		return ErrUnexpected
 	}
+}
+
+func drainErrorBody(body io.Reader) {
+	_, _ = io.Copy(io.Discard, io.LimitReader(body, maxErrorBodyDrain+1))
 }
 
 // TryGet sends an HTTP GET request with retry support using http.DefaultClient.
@@ -268,8 +286,8 @@ func TryGetWithClient(client *http.Client, ctx context.Context, url string, acce
 
 // TryPost sends a JSON POST request with retry support using http.DefaultClient.
 //
-// data is JSON-encoded for each attempt. Use TryPostBytes when the request body
-// is already encoded or when avoiding repeated JSON encoding matters.
+// data is JSON-encoded once and replayed for each attempt. Use TryPostBytes when
+// the request body is already encoded.
 func TryPost(ctx context.Context, url string, accessToken string, data any, v any, retry int, before ...func(r *http.Request)) error {
 	return TryPostWithClient(nil, ctx, url, accessToken, data, v, retry, before...)
 }
@@ -279,9 +297,7 @@ func TryPost(ctx context.Context, url string, accessToken string, data any, v an
 // The response is decoded into v using the same rules as PostWithClient. Pass
 // *RawBody to v when the response should be copied as bytes instead of decoded.
 func TryPostWithClient(client *http.Client, ctx context.Context, url string, accessToken string, data any, v any, retry int, before ...func(r *http.Request)) error {
-	return retryLoop(ctx, retry, func() error {
-		return PostWithClient(client, ctx, url, accessToken, data, v, before...)
-	})
+	return retryWithJSONBody(client, ctx, http.MethodPost, url, accessToken, data, v, retry, before...)
 }
 
 // TryPostBytes sends a POST request with a pre-encoded byte body and retries.
@@ -315,9 +331,7 @@ func TryPut(ctx context.Context, url string, accessToken string, data any, v any
 // Use this variant when the caller owns a tuned http.Client with timeouts,
 // tracing, custom transport, or connection pooling.
 func TryPutWithClient(client *http.Client, ctx context.Context, url string, accessToken string, data any, v any, retry int, before ...func(r *http.Request)) error {
-	return retryLoop(ctx, retry, func() error {
-		return PutWithClient(client, ctx, url, accessToken, data, v, before...)
-	})
+	return retryWithJSONBody(client, ctx, http.MethodPut, url, accessToken, data, v, retry, before...)
 }
 
 // TryPutBytes sends a PUT request with a pre-encoded byte body and retries.
@@ -350,9 +364,7 @@ func TryPatch(ctx context.Context, url string, accessToken string, data any, v a
 // Non-retriable framework errors are returned immediately so authentication or
 // validation failures are not repeated unnecessarily.
 func TryPatchWithClient(client *http.Client, ctx context.Context, url string, accessToken string, data any, v any, retry int, before ...func(r *http.Request)) error {
-	return retryLoop(ctx, retry, func() error {
-		return PatchWithClient(client, ctx, url, accessToken, data, v, before...)
-	})
+	return retryWithJSONBody(client, ctx, http.MethodPatch, url, accessToken, data, v, retry, before...)
 }
 
 // TryPatchBytes sends a PATCH request with a pre-encoded byte body and retries.
@@ -442,6 +454,9 @@ func TryDoBytesWithClient(client *http.Client, ctx context.Context, method strin
 }
 
 func retryLoop(ctx context.Context, retry int, fn func() error) error {
+	if ctx == nil {
+		return ErrNilContext
+	}
 	attempts := retry
 	if attempts <= 0 {
 		attempts = 1
@@ -483,35 +498,67 @@ func retryLoop(ctx context.Context, retry int, fn func() error) error {
 	return err
 }
 
+func retryWithJSONBody(client *http.Client, ctx context.Context, method string, url string, accessToken string, data any, v any, retry int, before ...func(r *http.Request)) error {
+	if ctx == nil {
+		return ErrNilContext
+	}
+
+	body := _bodyBufferPool.Get().(*bytes.Buffer)
+	body.Reset()
+	defer putRequestBodyBuffer(body)
+	if err := json.NewEncoder(body).Encode(data); err != nil {
+		return err
+	}
+
+	payload := body.Bytes()
+	return retryLoop(ctx, retry, func() error {
+		return DoWithClient(client, ctx, method, url, accessToken, bytes.NewReader(payload), v, before...)
+	})
+}
+
 func isNonRetriable(err error) bool {
-	return err == ErrUnauthorized || err == ErrForbidden || errors.Is(err, ErrBadRequest)
+	var syntaxError *json.SyntaxError
+	var typeError *json.UnmarshalTypeError
+	var invalidTarget *json.InvalidUnmarshalError
+	return errors.Is(err, ErrUnauthorized) ||
+		errors.Is(err, ErrForbidden) ||
+		errors.Is(err, ErrNotFound) ||
+		errors.Is(err, ErrBadRequest) ||
+		errors.As(err, &syntaxError) ||
+		errors.As(err, &typeError) ||
+		errors.As(err, &invalidTarget)
 }
 
 func doWithJSONBody(client *http.Client, ctx context.Context, method string, url string, accessToken string, data any, v any, before ...func(r *http.Request)) error {
 	body := _bodyBufferPool.Get().(*bytes.Buffer)
 	body.Reset()
+	defer putRequestBodyBuffer(body)
 
 	err := json.NewEncoder(body).Encode(data)
 	if err == nil {
 		err = DoWithClient(client, ctx, method, url, accessToken, bytes.NewReader(body.Bytes()), v, before...)
 	}
 
-	body.Reset()
-	_bodyBufferPool.Put(body)
 	return err
+}
+
+func putRequestBodyBuffer(body *bytes.Buffer) {
+	if body.Cap() <= maxRetainedBodyBuffer {
+		body.Reset()
+		_bodyBufferPool.Put(body)
+	}
 }
 
 func decodeJSONBody(body io.ReadCloser, v any) error {
 	buf := _bodyReadBufferPool.Get().(*bytes.Buffer)
 	buf.Reset()
+	defer putBodyReadBuffer(buf)
 
 	_, err := buf.ReadFrom(body)
 	if err == nil {
 		err = json.Unmarshal(buf.Bytes(), v)
 	}
 
-	buf.Reset()
-	_bodyReadBufferPool.Put(buf)
 	return err
 }
 

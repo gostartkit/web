@@ -70,6 +70,12 @@ func TestCtxFlushAndUnsupportedMethods(t *testing.T) {
 	if !rec.flushed {
 		t.Fatalf("expected flush to be forwarded")
 	}
+	if !c.responseCommitted || c.statusCode != http.StatusOK {
+		t.Fatalf("expected Flush to commit status 200, got committed=%v status=%d", c.responseCommitted, c.statusCode)
+	}
+	if c.Flusher() != c {
+		t.Fatal("expected Flusher to preserve Ctx response tracking")
+	}
 
 	if _, _, err := c.Hijack(); err != http.ErrNotSupported {
 		t.Fatalf("expected Hijack not supported, got %v", err)

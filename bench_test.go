@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -450,7 +451,7 @@ func BenchmarkPostJSON(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := Post(b.Context(), srv.URL, "", in, nil); err != nil {
+		if err := Post(context.Background(), srv.URL, "", in, nil); err != nil {
 			b.Fatalf("Post failed: %v", err)
 		}
 	}
@@ -468,7 +469,7 @@ func BenchmarkPostBytes(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := PostBytes(b.Context(), srv.URL, "", in, nil); err != nil {
+		if err := PostBytes(context.Background(), srv.URL, "", in, nil); err != nil {
 			b.Fatalf("PostBytes failed: %v", err)
 		}
 	}

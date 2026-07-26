@@ -21,6 +21,23 @@ func TestWriteCodeAcceptWithParameters(t *testing.T) {
 	}
 }
 
+func TestAcceptMediaTypeHonorsQualityAndRejectsPrefixLookalikes(t *testing.T) {
+	t.Parallel()
+
+	if got := acceptMediaType("application/xml;q=0.2, application/json;q=0.9"); got != mediaJSON {
+		t.Fatalf("expected JSON with the higher quality, got %v", got)
+	}
+	if got := acceptMediaType("application/json;q=0, application/xml"); got != mediaXML {
+		t.Fatalf("expected XML when JSON is explicitly unacceptable, got %v", got)
+	}
+	if got := parseMediaType("application/jsonp"); got != mediaUnknown {
+		t.Fatalf("expected JSON prefix lookalike to be rejected, got %v", got)
+	}
+	if got := parseMediaType("Application/JSON; Charset=UTF-8"); got != mediaJSON {
+		t.Fatalf("expected media types to be case-insensitive, got %v", got)
+	}
+}
+
 func TestTryParseBodyContentTypeWithParameters(t *testing.T) {
 	t.Parallel()
 
@@ -39,6 +56,22 @@ func TestTryParseBodyContentTypeWithParameters(t *testing.T) {
 	}
 	if !payload.Ok {
 		t.Fatalf("expected parsed payload")
+	}
+}
+
+func TestTryParseBodyRejectsTrailingJSONValue(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"ok":true} {"ok":false}`))
+	req.Header.Set("Content-Type", "application/json")
+	c := createCtx(nil, httptest.NewRecorder(), req, nil)
+	defer releaseCtx(c)
+
+	var payload struct {
+		Ok bool `json:"ok"`
+	}
+	if err := c.TryParseBody(&payload); err == nil {
+		t.Fatal("expected a trailing JSON value to be rejected")
 	}
 }
 

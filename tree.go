@@ -512,6 +512,9 @@ func (n *frozenNode) getValue(path string, app *Application) (callback Next, ps 
 	callback = match.callback
 	tsr = match.tsr
 	if callback == nil || app == nil || match.params.count == 0 {
+		if callback == nil && app != nil {
+			app.putParamValues(match.params.extraValues)
+		}
 		return
 	}
 

@@ -563,6 +563,12 @@ if err := web.DoReqWithClient(http.DefaultClient, req, &raw, nil); err != nil {
 - catch-all 仍然只能出现在路径末尾。
 - 非法 wildcard 组合在注册时仍会被拒绝。
 
+路由和应用配置属于初始化阶段。请在 `Finalize` 或首个请求之前完成
+`Use`、`Group`、路由注册、setter 以及 reader/writer 注册。Finalize
+具备并发安全性，编译后的请求路径保持不可变且无锁。同一 `Application`
+并发启动第二个服务器会返回 `ErrServerAlreadyRunning`，`Shutdown` 会与
+当前活动服务器安全协作。
+
 这样就可以直接表达常见 REST 路由集，而不需要在 handler 里做 catch-all 分发：
 
 ```go

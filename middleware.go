@@ -190,6 +190,7 @@ func RequestID(header string, nextID func() string) Middleware {
 // responses, combine this with CORSMiddleware when those routes should also emit
 // the same origin/credentials/expose headers.
 func NewCORS(opts CORSOptions) Cors {
+	opts = cloneCORSOptions(opts)
 	return func(set func(key string, value string), origin string, allow []string) {
 		if origin == "" {
 			return
@@ -237,6 +238,7 @@ func NewCORS(opts CORSOptions) Cors {
 // framework's automatic OPTIONS path, install NewCORS through SetCORS or
 // WithCORS because automatic OPTIONS responses bypass route middleware.
 func CORSMiddleware(opts CORSOptions) Middleware {
+	opts = cloneCORSOptions(opts)
 	return func(next Next) Next {
 		return func(c *Ctx) (any, error) {
 			origin := c.Origin()
@@ -255,6 +257,14 @@ func CORSMiddleware(opts CORSOptions) Middleware {
 			return next(c)
 		}
 	}
+}
+
+func cloneCORSOptions(opts CORSOptions) CORSOptions {
+	opts.AllowOrigins = append([]string(nil), opts.AllowOrigins...)
+	opts.AllowMethods = append([]string(nil), opts.AllowMethods...)
+	opts.AllowHeaders = append([]string(nil), opts.AllowHeaders...)
+	opts.ExposeHeaders = append([]string(nil), opts.ExposeHeaders...)
+	return opts
 }
 
 // Recover converts panics in downstream middleware and handlers into framework errors.
@@ -297,7 +307,7 @@ func RecoverWithOptions(opts RecoverOptions) Middleware {
 					}
 
 					err = NewErrFn(status, body, func(w http.ResponseWriter, r *http.Request) error {
-						writeCodeByMedia(w, c.responseMediaType(), status)
+						c.commitMedia(c.responseMediaType(), status)
 						return c.write(body)
 					})
 				}

@@ -174,3 +174,19 @@ func TestCtxResponseHelpers(t *testing.T) {
 		}
 	})
 }
+
+func TestInvalidDeferredStatusRecoversAsInternalServerError(t *testing.T) {
+	t.Parallel()
+
+	app := New()
+	app.Get("/invalid-status", func(c *Ctx) (any, error) {
+		c.SetStatus(42)
+		return map[string]bool{"ok": true}, nil
+	})
+
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/invalid-status", nil))
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500, got %d", rec.Code)
+	}
+}

@@ -2,14 +2,62 @@ package web
 
 import (
 	"bytes"
+	"context"
+	"errors"
+	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"strings"
 	"sync"
 	"testing"
+	"testing/fstest"
+	"time"
 )
+
+type releaseProbe struct {
+	released bool
+}
+
+func (p *releaseProbe) Release() {
+	p.released = true
+}
+
+type blockingListener struct {
+	entered   chan struct{}
+	closed    chan struct{}
+	enterOnce sync.Once
+	closeOnce sync.Once
+}
+
+func newBlockingListener() *blockingListener {
+	return &blockingListener{
+		entered: make(chan struct{}),
+		closed:  make(chan struct{}),
+	}
+}
+
+func (l *blockingListener) Accept() (net.Conn, error) {
+	l.enterOnce.Do(func() { close(l.entered) })
+	<-l.closed
+	return nil, net.ErrClosed
+}
+
+func (l *blockingListener) Close() error {
+	l.closeOnce.Do(func() { close(l.closed) })
+	return nil
+}
+
+func (l *blockingListener) Addr() net.Addr {
+	return testAddr("test")
+}
+
+type testAddr string
+
+func (a testAddr) Network() string { return string(a) }
+func (a testAddr) String() string  { return string(a) }
 
 func TestHttpGet(t *testing.T) {
 	app := New()
@@ -479,6 +527,91 @@ func TestApplicationPanicLoggerUsesLogfmt(t *testing.T) {
 	}
 }
 
+func TestApplicationPanicPreservesCommittedResponse(t *testing.T) {
+	app := New()
+	app.Get("/panic", func(c *Ctx) (any, error) {
+		c.WriteHeader(http.StatusAccepted)
+		_, _ = c.Write([]byte("accepted"))
+		panic("boom")
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/panic", nil)
+	app.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected committed status %d, got %d", http.StatusAccepted, rec.Code)
+	}
+	if got := rec.Body.String(); got != "accepted" {
+		t.Fatalf("expected committed body to be preserved, got %q", got)
+	}
+}
+
+func TestApplicationContainsPanicHookFailure(t *testing.T) {
+	var logs bytes.Buffer
+	app := New(
+		WithErrLogger(log.New(&logs, "", 0)),
+		WithPanic(func(http.ResponseWriter, *http.Request, any) {
+			panic("hook boom")
+		}),
+	)
+	app.Get("/panic", func(c *Ctx) (any, error) {
+		panic("handler boom")
+	})
+
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/panic", nil))
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500, got %d", rec.Code)
+	}
+	if !strings.Contains(logs.String(), "panic hook failed") {
+		t.Fatalf("expected panic hook failure to be logged, got %q", logs.String())
+	}
+}
+
+func TestApplicationReleasesResultWhenWritingFails(t *testing.T) {
+	probe := &releaseProbe{}
+	app := New()
+	if err := app.RegisterWriter("application/json", func(c *Ctx, val any) error {
+		return fmt.Errorf("write failed")
+	}); err != nil {
+		t.Fatalf("register writer: %v", err)
+	}
+	app.Get("/release", func(c *Ctx) (any, error) {
+		return probe, nil
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/release", nil)
+	app.ServeHTTP(rec, req)
+
+	if !probe.released {
+		t.Fatal("expected result to be released after a write failure")
+	}
+}
+
+func TestServeFilesTracksResponseAndRestoresPath(t *testing.T) {
+	app := New()
+	app.ServeFiles("/static/*filepath", http.FS(fstest.MapFS{
+		"hello.txt": {Data: []byte("hello")},
+	}))
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/static/hello.txt", nil)
+	app.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rec.Code)
+	}
+	if got := rec.Body.String(); got != "hello" {
+		t.Fatalf("expected file body, got %q", got)
+	}
+	if got := req.URL.Path; got != "/static/hello.txt" {
+		t.Fatalf("expected request path to be restored, got %q", got)
+	}
+}
+
 func TestApplicationMiddlewareAndGroupOrder(t *testing.T) {
 	app := New()
 	order := make([]string, 0, 7)
@@ -605,6 +738,56 @@ func TestFinalizeCompilesRoutesOnce(t *testing.T) {
 	app.Get("/late", func(c *Ctx) (any, error) { return nil, nil })
 }
 
+func TestRegistrationAfterFinalizeFailsPredictably(t *testing.T) {
+	app := New()
+	app.Finalize()
+
+	if err := app.RegisterReader("application/json", nil); !errors.Is(err, ErrApplicationFinalized) {
+		t.Fatalf("expected ErrApplicationFinalized, got %v", err)
+	}
+	if err := app.RegisterWriter("application/json", nil); !errors.Is(err, ErrApplicationFinalized) {
+		t.Fatalf("expected ErrApplicationFinalized, got %v", err)
+	}
+}
+
+func TestApplicationServerLifecycleIsConcurrentSafe(t *testing.T) {
+	app := New()
+	first := newBlockingListener()
+	serveDone := make(chan error, 1)
+	go func() {
+		serveDone <- app.serve(first)
+	}()
+	<-first.entered
+
+	second := newBlockingListener()
+	if err := app.serve(second); !errors.Is(err, ErrServerAlreadyRunning) {
+		t.Fatalf("expected ErrServerAlreadyRunning, got %v", err)
+	}
+	_ = second.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := app.Shutdown(ctx); err != nil {
+		t.Fatalf("shutdown failed: %v", err)
+	}
+	if err := <-serveDone; err != nil {
+		t.Fatalf("serve failed: %v", err)
+	}
+	if err := app.Shutdown(context.Background()); !errors.Is(err, ErrServerNotInitialized) {
+		t.Fatalf("expected cleared server state, got %v", err)
+	}
+}
+
+func TestApplicationRejectsNilLifecycleInputs(t *testing.T) {
+	app := New()
+	if err := app.ListenAndServeTLS("tcp", "127.0.0.1:0", nil); !errors.Is(err, ErrTLSConfigRequired) {
+		t.Fatalf("expected ErrTLSConfigRequired, got %v", err)
+	}
+	if err := app.Shutdown(nil); !errors.Is(err, ErrNilContext) {
+		t.Fatalf("expected ErrNilContext, got %v", err)
+	}
+}
+
 func TestServeHTTPFinalizesRoutesConcurrently(t *testing.T) {
 	app := New()
 	app.Get("/organizations/:id/devices/:device_id", func(c *Ctx) (any, error) {
@@ -629,6 +812,37 @@ func TestServeHTTPFinalizesRoutesConcurrently(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestFinalizeConcurrentWithRegistrationIsRaceFree(t *testing.T) {
+	app := New()
+	const registrations = 32
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(registrations + 1)
+
+	for i := 0; i < registrations; i++ {
+		i := i
+		go func() {
+			defer wg.Done()
+			defer func() {
+				_ = recover() // Finalize is allowed to win the registration race.
+			}()
+			<-start
+			app.Get(fmt.Sprintf("/route/%d", i), func(c *Ctx) (any, error) {
+				return nil, nil
+			})
+		}()
+	}
+	go func() {
+		defer wg.Done()
+		<-start
+		app.Finalize()
+	}()
+
+	close(start)
+	wg.Wait()
+	app.Finalize()
 }
 
 func TestAutomaticCORSCannotMutateCompiledAllowedMethods(t *testing.T) {
